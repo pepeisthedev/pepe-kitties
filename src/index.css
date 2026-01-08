@@ -1,0 +1,116 @@
+/* Comic book inspired font stack - bold, colorful, fun! */
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bungee&family=Righteous&family=Fredoka+One&display=swap');
+@import "tailwindcss";
+
+/* Comic font classes */
+.font-bangers {
+  font-family: 'Bangers', cursive, fantasy, serif !important;
+  letter-spacing: 0.02em;
+}
+
+.font-bungee {
+  font-family: 'Bungee', cursive, fantasy, serif !important;
+}
+
+.font-righteous {
+  font-family: 'Righteous', cursive, fantasy, serif !important;
+}
+
+.font-fredoka {
+  font-family: 'Fredoka One', cursive, fantasy, serif !important;
+}
+
+/* Comic-style animations */
+@keyframes pulse-rainbow {
+  0%, 100% { 
+    transform: scale(1);
+    filter: hue-rotate(0deg);
+  }
+  50% { 
+    transform: scale(1.05);
+    filter: hue-rotate(10deg);
+  }
+}
+
+@keyframes jackpot {
+  0%, 100% { 
+    transform: scale(1) rotate(0deg);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+  }
+  25% { 
+    transform: scale(1.1) rotate(-5deg);
+    box-shadow: 0 0 40px rgba(255, 215, 0, 1);
+  }
+  50% { 
+    transform: scale(1.2) rotate(0deg);
+    box-shadow: 0 0 60px rgba(255, 215, 0, 1);
+  }
+  75% { 
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 0 40px rgba(255, 215, 0, 1);
+  }
+}
+
+@keyframes count-up {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-pulse-rainbow {
+  animation: pulse-rainbow 2s ease-in-out infinite;
+}
+
+.animate-jackpot {
+  animation: jackpot 1s ease-in-out 1;
+  animation-fill-mode: forwards;
+}
+
+.animate-count-up {
+  animation: count-up 0.3s ease-out;
+}
+
+/* Comic book style text shadow */
+.text-comic-shadow {
+  text-shadow: 
+    4px 4px 0px rgba(0, 0, 0, 0.2),
+    -1px -1px 0px rgba(255, 255, 255, 0.8);
+}
+
+.text-comic-shadow-lg {
+  text-shadow: 
+    6px 6px 0px rgba(0, 0, 0, 0.3),
+    -2px -2px 0px rgba(255, 255, 255, 0.9);
+}
+
+:root {
+  font-family: 'Righteous', 'Arial Black', 'Helvetica', 'Arial', sans-serif;
+  line-height: 1.3;
+  font-weight: 600;
+
+  color-scheme: light;
+  color: #213547;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 700;
+  color: #ff6b35;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #ff8c42;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: 'Righteous', 'Arial Black', 'Helvetica', 'Arial', sans-serif;
+  font-weight: 600;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
