@@ -34,7 +34,7 @@ npm run preview  # Preview production build
 ### Environment Variables
 Required in `.env` (see `.env.example`):
 - `VITE_REOWN_PROJECT_ID` - WalletConnect project ID
-- `VITE_MEMELOOT_CONTRACT_ADDRESS` - Smart contract address on Base
+- `KITTEN_CONTRACT_ADDRESS` - Smart contract address on Base
 
 ### Styling System
 - Tailwind v4 with HSL CSS variables for theming

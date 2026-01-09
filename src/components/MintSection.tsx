@@ -3,6 +3,7 @@ import { useAppKitAccount, useAppKitProvider, useAppKit } from "@reown/appkit/re
 import { BrowserProvider, Contract, formatEther } from "ethers"
 import Abi from "../assets/abis/example.json"
 import Section from "./Section"
+import PepeSvg from "./PepeSvg"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
@@ -134,10 +135,9 @@ export default function MintSection(): React.JSX.Element {
                 <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl overflow-hidden backdrop-blur-sm hover:border-pink-400 transition-colors duration-300 h-full flex flex-col">
                     <CardContent className="p-8 flex-1 flex flex-col justify-center">
                         <div className="relative aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-lime-400/20 to-pink-400/20 border-4 border-dashed border-white/30 flex items-center justify-center">
-                            <img
-                                src="/favicon.ico"
-                                alt="Pepe Kitty NFT"
-                                className="w-48 h-48 object-contain hover:animate-jackpot transition-transform"
+                            <PepeSvg
+                                color={skinColor}
+                                className="w-full h-full object-contain hover:animate-jackpot transition-transform"
                             />
                             <div className="absolute top-4 right-4">
                                 <span className="font-bangers text-sm bg-pink-500 text-white px-3 py-1 rounded-full">
