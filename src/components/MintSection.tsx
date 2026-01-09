@@ -139,11 +139,7 @@ export default function MintSection(): React.JSX.Element {
                                 color={skinColor}
                                 className="w-full h-full object-contain hover:animate-jackpot transition-transform"
                             />
-                            <div className="absolute top-4 right-4">
-                                <span className="font-bangers text-sm bg-pink-500 text-white px-3 py-1 rounded-full">
-                                    RARE
-                                </span>
-                            </div>
+                        
                         </div>
 
                         <div className="mt-6 flex justify-center gap-4">
