@@ -1,6 +1,10 @@
 import React from "react"
 import Header from "./Header"
 import MintSection from "./MintSection"
+import MyKittiesSection from "./MyKittiesSection"
+import ClaimItemsSection from "./ClaimItemsSection"
+import UseItemsSection from "./UseItemsSection"
+import TreasureChestSection from "./TreasureChestSection"
 import AboutSection from "./AboutSection"
 
 export default function MainPage(): React.JSX.Element {
@@ -13,6 +17,10 @@ export default function MainPage(): React.JSX.Element {
 
             <main>
                 <MintSection />
+                <MyKittiesSection />
+                <ClaimItemsSection />
+                <UseItemsSection />
+                <TreasureChestSection />
                 <AboutSection />
             </main>
 

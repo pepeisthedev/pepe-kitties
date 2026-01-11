@@ -1,4 +1,4 @@
-import { ethers, network, run } from "hardhat";
+const { ethers, network, run } = require("hardhat");
 
 async function main() {
     console.log("=".repeat(60));
@@ -97,7 +97,7 @@ async function main() {
                 constructorArguments: [ROYALTY_RECEIVER, ROYALTY_FEE, "Pepe Kitties", "PEPEKITTY"]
             });
             console.log("PepeKitties verified!");
-        } catch (error: any) {
+        } catch (error) {
             console.log("PepeKitties verification failed:", error.message);
         }
 
@@ -109,7 +109,7 @@ async function main() {
                 constructorArguments: [ROYALTY_RECEIVER, ROYALTY_FEE, "Pepe Kitties Items", "PEPEKITTYITEM", pepeKittiesAddress]
             });
             console.log("PepeKittiesItems verified!");
-        } catch (error: any) {
+        } catch (error) {
             console.log("PepeKittiesItems verification failed:", error.message);
         }
 
@@ -121,7 +121,7 @@ async function main() {
                 constructorArguments: [""]
             });
             console.log("PepeKittiesMintPass verified!");
-        } catch (error: any) {
+        } catch (error) {
             console.log("PepeKittiesMintPass verification failed:", error.message);
         }
     }
@@ -149,9 +149,10 @@ async function main() {
 
     // Output for .env file
     console.log("\nFor .env file:");
-    console.log(`PEPE_KITTIES_ADDRESS=${pepeKittiesAddress}`);
-    console.log(`PEPE_KITTIES_ITEMS_ADDRESS=${pepeKittiesItemsAddress}`);
-    console.log(`PEPE_KITTIES_MINTPASS_ADDRESS=${pepeKittiesMintPassAddress}`);
+    console.log(`VITE_PEPE_KITTIES_ADDRESS=${pepeKittiesAddress}`);
+    console.log(`VITE_PEPE_KITTIES_ITEMS_ADDRESS=${pepeKittiesItemsAddress}`);
+    console.log(`VITE_PEPE_KITTIES_MINTPASS_ADDRESS=${pepeKittiesMintPassAddress}`);
+
 }
 
 main()

@@ -36,12 +36,21 @@ export default function Header(): React.JSX.Element {
                 </div>
 
                 {/* Navigation */}
-                <nav className="hidden md:flex items-center gap-6">
-                    <a href="#mint" className="font-righteous text-white hover:text-lime-400 transition-colors text-lg">
+                <nav className="hidden md:flex items-center gap-4">
+                    <a href="#mint" className="font-righteous text-white hover:text-lime-400 transition-colors text-sm">
                         Mint
                     </a>
-                    <a href="#about" className="font-righteous text-white hover:text-lime-400 transition-colors text-lg">
-                        About
+                    <a href="#my-kitties" className="font-righteous text-white hover:text-lime-400 transition-colors text-sm">
+                        My Kitties
+                    </a>
+                    <a href="#claim-items" className="font-righteous text-white hover:text-lime-400 transition-colors text-sm">
+                        Claim
+                    </a>
+                    <a href="#use-items" className="font-righteous text-white hover:text-lime-400 transition-colors text-sm">
+                        Use Items
+                    </a>
+                    <a href="#treasure-chests" className="font-righteous text-white hover:text-lime-400 transition-colors text-sm">
+                        Chests
                     </a>
                 </nav>
 

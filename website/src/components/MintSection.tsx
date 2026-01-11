@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from "react"
-import { useAppKitAccount, useAppKitProvider, useAppKit } from "@reown/appkit/react"
-import { BrowserProvider, Contract, formatEther } from "ethers"
-import Abi from "../assets/abis/example.json"
+import React, { useState } from "react"
+import { useAppKitAccount, useAppKit } from "@reown/appkit/react"
+import { parseEther } from "ethers"
 import Section from "./Section"
 import PepeSvg from "./PepeSvg"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
 import { Sparkles, Zap, Palette } from "lucide-react"
-
-const MEMELOOT_CONTRACT_ADDRESS = import.meta.env.KITTEN_CONTRACT_ADDRESS
+import { useContractData, useContracts } from "../hooks"
+import LoadingSpinner from "./LoadingSpinner"
+import ResultModal from "./ResultModal"
 
 // Convert HSL to Hex
 const hslToHex = (h: number, s: number, l: number): string => {
@@ -45,64 +45,67 @@ const generatePalette = (hue: number): string[] => {
 }
 
 export default function MintSection(): React.JSX.Element {
-    const { address, isConnected } = useAppKitAccount()
-    const { walletProvider } = useAppKitProvider("eip155")
+    const { isConnected } = useAppKitAccount()
     const { open } = useAppKit()
+    const contracts = useContracts()
+    const { data: contractData, isLoading: dataLoading, refetch } = useContractData()
 
-    const [mintPrice, setMintPrice] = useState<string>("0")
-    const [loading, setLoading] = useState<boolean>(false)
-    const [mintAmount, setMintAmount] = useState<number>(1)
     const [skinColor, setSkinColor] = useState<string>("#7CB342")
-    const [hue, setHue] = useState<number>(120) // Start with green (Pepe!)
+    const [hue, setHue] = useState<number>(120)
+    const [mintType, setMintType] = useState<"paid" | "free">("paid")
+    const [isMinting, setIsMinting] = useState(false)
+    const [loadingMessage, setLoadingMessage] = useState("")
+    const [showModal, setShowModal] = useState(false)
+    const [modalData, setModalData] = useState<{ success: boolean; message: string }>({ success: false, message: "" })
 
-    // Generate palette colors based on current hue
     const paletteColors = generatePalette(hue)
 
-    useEffect(() => {
-        if (isConnected && address && walletProvider) {
-            fetchMintPrice()
-        } else {
-            setMintPrice("0")
-        }
-    }, [isConnected, address, walletProvider])
+    const handlePaidMint = async () => {
+        if (!isConnected) { open(); return }
+        if (!contracts || !contractData) return
 
-    useEffect(() => {
-        if (!isConnected || !address || !walletProvider) return
-
-        const pollInterval = setInterval(() => {
-            fetchMintPrice()
-        }, 300000)
-
-        return () => clearInterval(pollInterval)
-    }, [isConnected, address, walletProvider])
-
-    const fetchMintPrice = async () => {
+        setIsMinting(true)
         try {
-            setLoading(true)
-            const provider = new BrowserProvider(walletProvider as any)
-            const contract = new Contract(MEMELOOT_CONTRACT_ADDRESS, Abi, provider)
-
-            const [fetchedPrice] = await contract.getMintPrice(address)
-            const priceFormatted = formatEther(fetchedPrice)
-            setMintPrice(parseFloat(priceFormatted).toFixed(6))
-        } catch (error) {
-            console.error("Error fetching mint price:", error)
+            setLoadingMessage("Waiting for wallet approval...")
+            const contract = await contracts.pepeKitties.write()
+            const tx = await contract.mint(skinColor, { value: parseEther(contractData.mintPrice) })
+            setLoadingMessage("Confirming transaction...")
+            await tx.wait()
+            setModalData({ success: true, message: "Your Pepe Kitty has been minted!" })
+            refetch()
+        } catch (err: any) {
+            setModalData({ success: false, message: err.message || "Minting failed" })
         } finally {
-            setLoading(false)
+            setIsMinting(false)
+            setShowModal(true)
         }
     }
 
-    const handleMint = async () => {
-        if (!isConnected) {
-            open()
-            return
+    const handleFreeMint = async () => {
+        if (!isConnected) { open(); return }
+        if (!contracts || !contractData || contractData.userMintPassBalance < 1) return
+
+        setIsMinting(true)
+        try {
+            setLoadingMessage("Waiting for wallet approval...")
+            const contract = await contracts.mintPass.write()
+            const tx = await contract.mintPepeKitty(skinColor)
+            setLoadingMessage("Confirming transaction...")
+            await tx.wait()
+            setModalData({ success: true, message: "Your Pepe Kitty has been minted using a Mint Pass!" })
+            refetch()
+        } catch (err: any) {
+            setModalData({ success: false, message: err.message || "Minting failed" })
+        } finally {
+            setIsMinting(false)
+            setShowModal(true)
         }
-        // Mint logic would go here - skinColor is the hex value for the contract
-        console.log(`Minting ${mintAmount} Pepe Kitties with skin color: ${skinColor}`)
     }
 
-    const incrementAmount = () => setMintAmount(prev => Math.min(prev + 1, 10))
-    const decrementAmount = () => setMintAmount(prev => Math.max(prev - 1, 1))
+    const handleMint = () => {
+        if (mintType === "free") handleFreeMint()
+        else handlePaidMint()
+    }
 
     const handleColorInput = (value: string) => {
         // Allow typing with or without #
@@ -159,35 +162,38 @@ export default function MintSection(): React.JSX.Element {
                 {/* Mint Controls */}
                 <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl backdrop-blur-sm h-full flex flex-col">
                     <CardContent className="p-8 space-y-6 flex-1">
+                            {/* Mint Type Toggle */}
+                            {contractData && contractData.userMintPassBalance > 0 && (
+                                <div className="flex justify-center gap-2 mb-4">
+                                    <Button
+                                        onClick={() => setMintType("paid")}
+                                        className={`px-4 py-2 rounded-xl font-bangers ${mintType === "paid" ? "bg-lime-500 text-black" : "bg-white/10 text-white"}`}
+                                    >
+                                        Paid Mint
+                                    </Button>
+                                    <Button
+                                        onClick={() => setMintType("free")}
+                                        className={`px-4 py-2 rounded-xl font-bangers ${mintType === "free" ? "bg-lime-500 text-black" : "bg-white/10 text-white"}`}
+                                    >
+                                        Free Mint ({contractData.userMintPassBalance} passes)
+                                    </Button>
+                                </div>
+                            )}
+
                             {/* Price Display */}
                             <div className="text-center">
-                                <p className="font-righteous text-white/70 text-lg mb-2">Current Price</p>
+                                <p className="font-righteous text-white/70 text-lg mb-2">
+                                    {mintType === "free" ? "Free with Mint Pass" : "Current Price"}
+                                </p>
                                 <div className="font-bangers text-4xl text-lime-400">
-                                    {loading ? (
-                                        <span className="animate-pulse">Loading...</span>
+                                    {dataLoading ? (
+                                        <LoadingSpinner size="sm" />
+                                    ) : mintType === "free" ? (
+                                        <span>FREE</span>
                                     ) : (
-                                        <span className="animate-count-up">{mintPrice} ETH</span>
+                                        <span className="animate-count-up">{contractData?.mintPrice || "0"} ETH</span>
                                     )}
                                 </div>
-                            </div>
-
-                            {/* Amount Selector */}
-                            <div className="flex items-center justify-center gap-4">
-                                <Button
-                                    onClick={decrementAmount}
-                                    className="w-14 h-14 rounded-full bg-pink-500 hover:bg-pink-400 text-white font-bangers text-2xl border-2 border-white/30"
-                                >
-                                    -
-                                </Button>
-                                <span className="font-bangers text-5xl text-white w-20 text-center">
-                                    {mintAmount}
-                                </span>
-                                <Button
-                                    onClick={incrementAmount}
-                                    className="w-14 h-14 rounded-full bg-lime-500 hover:bg-lime-400 text-black font-bangers text-2xl border-2 border-white/30"
-                                >
-                                    +
-                                </Button>
                             </div>
 
                             {/* Skin Color Selector */}
@@ -297,18 +303,10 @@ export default function MintSection(): React.JSX.Element {
                                 </div>
                             </div>
 
-                            {/* Total */}
-                            <div className="text-center border-t border-white/20 pt-4">
-                                <p className="font-righteous text-white/70 text-sm">Total</p>
-                                <p className="font-bangers text-2xl text-orange-400">
-                                    {(parseFloat(mintPrice) * mintAmount).toFixed(6)} ETH
-                                </p>
-                            </div>
-
                             {/* Mint Button */}
                             <Button
                                 onClick={handleMint}
-                                disabled={isConnected && !isValidHexColor(skinColor)}
+                                disabled={(isConnected && !isValidHexColor(skinColor)) || isMinting}
                                 className="w-full py-6 rounded-2xl font-bangers text-2xl
                                     bg-gradient-to-r from-lime-500 via-green-500 to-emerald-500
                                     hover:from-lime-400 hover:via-green-400 hover:to-emerald-400
@@ -317,9 +315,15 @@ export default function MintSection(): React.JSX.Element {
                                     shadow-lg hover:shadow-lime-400/50
                                     disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                             >
-                                <Sparkles className="w-6 h-6 mr-2" />
-                                {isConnected ? "MINT NOW!" : "CONNECT TO MINT"}
-                                <Zap className="w-6 h-6 ml-2" />
+                                {isMinting ? (
+                                    <LoadingSpinner size="sm" message={loadingMessage} />
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-6 h-6 mr-2" />
+                                        {isConnected ? (mintType === "free" ? "MINT FREE!" : `MINT (${contractData?.mintPrice || "0"} ETH)`) : "CONNECT TO MINT"}
+                                        <Zap className="w-6 h-6 ml-2" />
+                                    </>
+                                )}
                             </Button>
                     </CardContent>
                 </Card>
@@ -327,19 +331,34 @@ export default function MintSection(): React.JSX.Element {
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 mt-8 max-w-md mx-auto md:max-w-none md:grid-cols-6">
-                {[
-                    { label: "Total Supply", value: "10,000" },
-                    { label: "Minted", value: "4,269" },
-                    { label: "Remaining", value: "5,731" },
-                ].map((stat, i) => (
-                    <Card key={i} className="bg-black/30 border-2 border-white/20 rounded-xl backdrop-blur-sm md:col-span-2">
-                        <CardContent className="p-4 text-center">
-                            <p className="font-righteous text-white/60 text-xs">{stat.label}</p>
-                            <p className="font-bangers text-xl text-lime-400">{stat.value}</p>
-                        </CardContent>
-                    </Card>
-                ))}
+                {dataLoading ? (
+                    <div className="col-span-3 md:col-span-6 flex justify-center">
+                        <LoadingSpinner message="Loading stats..." />
+                    </div>
+                ) : (
+                    [
+                        { label: "Total Supply", value: contractData?.supply?.toLocaleString() || "0" },
+                        { label: "Minted", value: contractData?.totalMinted?.toLocaleString() || "0" },
+                        { label: "Remaining", value: ((contractData?.supply || 0) - (contractData?.totalMinted || 0)).toLocaleString() },
+                    ].map((stat, i) => (
+                        <Card key={i} className="bg-black/30 border-2 border-white/20 rounded-xl backdrop-blur-sm md:col-span-2">
+                            <CardContent className="p-4 text-center">
+                                <p className="font-righteous text-white/60 text-xs">{stat.label}</p>
+                                <p className="font-bangers text-xl text-lime-400">{stat.value}</p>
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
             </div>
+
+            {/* Result Modal */}
+            <ResultModal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                title={modalData.success ? "Success!" : "Error"}
+                description={modalData.message}
+                success={modalData.success}
+            />
         </Section>
     )
 }
