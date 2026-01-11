@@ -9,15 +9,17 @@ import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 interface ISVGRenderer {
+    // Renders full SVG - handles specialSkin logic internally
     function render(
         string memory _bodyColor,
         uint256 _head,
         uint256 _mouth,
         uint256 _belly,
-        uint256 _skinType
+        uint256 _specialSkin
     ) external view returns (string memory);
 
-    function meta(uint256 _trait) external view returns (string memory);
+    // Get trait name for metadata
+    function meta(uint256 _traitType, uint256 _traitId) external view returns (string memory);
 }
 
 contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
@@ -38,7 +40,13 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     mapping(uint256 => uint256) public head;
     mapping(uint256 => uint256) public mouth;
     mapping(uint256 => uint256) public belly;
-    mapping(uint256 => uint256) public skinType; // 0=none, 1=bronze, 2=silver, 3=gold
+    mapping(uint256 => uint256) public specialSkin; // 0=none, 1=bronze, 2=silver, 3=gold
+
+    // Trait type constants for meta() calls
+    uint256 public constant TRAIT_HEAD = 1;
+    uint256 public constant TRAIT_MOUTH = 2;
+    uint256 public constant TRAIT_BELLY = 3;
+    uint256 public constant TRAIT_SPECIAL_SKIN = 4;
 
     // Trait count configuration (for randomness ranges)
     uint256 public headTraitCount = 10;
@@ -56,7 +64,8 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     );
 
     event HeadRerolled(uint256 indexed tokenId, uint256 oldHead, uint256 newHead);
-    event SkinTypeChanged(uint256 indexed tokenId, uint256 oldSkinType, uint256 newSkinType);
+    event SpecialSkinApplied(uint256 indexed tokenId, uint256 specialSkin);
+    event BodyColorChanged(uint256 indexed tokenId, string oldColor, string newColor);
 
     constructor(
         address royaltyReceiver_,
@@ -81,8 +90,40 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             head[tokenId],
             mouth[tokenId],
             belly[tokenId],
-            skinType[tokenId]
+            specialSkin[tokenId]
         );
+
+        string memory attributes;
+
+        if (specialSkin[tokenId] > 0) {
+            // Has special skin - don't show body color or belly (they're replaced)
+            attributes = string(
+                abi.encodePacked(
+                    '{"trait_type": "Special Skin","value": "',
+                    _getSpecialSkinName(specialSkin[tokenId]),
+                    '"},{"trait_type": "Head","value": "',
+                    svgRenderer.meta(TRAIT_HEAD, head[tokenId]),
+                    '"},{"trait_type": "Mouth","value": "',
+                    svgRenderer.meta(TRAIT_MOUTH, mouth[tokenId]),
+                    '"}'
+                )
+            );
+        } else {
+            // No special skin - show body color and belly
+            attributes = string(
+                abi.encodePacked(
+                    '{"trait_type": "Body Color","value": "',
+                    bodyColor[tokenId],
+                    '"},{"trait_type": "Head","value": "',
+                    svgRenderer.meta(TRAIT_HEAD, head[tokenId]),
+                    '"},{"trait_type": "Mouth","value": "',
+                    svgRenderer.meta(TRAIT_MOUTH, mouth[tokenId]),
+                    '"},{"trait_type": "Belly","value": "',
+                    svgRenderer.meta(TRAIT_BELLY, belly[tokenId]),
+                    '"}'
+                )
+            );
+        }
 
         string memory json = Base64.encode(
             bytes(
@@ -93,17 +134,8 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
                         '","description": "Pepe Kitties - Customizable NFT Frogs on Base","image": "data:image/svg+xml;base64,',
                         Base64.encode(bytes(svg)),
                         '","attributes": [',
-                        '{"trait_type": "Body Color","value": "',
-                        bodyColor[tokenId],
-                        '"},{"trait_type": "Head","value": "',
-                        svgRenderer.meta(head[tokenId]),
-                        '"},{"trait_type": "Mouth","value": "',
-                        svgRenderer.meta(mouth[tokenId]),
-                        '"},{"trait_type": "Belly","value": "',
-                        svgRenderer.meta(belly[tokenId]),
-                        '"},{"trait_type": "Skin","value": "',
-                        _getSkinName(skinType[tokenId]),
-                        '"}]}'
+                        attributes,
+                        ']}'
                     )
                 )
             )
@@ -112,10 +144,10 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         return string(abi.encodePacked(_baseURI(), json));
     }
 
-    function _getSkinName(uint256 _skinType) internal pure returns (string memory) {
-        if (_skinType == 1) return "Bronze";
-        if (_skinType == 2) return "Silver";
-        if (_skinType == 3) return "Gold";
+    function _getSpecialSkinName(uint256 _specialSkin) internal pure returns (string memory) {
+        if (_specialSkin == 1) return "Bronze";
+        if (_specialSkin == 2) return "Silver";
+        if (_specialSkin == 3) return "Gold";
         return "None";
     }
 
@@ -134,7 +166,7 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         head[newTokenId] = _getRandom(headTraitCount) + 1;
         mouth[newTokenId] = _getRandom(mouthTraitCount) + 1;
         belly[newTokenId] = _getRandom(bellyTraitCount) + 1;
-        skinType[newTokenId] = 0; // No skin by default
+        specialSkin[newTokenId] = 0; // No special skin by default
 
         emit KittyMinted(
             newTokenId,
@@ -162,7 +194,7 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         head[newTokenId] = _getRandomForAddress(headTraitCount, _sender) + 1;
         mouth[newTokenId] = _getRandomForAddress(mouthTraitCount, _sender) + 1;
         belly[newTokenId] = _getRandomForAddress(bellyTraitCount, _sender) + 1;
-        skinType[newTokenId] = 0; // No skin by default
+        specialSkin[newTokenId] = 0; // No special skin by default
 
         emit KittyMinted(
             newTokenId,
@@ -228,16 +260,26 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         emit HeadRerolled(tokenId, oldHead, head[tokenId]);
     }
 
-    // Called by items contract to set skin type
-    function setSkinType(uint256 tokenId, uint256 _skinType, address sender) external {
+    // Called by items contract to set special skin
+    function setSpecialSkin(uint256 tokenId, uint256 _specialSkin, address sender) external {
         require(msg.sender == itemsContract, "Only items contract");
         require(ownerOf(tokenId) == sender, "Not token owner");
-        require(_skinType >= 1 && _skinType <= 3, "Invalid skin type");
+        require(_specialSkin >= 1 && _specialSkin <= 3, "Invalid special skin");
 
-        uint256 oldSkinType = skinType[tokenId];
-        skinType[tokenId] = _skinType;
+        specialSkin[tokenId] = _specialSkin;
 
-        emit SkinTypeChanged(tokenId, oldSkinType, _skinType);
+        emit SpecialSkinApplied(tokenId, _specialSkin);
+    }
+
+    // Called by items contract to change body color
+    function setBodyColor(uint256 tokenId, string memory _color, address sender) external {
+        require(msg.sender == itemsContract, "Only items contract");
+        require(ownerOf(tokenId) == sender, "Not token owner");
+
+        string memory oldColor = bodyColor[tokenId];
+        bodyColor[tokenId] = _color;
+
+        emit BodyColorChanged(tokenId, oldColor, _color);
     }
 
     // ============ Owner Functions ============
@@ -293,7 +335,7 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             uint256[] memory heads,
             uint256[] memory mouths,
             uint256[] memory bellies,
-            uint256[] memory skinTypes
+            uint256[] memory specialSkins
         )
     {
         uint256 tokenCount = balanceOf(owner);
@@ -313,7 +355,7 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         heads = new uint256[](tokenCount);
         mouths = new uint256[](tokenCount);
         bellies = new uint256[](tokenCount);
-        skinTypes = new uint256[](tokenCount);
+        specialSkins = new uint256[](tokenCount);
 
         uint256 index = 0;
         for (uint256 i = 0; i < _tokenIdCounter && index < tokenCount; i++) {
@@ -323,12 +365,12 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
                 heads[index] = head[i];
                 mouths[index] = mouth[i];
                 bellies[index] = belly[i];
-                skinTypes[index] = skinType[i];
+                specialSkins[index] = specialSkin[i];
                 index++;
             }
         }
 
-        return (tokenIds, bodyColors, heads, mouths, bellies, skinTypes);
+        return (tokenIds, bodyColors, heads, mouths, bellies, specialSkins);
     }
 
     // ============ Required Overrides ============

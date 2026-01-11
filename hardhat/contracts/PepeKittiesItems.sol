@@ -11,7 +11,8 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 interface IPepeKitties {
     function ownerOf(uint256 tokenId) external view returns (address);
     function rerollHead(uint256 tokenId, address sender) external;
-    function setSkinType(uint256 tokenId, uint256 _skinType, address sender) external;
+    function setSpecialSkin(uint256 tokenId, uint256 _specialSkin, address sender) external;
+    function setBodyColor(uint256 tokenId, string memory _color, address sender) external;
     function totalMinted() external view returns (uint256);
 }
 
@@ -23,11 +24,12 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
     using Strings for uint256;
 
     // Item type constants
-    uint256 public constant HEAD_REROLL = 1;
-    uint256 public constant BRONZE_SKIN = 2;
-    uint256 public constant SILVER_SKIN = 3;
-    uint256 public constant GOLD_SKIN = 4;
-    uint256 public constant TREASURE_CHEST = 5;
+    uint256 public constant COLOR_CHANGE = 1;   // Most common - change body color
+    uint256 public constant HEAD_REROLL = 2;
+    uint256 public constant BRONZE_SKIN = 3;
+    uint256 public constant SILVER_SKIN = 4;
+    uint256 public constant GOLD_SKIN = 5;
+    uint256 public constant TREASURE_CHEST = 6;
 
     IPepeKitties public pepeKitties;
     ISVGItemsRenderer public svgRenderer;
@@ -47,10 +49,11 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
     uint256 public chestETHAmount = 0.1 ether;
 
     // Rarity weights (out of 10000)
-    uint256 public headRerollWeight = 5000;  // 50%
-    uint256 public bronzeSkinWeight = 3000;  // 30%
-    uint256 public silverSkinWeight = 1500;  // 15%
-    uint256 public goldSkinWeight = 500;     // 5%
+    uint256 public colorChangeWeight = 4000;  // 40% - most common
+    uint256 public headRerollWeight = 3000;   // 30%
+    uint256 public bronzeSkinWeight = 1500;   // 15%
+    uint256 public silverSkinWeight = 1000;   // 10%
+    uint256 public goldSkinWeight = 500;      // 5%
 
     // Events
     event ItemClaimed(
@@ -60,17 +63,24 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
         uint256 itemType
     );
 
+    event ColorChangeUsed(
+        uint256 indexed itemTokenId,
+        uint256 indexed kittyId,
+        address indexed owner,
+        string newColor
+    );
+
     event HeadRerollUsed(
         uint256 indexed itemTokenId,
         uint256 indexed kittyId,
         address indexed owner
     );
 
-    event SkinItemUsed(
+    event SpecialSkinItemUsed(
         uint256 indexed itemTokenId,
         uint256 indexed kittyId,
         address indexed owner,
-        uint256 skinType
+        uint256 specialSkin
     );
 
     event TreasureChestMinted(
@@ -139,6 +149,7 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
     }
 
     function _getItemName(uint256 _itemType) internal pure returns (string memory) {
+        if (_itemType == COLOR_CHANGE) return "Color Change";
         if (_itemType == HEAD_REROLL) return "Head Reroll";
         if (_itemType == BRONZE_SKIN) return "Bronze Skin";
         if (_itemType == SILVER_SKIN) return "Silver Skin";
@@ -148,6 +159,7 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
     }
 
     function _getItemDescription(uint256 _itemType) internal pure returns (string memory) {
+        if (_itemType == COLOR_CHANGE) return "Change your Pepe Kitty's body color to any hex color";
         if (_itemType == HEAD_REROLL) return "Use this item to reroll your Pepe Kitty's head trait";
         if (_itemType == BRONZE_SKIN) return "Apply a bronze skin to your Pepe Kitty";
         if (_itemType == SILVER_SKIN) return "Apply a silver skin to your Pepe Kitty";
@@ -158,7 +170,8 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
 
     function _getPlaceholderSVG(uint256 _itemType) internal pure returns (string memory) {
         string memory color;
-        if (_itemType == HEAD_REROLL) color = "#9333ea";
+        if (_itemType == COLOR_CHANGE) color = "#ff6b6b";
+        else if (_itemType == HEAD_REROLL) color = "#9333ea";
         else if (_itemType == BRONZE_SKIN) color = "#cd7f32";
         else if (_itemType == SILVER_SKIN) color = "#c0c0c0";
         else if (_itemType == GOLD_SKIN) color = "#ffd700";
@@ -189,15 +202,28 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
         // Determine item type based on weighted random
         uint256 rand = _getRandom(10000);
         uint256 newItemType;
+        uint256 cumulative = 0;
 
-        if (rand < headRerollWeight) {
-            newItemType = HEAD_REROLL;
-        } else if (rand < headRerollWeight + bronzeSkinWeight) {
-            newItemType = BRONZE_SKIN;
-        } else if (rand < headRerollWeight + bronzeSkinWeight + silverSkinWeight) {
-            newItemType = SILVER_SKIN;
+        cumulative += colorChangeWeight;
+        if (rand < cumulative) {
+            newItemType = COLOR_CHANGE;
         } else {
-            newItemType = GOLD_SKIN;
+            cumulative += headRerollWeight;
+            if (rand < cumulative) {
+                newItemType = HEAD_REROLL;
+            } else {
+                cumulative += bronzeSkinWeight;
+                if (rand < cumulative) {
+                    newItemType = BRONZE_SKIN;
+                } else {
+                    cumulative += silverSkinWeight;
+                    if (rand < cumulative) {
+                        newItemType = SILVER_SKIN;
+                    } else {
+                        newItemType = GOLD_SKIN;
+                    }
+                }
+            }
         }
 
         uint256 newItemId = _tokenIdCounter;
@@ -226,6 +252,17 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
 
     // ============ Use Items ============
 
+    function useColorChange(uint256 itemTokenId, uint256 kittyId, string memory newColor) external nonReentrant {
+        require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
+        require(itemType[itemTokenId] == COLOR_CHANGE, "Not a color change item");
+        require(pepeKitties.ownerOf(kittyId) == msg.sender, "Not kitty owner");
+
+        _burn(itemTokenId);
+        pepeKitties.setBodyColor(kittyId, newColor, msg.sender);
+
+        emit ColorChangeUsed(itemTokenId, kittyId, msg.sender, newColor);
+    }
+
     function useHeadReroll(uint256 itemTokenId, uint256 kittyId) external nonReentrant {
         require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
         require(itemType[itemTokenId] == HEAD_REROLL, "Not a head reroll item");
@@ -237,26 +274,26 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
         emit HeadRerollUsed(itemTokenId, kittyId, msg.sender);
     }
 
-    function useSkinItem(uint256 itemTokenId, uint256 kittyId) external nonReentrant {
+    function useSpecialSkinItem(uint256 itemTokenId, uint256 kittyId) external nonReentrant {
         require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
         require(pepeKitties.ownerOf(kittyId) == msg.sender, "Not kitty owner");
 
         uint256 iType = itemType[itemTokenId];
         require(
             iType == BRONZE_SKIN || iType == SILVER_SKIN || iType == GOLD_SKIN,
-            "Not a skin item"
+            "Not a special skin item"
         );
 
-        // Determine skin type (1=bronze, 2=silver, 3=gold)
-        uint256 skinTypeValue;
-        if (iType == BRONZE_SKIN) skinTypeValue = 1;
-        else if (iType == SILVER_SKIN) skinTypeValue = 2;
-        else skinTypeValue = 3; // GOLD_SKIN
+        // Determine special skin type (1=bronze, 2=silver, 3=gold)
+        uint256 specialSkinValue;
+        if (iType == BRONZE_SKIN) specialSkinValue = 1;
+        else if (iType == SILVER_SKIN) specialSkinValue = 2;
+        else specialSkinValue = 3; // GOLD_SKIN
 
         _burn(itemTokenId);
-        pepeKitties.setSkinType(kittyId, skinTypeValue, msg.sender);
+        pepeKitties.setSpecialSkin(kittyId, specialSkinValue, msg.sender);
 
-        emit SkinItemUsed(itemTokenId, kittyId, msg.sender, skinTypeValue);
+        emit SpecialSkinItemUsed(itemTokenId, kittyId, msg.sender, specialSkinValue);
 
         // If gold skin, also mint a treasure chest
         if (iType == GOLD_SKIN && treasureChestCount < MAX_TREASURE_CHESTS) {
@@ -298,15 +335,17 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
     }
 
     function setRarityWeights(
+        uint256 _colorChange,
         uint256 _headReroll,
         uint256 _bronze,
         uint256 _silver,
         uint256 _gold
     ) external onlyOwner {
         require(
-            _headReroll + _bronze + _silver + _gold == 10000,
+            _colorChange + _headReroll + _bronze + _silver + _gold == 10000,
             "Weights must sum to 10000"
         );
+        colorChangeWeight = _colorChange;
         headRerollWeight = _headReroll;
         bronzeSkinWeight = _bronze;
         silverSkinWeight = _silver;

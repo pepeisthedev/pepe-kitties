@@ -19,8 +19,9 @@ npx hardhat run scripts/deploy.ts --network base  # Deploy to Base
 | Contract | Type | Purpose |
 |----------|------|---------|
 | `PepeKitties.sol` | ERC721AC | Main NFT - stores traits, renders SVG |
-| `PepeKittiesItems.sol` | ERC721AC | Consumable items - skins, head reroll, treasure chest |
+| `PepeKittiesItems.sol` | ERC721AC | Consumable items - special skins, head reroll, treasure chest |
 | `PepeKittiesMintPass.sol` | ERC1155 | Mint passes for free mints |
+| `PepeKittiesSVGRenderer.sol` | Ownable | SVG rendering with sub-contracts for each trait |
 
 ### Dependencies
 - `@limitbreak/creator-token-standards` - ERC721AC (gas-efficient ERC721A + creator royalties)
@@ -49,19 +50,23 @@ constructor(
 - `head[tokenId]` - Random trait 1-N
 - `mouth[tokenId]` - Random trait 1-N
 - `belly[tokenId]` - Random trait 1-N
-- `skinType[tokenId]` - 0=none, 1=bronze, 2=silver, 3=gold
+- `specialSkin[tokenId]` - 0=none, 1=bronze, 2=silver, 3=gold
+
+**Rendering Logic:**
+- If `specialSkin == 0`: Render body (with color) + belly + head + mouth
+- If `specialSkin > 0`: Render special_skin + head + mouth (no body/belly)
 
 ### Key Functions
 - `mint(string _color)` - Payable mint with random traits
 - `freeMint(string _color, address _sender)` - Called by MintPass contract only
 - `rerollHead(tokenId, sender)` - Called by Items contract only
-- `setSkinType(tokenId, skinType, sender)` - Called by Items contract only
+- `setSpecialSkin(tokenId, specialSkin, sender)` - Called by Items contract only
 - `getOwnedKitties(owner)` - Returns all traits for owned kitties
 
 ### Events
 - `KittyMinted(tokenId, owner, bodyColor, head, mouth, belly)`
 - `HeadRerolled(tokenId, oldHead, newHead)`
-- `SkinTypeChanged(tokenId, oldSkinType, newSkinType)`
+- `SpecialSkinApplied(tokenId, specialSkin)`
 
 ## PepeKittiesItems.sol
 
@@ -77,7 +82,7 @@ TREASURE_CHEST = 5  // Burnable for ETH
 ### Key Functions
 - `claimItem(kittyId)` - Free one-time claim per kitty
 - `useHeadReroll(itemId, kittyId)` - Burns item, rerolls head
-- `useSkinItem(itemId, kittyId)` - Burns item, applies skin
+- `useSpecialSkinItem(itemId, kittyId)` - Burns item, applies special skin
 - `burnChest(chestId)` - Burns chest, receives ETH
 - `getOwnedItems(owner)` - Returns owned items with types
 - `getUnclaimedKitties(owner)` - Kitties that can still claim
@@ -85,7 +90,7 @@ TREASURE_CHEST = 5  // Burnable for ETH
 ### Events
 - `ItemClaimed(kittyId, itemTokenId, owner, itemType)`
 - `HeadRerollUsed(itemTokenId, kittyId, owner)`
-- `SkinItemUsed(itemTokenId, kittyId, owner, skinType)`
+- `SpecialSkinItemUsed(itemTokenId, kittyId, owner, specialSkin)`
 - `TreasureChestMinted(itemTokenId, owner)`
 - `TreasureChestBurned(itemTokenId, owner, ethAmount)`
 
@@ -131,11 +136,35 @@ Items.useHeadReroll(itemId, kittyId)
     -> burns item
     -> calls PepeKitties.rerollHead(kittyId, user)
 
-Items.useSkinItem(itemId, kittyId)
+Items.useSpecialSkinItem(itemId, kittyId)
     -> burns item
-    -> calls PepeKitties.setSkinType(kittyId, skinType, user)
+    -> calls PepeKitties.setSpecialSkin(kittyId, specialSkin, user)
     -> if gold: mints treasure chest
 ```
+
+## PepeKittiesSVGRenderer.sol
+
+### Architecture
+Uses sub-contracts for each trait type:
+- `bodyContract` - Renders body with hex color
+- `bellyContract` - Renders belly variations
+- `headContract` - Renders head variations
+- `mouthContract` - Renders mouth variations
+- `specialSkinContract` - Renders bronze/silver/gold skins
+
+### Render Logic
+```solidity
+if (specialSkin > 0) {
+    // Render: special_skin + head + mouth
+} else {
+    // Render: body (with color) + belly + head + mouth
+}
+```
+
+### Key Functions
+- `render(bodyColor, head, mouth, belly, specialSkin)` - Returns complete SVG
+- `meta(traitType, traitId)` - Returns trait name for metadata
+- `setAllContracts(body, belly, head, mouth, specialSkin)` - Set all sub-contracts
 
 ## Configurable Parameters
 
