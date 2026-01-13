@@ -58,15 +58,8 @@ export default function MyKittiesSection(): React.JSX.Element {
                             className="bg-black/40 border-2 border-pink-400/50 rounded-2xl hover:border-pink-400 transition-all hover:scale-105"
                         >
                             <CardContent className="p-4">
-                                <div className="flex justify-center mb-3">
-                                    <KittyRenderer
-                                        bodyColor={kitty.bodyColor}
-                                        head={kitty.head}
-                                        mouth={kitty.mouth}
-                                        belly={kitty.belly}
-                                        specialSkin={kitty.specialSkin}
-                                        size="md"
-                                    />
+                                <div className="aspect-square mb-3">
+                                    <KittyRenderer {...kitty} size="sm" />
                                 </div>
                                 <p className="font-bangers text-lg text-pink-400 text-center">
                                     #{kitty.tokenId}

@@ -120,7 +120,9 @@ export default function UseItemsSection(): React.JSX.Element {
                                                     : "border-white/20 hover:border-lime-400/50"
                                             }`}
                                         >
-                                            <KittyRenderer {...kitty} size="sm" />
+                                            <div className="aspect-square">
+                                                <KittyRenderer {...kitty} size="sm" />
+                                            </div>
                                             <p className="font-bangers text-xs text-white mt-1">#{kitty.tokenId}</p>
                                         </button>
                                     ))}

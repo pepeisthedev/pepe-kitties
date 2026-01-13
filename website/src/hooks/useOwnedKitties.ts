@@ -10,6 +10,7 @@ export interface Kitty {
   mouth: number
   belly: number
   specialSkin: number
+  background: number
 }
 
 export function useOwnedKitties() {
@@ -34,7 +35,7 @@ export function useOwnedKitties() {
       const contract = new Contract(PEPE_KITTIES_ADDRESS, PepeKittiesABI, provider)
 
       const result = await contract.getOwnedKitties(address)
-      const [tokenIds, bodyColors, heads, mouths, bellies, specialSkins] = result
+      const [tokenIds, bodyColors, heads, mouths, bellies, specialSkins, backgrounds] = result
 
       const kittyList: Kitty[] = tokenIds.map((id: bigint, i: number) => ({
         tokenId: Number(id),
@@ -43,6 +44,8 @@ export function useOwnedKitties() {
         mouth: Number(mouths[i]),
         belly: Number(bellies[i]),
         specialSkin: Number(specialSkins[i]),
+        // Default to 1 if background is missing (old kitties minted before update)
+        background: backgrounds ? Number(backgrounds[i]) || 1 : 1,
       }))
 
       setKitties(kittyList)

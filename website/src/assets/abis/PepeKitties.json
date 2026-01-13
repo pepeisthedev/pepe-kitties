@@ -417,6 +417,12 @@
         "internalType": "uint256",
         "name": "belly",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "background",
+        "type": "uint256"
       }
     ],
     "name": "KittyMinted",
@@ -544,6 +550,19 @@
   },
   {
     "inputs": [],
+    "name": "TRAIT_BACKGROUND",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "TRAIT_BELLY",
     "outputs": [
       {
@@ -620,6 +639,38 @@
         "internalType": "bool",
         "name": "",
         "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "background",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "backgroundTraitCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -770,6 +821,11 @@
       {
         "internalType": "uint256[]",
         "name": "specialSkins",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "backgrounds",
         "type": "uint256[]"
       }
     ],
@@ -1124,6 +1180,19 @@
       }
     ],
     "name": "setAutomaticApprovalOfTransfersFromValidator",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_count",
+        "type": "uint256"
+      }
+    ],
+    "name": "setBackgroundTraitCount",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

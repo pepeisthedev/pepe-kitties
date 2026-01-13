@@ -10,6 +10,7 @@ import { Sparkles, Zap, Palette } from "lucide-react"
 import { useContractData, useContracts } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
+import KittyRenderer from "./KittyRenderer"
 
 // Convert HSL to Hex
 const hslToHex = (h: number, s: number, l: number): string => {
@@ -56,9 +57,45 @@ export default function MintSection(): React.JSX.Element {
     const [isMinting, setIsMinting] = useState(false)
     const [loadingMessage, setLoadingMessage] = useState("")
     const [showModal, setShowModal] = useState(false)
-    const [modalData, setModalData] = useState<{ success: boolean; message: string }>({ success: false, message: "" })
+    const [modalData, setModalData] = useState<{
+        success: boolean
+        message: string
+        mintedKitty?: {
+            tokenId: number
+            bodyColor: string
+            head: number
+            mouth: number
+            belly: number
+            background: number
+        }
+    }>({ success: false, message: "" })
 
     const paletteColors = generatePalette(hue)
+
+    const parseKittyMintedEvent = async (receipt: any) => {
+        const contract = await contracts!.pepeKitties.read()
+        for (const log of receipt.logs) {
+            try {
+                const parsed = contract.interface.parseLog({
+                    topics: log.topics as string[],
+                    data: log.data
+                })
+                if (parsed?.name === "KittyMinted") {
+                    return {
+                        tokenId: Number(parsed.args.tokenId),
+                        bodyColor: parsed.args.bodyColor,
+                        head: Number(parsed.args.head),
+                        mouth: Number(parsed.args.mouth),
+                        belly: Number(parsed.args.belly),
+                        background: Number(parsed.args.background)
+                    }
+                }
+            } catch {
+                // Not a KittyMinted event, continue
+            }
+        }
+        return null
+    }
 
     const handlePaidMint = async () => {
         if (!isConnected) { open(); return }
@@ -70,8 +107,13 @@ export default function MintSection(): React.JSX.Element {
             const contract = await contracts.pepeKitties.write()
             const tx = await contract.mint(skinColor, { value: parseEther(contractData.mintPrice) })
             setLoadingMessage("Confirming transaction...")
-            await tx.wait()
-            setModalData({ success: true, message: "Your Pepe Kitty has been minted!" })
+            const receipt = await tx.wait()
+            const mintedKitty = await parseKittyMintedEvent(receipt)
+            setModalData({
+                success: true,
+                message: `Pepe Kitty #${mintedKitty?.tokenId ?? '?'} has been minted!`,
+                mintedKitty: mintedKitty ?? undefined
+            })
             refetch()
         } catch (err: any) {
             setModalData({ success: false, message: err.message || "Minting failed" })
@@ -91,8 +133,13 @@ export default function MintSection(): React.JSX.Element {
             const contract = await contracts.mintPass.write()
             const tx = await contract.mintPepeKitty(skinColor)
             setLoadingMessage("Confirming transaction...")
-            await tx.wait()
-            setModalData({ success: true, message: "Your Pepe Kitty has been minted using a Mint Pass!" })
+            const receipt = await tx.wait()
+            const mintedKitty = await parseKittyMintedEvent(receipt)
+            setModalData({
+                success: true,
+                message: `Pepe Kitty #${mintedKitty?.tokenId ?? '?'} minted with Mint Pass!`,
+                mintedKitty: mintedKitty ?? undefined
+            })
             refetch()
         } catch (err: any) {
             setModalData({ success: false, message: err.message || "Minting failed" })
@@ -358,7 +405,25 @@ export default function MintSection(): React.JSX.Element {
                 title={modalData.success ? "Success!" : "Error"}
                 description={modalData.message}
                 success={modalData.success}
-            />
+            >
+                {modalData.success && modalData.mintedKitty && (
+                    <div className="flex flex-col items-center gap-4">
+                        <KittyRenderer
+                            bodyColor={modalData.mintedKitty.bodyColor}
+                            head={modalData.mintedKitty.head}
+                            mouth={modalData.mintedKitty.mouth}
+                            belly={modalData.mintedKitty.belly}
+                            background={modalData.mintedKitty.background}
+                            specialSkin={0}
+                            size="lg"
+                        />
+                        <div className="text-center text-white/70 font-righteous text-sm">
+                            <p>Head: #{modalData.mintedKitty.head} | Mouth: #{modalData.mintedKitty.mouth}</p>
+                            <p>Belly: #{modalData.mintedKitty.belly} | Background: #{modalData.mintedKitty.background}</p>
+                        </div>
+                    </div>
+                )}
+            </ResultModal>
         </Section>
     )
 }
