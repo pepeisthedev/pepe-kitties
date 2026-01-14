@@ -24,7 +24,7 @@ export default function Section({
         <section
             id={id}
             className={cn(
-                "min-h-screen py-24 px-4 md:px-8",
+                "h-full flex flex-col",
                 "relative overflow-hidden",
                 variantStyles[variant],
                 className
@@ -37,8 +37,10 @@ export default function Section({
                 <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-orange-400/10 rounded-full blur-2xl" />
             </div>
 
-            <div className="max-w-6xl mx-auto relative z-10">
-                {children}
+            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-8">
+                <div className="max-w-6xl mx-auto relative z-10">
+                    {children}
+                </div>
             </div>
         </section>
     )

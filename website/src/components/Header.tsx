@@ -2,8 +2,22 @@ import React from "react"
 import { useAppKitAccount, useAppKit } from "@reown/appkit/react"
 import { Button } from "./ui/button"
 import { Wallet } from "lucide-react"
+import type { SectionId } from "./MainPage"
 
-export default function Header(): React.JSX.Element {
+interface HeaderProps {
+    activeSection: SectionId
+    onSectionChange: (section: SectionId) => void
+}
+
+const navItems: { id: SectionId; label: string }[] = [
+    { id: "mint", label: "Mint" },
+    { id: "my-kitties", label: "My Kitties" },
+    { id: "use-items", label: "Use Items" },
+    { id: "treasure-chests", label: "Chests" },
+    { id: "about", label: "About" },
+]
+
+export default function Header({ activeSection, onSectionChange }: HeaderProps): React.JSX.Element {
     const { address, isConnected } = useAppKitAccount()
     const { open } = useAppKit()
 
@@ -37,21 +51,19 @@ export default function Header(): React.JSX.Element {
 
                 {/* Navigation */}
                 <nav className="hidden md:flex items-center gap-4">
-                    <a href="#mint" className="font-righteous text-white hover:text-lime-400 transition-colors text-sm">
-                        Mint
-                    </a>
-                    <a href="#my-kitties" className="font-righteous text-white hover:text-lime-400 transition-colors text-sm">
-                        My Kitties
-                    </a>
-                    <a href="#claim-items" className="font-righteous text-white hover:text-lime-400 transition-colors text-sm">
-                        Claim
-                    </a>
-                    <a href="#use-items" className="font-righteous text-white hover:text-lime-400 transition-colors text-sm">
-                        Use Items
-                    </a>
-                    <a href="#treasure-chests" className="font-righteous text-white hover:text-lime-400 transition-colors text-sm">
-                        Chests
-                    </a>
+                    {navItems.map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => onSectionChange(item.id)}
+                            className={`font-righteous transition-colors text-sm ${
+                                activeSection === item.id
+                                    ? "text-lime-400"
+                                    : "text-white hover:text-lime-400"
+                            }`}
+                        >
+                            {item.label}
+                        </button>
+                    ))}
                 </nav>
 
                 {/* Wallet Button */}
