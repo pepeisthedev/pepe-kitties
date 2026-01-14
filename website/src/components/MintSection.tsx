@@ -180,12 +180,10 @@ export default function MintSection(): React.JSX.Element {
     return (
         <Section id="mint" variant="default">
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 text-comic-shadow-lg mb-4 animate-pulse-rainbow">
-                    🐸 MINT YOUR KITTY 🐱
+                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 text-comic-shadow-lg mb-4">
+                    MINT YOUR PEPE KITTY
                 </h2>
-                <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
-                    The rarest fusion of meme culture! Part Pepe, part Kitty, 100% adorable chaos.
-                </p>
+       
             </div>
 
             <div className="grid md:grid-cols-2 gap-8 items-stretch">
@@ -200,17 +198,7 @@ export default function MintSection(): React.JSX.Element {
                         
                         </div>
 
-                        <div className="mt-6 flex justify-center gap-4">
-                            {["😺", "🐸", "✨", "🔥"].map((emoji, i) => (
-                                <span
-                                    key={i}
-                                    className="text-3xl hover:scale-125 transition-transform cursor-pointer"
-                                    style={{ animationDelay: `${i * 0.1}s` }}
-                                >
-                                    {emoji}
-                                </span>
-                            ))}
-                        </div>
+                
                     </CardContent>
                 </Card>
 
@@ -238,7 +226,7 @@ export default function MintSection(): React.JSX.Element {
                             {/* Price Display */}
                             <div className="text-center">
                                 <p className="font-righteous text-white/70 text-lg mb-2">
-                                    {mintType === "free" ? "Free with Mint Pass" : "Current Price"}
+                                    {mintType === "free" ? "Free with Mint Pass" : "Price"}
                                 </p>
                                 <div className="font-bangers text-4xl text-lime-400">
                                     {dataLoading ? (
