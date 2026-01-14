@@ -55,7 +55,8 @@ export default function UseItemsSection(): React.JSX.Element {
     const [newColor, setNewColor] = useState<string>("#7CB342")
     const [hue, setHue] = useState<number>(120)
     const [isApplying, setIsApplying] = useState(false)
-    const [showModal, setShowModal] = useState(false)
+    const [showResultModal, setShowResultModal] = useState(false)
+    const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [modalData, setModalData] = useState<{ success: boolean; message: string }>({ success: false, message: "" })
 
     const paletteColors = generatePalette(hue)
@@ -65,9 +66,35 @@ export default function UseItemsSection(): React.JSX.Element {
 
     const isValidHexColor = (color: string): boolean => /^#[0-9A-Fa-f]{6}$/.test(color)
 
-    const handleApplyItem = async () => {
+    // Get confirmation message based on item type
+    const getConfirmMessage = () => {
+        if (!selectedItem) return ""
+        switch (selectedItem.itemType) {
+            case ITEM_TYPES.COLOR_CHANGE:
+                return "Are you sure you want to change the color of this Pepe?"
+            case ITEM_TYPES.HEAD_REROLL:
+                return "Are you sure you want to re-roll the head trait? This will randomly change the head."
+            case ITEM_TYPES.BRONZE_SKIN:
+                return "Are you sure you want to apply the Bronze Skin? This will replace the body and belly."
+            case ITEM_TYPES.SILVER_SKIN:
+                return "Are you sure you want to apply the Silver Skin? This will replace the body and belly."
+            case ITEM_TYPES.GOLD_SKIN:
+                return "Are you sure you want to apply the Gold Skin? This will replace the body and belly. You will also receive a Treasure Chest!"
+            default:
+                return `Are you sure you want to use ${selectedItem.name}?`
+        }
+    }
+
+    const handleApplyClick = () => {
+        if (!selectedKitty || !selectedItem) return
+        if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE && !isValidHexColor(newColor)) return
+        setShowConfirmModal(true)
+    }
+
+    const handleConfirmApply = async () => {
         if (!contracts || !selectedKitty || !selectedItem) return
 
+        setShowConfirmModal(false)
         setIsApplying(true)
         try {
             const contract = await contracts.items.write()
@@ -101,7 +128,7 @@ export default function UseItemsSection(): React.JSX.Element {
             setModalData({ success: false, message: err.message || "Failed to apply item" })
         } finally {
             setIsApplying(false)
-            setShowModal(true)
+            setShowResultModal(true)
         }
     }
 
@@ -220,6 +247,27 @@ export default function UseItemsSection(): React.JSX.Element {
                         {/* Color Picker for Color Change item */}
                         {selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE && (
                             <div className="bg-black/30 rounded-xl p-4 mb-4">
+                                {/* Before/After Preview */}
+                                <div className="flex items-center justify-center gap-4 mb-6">
+                                    <div className="text-center">
+                                        <p className="font-righteous text-white/50 text-xs mb-2">Current</p>
+                                        <div className="w-24 h-24">
+                                            <KittyRenderer {...selectedKitty} size="sm" />
+                                        </div>
+                                    </div>
+                                    <div className="text-2xl text-white/50">→</div>
+                                    <div className="text-center">
+                                        <p className="font-righteous text-pink-400 text-xs mb-2">New Color</p>
+                                        <div className="w-24 h-24">
+                                            <KittyRenderer
+                                                {...selectedKitty}
+                                                bodyColor={isValidHexColor(newColor) ? newColor : selectedKitty.bodyColor}
+                                                size="sm"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="flex items-center justify-center gap-2 mb-4">
                                     <Palette className="w-5 h-5 text-pink-400" />
                                     <p className="font-righteous text-white/70 text-lg">Select New Color</p>
@@ -321,7 +369,7 @@ export default function UseItemsSection(): React.JSX.Element {
                         )}
 
                         <Button
-                            onClick={handleApplyItem}
+                            onClick={handleApplyClick}
                             disabled={!canApply || isApplying}
                             className="w-full py-4 rounded-xl font-bangers text-xl bg-gradient-to-r from-lime-500 to-green-500 hover:from-lime-400 hover:to-green-400 text-black"
                         >
@@ -335,9 +383,76 @@ export default function UseItemsSection(): React.JSX.Element {
                 </Card>
             )}
 
+            {/* Confirmation Modal */}
+            {showConfirmModal && selectedKitty && selectedItem && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                    <Card className="bg-black/95 border-2 border-yellow-400 rounded-2xl max-w-lg w-full">
+                        <CardContent className="p-6">
+                            <p className="font-bangers text-2xl text-yellow-400 text-center mb-4">
+                                Confirm Action
+                            </p>
+
+                            {selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE ? (
+                                <>
+                                    <p className="font-righteous text-white/70 text-center mb-6">
+                                        {getConfirmMessage()}
+                                    </p>
+                                    <div className="flex items-center justify-center gap-6 mb-6">
+                                        <div className="text-center">
+                                            <p className="font-righteous text-white/50 text-sm mb-2">Before</p>
+                                            <div className="w-32 h-32">
+                                                <KittyRenderer {...selectedKitty} size="sm" />
+                                            </div>
+                                        </div>
+                                        <div className="text-3xl text-yellow-400">→</div>
+                                        <div className="text-center">
+                                            <p className="font-righteous text-lime-400 text-sm mb-2">After</p>
+                                            <div className="w-32 h-32">
+                                                <KittyRenderer
+                                                    {...selectedKitty}
+                                                    bodyColor={newColor}
+                                                    size="sm"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex justify-center mb-4">
+                                        <div className="w-32 h-32">
+                                            <KittyRenderer {...selectedKitty} size="sm" />
+                                        </div>
+                                    </div>
+                                    <p className="font-righteous text-white/70 text-center mb-6">
+                                        {getConfirmMessage()}
+                                    </p>
+                                </>
+                            )}
+
+                            <div className="flex gap-4">
+                                <Button
+                                    onClick={() => setShowConfirmModal(false)}
+                                    className="flex-1 py-3 rounded-xl font-bangers text-lg bg-gray-600 hover:bg-gray-500 text-white"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleConfirmApply}
+                                    className="flex-1 py-3 rounded-xl font-bangers text-lg bg-gradient-to-r from-lime-500 to-green-500 hover:from-lime-400 hover:to-green-400 text-black"
+                                >
+                                    Confirm
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Result Modal */}
             <ResultModal
-                isOpen={showModal}
-                onClose={() => setShowModal(false)}
+                isOpen={showResultModal}
+                onClose={() => setShowResultModal(false)}
                 title={modalData.success ? "Item Applied!" : "Error"}
                 description={modalData.message}
                 success={modalData.success}
