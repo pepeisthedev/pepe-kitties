@@ -1,7 +1,7 @@
-import React from "react"
+import React, { useState } from "react"
 import { useAppKitAccount, useAppKit } from "@reown/appkit/react"
 import { Button } from "./ui/button"
-import { Wallet } from "lucide-react"
+import { Wallet, Menu, X } from "lucide-react"
 import type { SectionId } from "./MainPage"
 
 interface HeaderProps {
@@ -20,6 +20,7 @@ const navItems: { id: SectionId; label: string }[] = [
 export default function Header({ activeSection, onSectionChange }: HeaderProps): React.JSX.Element {
     const { address, isConnected } = useAppKitAccount()
     const { open } = useAppKit()
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
     const handleWalletClick = () => {
         if (!isConnected) {
@@ -27,6 +28,11 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
         } else {
             open({ view: "Account" })
         }
+    }
+
+    const handleNavClick = (sectionId: SectionId) => {
+        onSectionChange(sectionId)
+        setMobileMenuOpen(false)
     }
 
     const formatAddress = (addr: string | undefined): string => {
@@ -44,12 +50,12 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                         alt="Pepe Kitty"
                         className="w-12 h-12 rounded-full border-3 border-lime-400 shadow-lg hover:animate-pulse-rainbow"
                     />
-                    <h1 className="font-bangers text-3xl md:text-4xl text-lime-400 text-comic-shadow tracking-wider">
+                    <h1 className="font-bangers text-xl md:text-4xl text-lime-400 text-comic-shadow tracking-wider">
                         PEPE KITTIES
                     </h1>
                 </div>
 
-                {/* Navigation */}
+                {/* Desktop Navigation */}
                 <nav className="hidden md:flex items-center gap-4">
                     {navItems.map((item) => (
                         <button
@@ -66,23 +72,53 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                     ))}
                 </nav>
 
-                {/* Wallet Button */}
-                <Button
-                    onClick={handleWalletClick}
-                    className={`
-                        font-bangers text-lg px-6 py-2 rounded-full
-                        transition-all duration-300 transform hover:scale-105
-                        ${isConnected
-                            ? "bg-lime-500 hover:bg-lime-400 text-black border-2 border-lime-300"
-                            : "bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-400 hover:to-orange-400 text-white border-2 border-white/30"
-                        }
-                        shadow-lg hover:shadow-xl
-                    `}
-                >
-                    <Wallet className="w-5 h-5 mr-2" />
-                    {isConnected ? formatAddress(address) : "Connect Wallet"}
-                </Button>
+                {/* Mobile Menu Button + Wallet */}
+                <div className="flex items-center gap-2">
+                    {/* Wallet Button */}
+                    <Button
+                        onClick={handleWalletClick}
+                        className={`
+                            font-bangers text-sm md:text-lg px-3 md:px-6 py-2 rounded-full
+                            transition-all duration-300 transform hover:scale-105
+                            ${isConnected
+                                ? "bg-lime-500 hover:bg-lime-400 text-black border-2 border-lime-300"
+                                : "bg-lime-500 hover:bg-lime-400 text-black border-2 border-lime-300"
+                            }
+                            shadow-lg hover:shadow-xl
+                        `}
+                    >
+                        <Wallet className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
+                        {isConnected ? formatAddress(address) : "Connect"}
+                    </Button>
+
+                    {/* Hamburger Menu Button */}
+                    <button
+                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        className="md:hidden p-2 text-lime-400 hover:bg-lime-400/20 rounded-lg transition-colors"
+                    >
+                        {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                    </button>
+                </div>
             </div>
+
+            {/* Mobile Menu Dropdown */}
+            {mobileMenuOpen && (
+                <nav className="md:hidden bg-black/90 border-t border-lime-400/30">
+                    {navItems.map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => handleNavClick(item.id)}
+                            className={`w-full text-left px-6 py-4 font-righteous text-lg transition-colors border-b border-lime-400/20 ${
+                                activeSection === item.id
+                                    ? "text-lime-400 bg-lime-400/10"
+                                    : "text-white hover:text-lime-400 hover:bg-lime-400/5"
+                            }`}
+                        >
+                            {item.label}
+                        </button>
+                    ))}
+                </nav>
+            )}
         </header>
     )
 }

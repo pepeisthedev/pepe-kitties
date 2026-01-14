@@ -182,23 +182,20 @@ body {
   background-attachment: fixed;
 }
 
-/* Scrollbar styling for the meme vibes */
+/* Hide scrollbar but keep functionality */
 ::-webkit-scrollbar {
-  width: 12px;
+  width: 0px;
+  background: transparent;
 }
 
-::-webkit-scrollbar-track {
-  background: #064e3b;
+/* Firefox */
+* {
+  scrollbar-width: none;
 }
 
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #a3e635, #22c55e);
-  border-radius: 6px;
-  border: 2px solid #064e3b;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #84cc16, #16a34a);
+/* IE/Edge */
+* {
+  -ms-overflow-style: none;
 }
 
 /* Selection color */
