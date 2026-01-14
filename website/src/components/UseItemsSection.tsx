@@ -12,6 +12,38 @@ import ItemCard from "./ItemCard"
 import { ITEM_TYPES, ITEM_TYPE_NAMES, ITEM_TYPE_DESCRIPTIONS } from "../config/contracts"
 import { Wand2, Palette } from "lucide-react"
 
+// Convert HSL to Hex
+const hslToHex = (h: number, s: number, l: number): string => {
+    s /= 100
+    l /= 100
+    const a = s * Math.min(l, 1 - l)
+    const f = (n: number) => {
+        const k = (n + h / 30) % 12
+        const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1)
+        return Math.round(255 * color).toString(16).padStart(2, '0')
+    }
+    return `#${f(0)}${f(8)}${f(4)}`.toUpperCase()
+}
+
+// Generate palette variations for a given hue
+const generatePalette = (hue: number): string[] => {
+    const variations = [
+        { s: 90, l: 85 },
+        { s: 80, l: 70 },
+        { s: 90, l: 60 },
+        { s: 100, l: 50 },
+        { s: 80, l: 45 },
+        { s: 70, l: 40 },
+        { s: 60, l: 35 },
+        { s: 50, l: 30 },
+        { s: 40, l: 25 },
+        { s: 30, l: 80 },
+        { s: 40, l: 60 },
+        { s: 25, l: 45 },
+    ]
+    return variations.map(v => hslToHex(hue, v.s, v.l))
+}
+
 export default function UseItemsSection(): React.JSX.Element {
     const { isConnected } = useAppKitAccount()
     const contracts = useContracts()
@@ -21,9 +53,12 @@ export default function UseItemsSection(): React.JSX.Element {
     const [selectedKitty, setSelectedKitty] = useState<Kitty | null>(null)
     const [selectedItem, setSelectedItem] = useState<Item | null>(null)
     const [newColor, setNewColor] = useState<string>("#7CB342")
+    const [hue, setHue] = useState<number>(120)
     const [isApplying, setIsApplying] = useState(false)
     const [showModal, setShowModal] = useState(false)
     const [modalData, setModalData] = useState<{ success: boolean; message: string }>({ success: false, message: "" })
+
+    const paletteColors = generatePalette(hue)
 
     // Filter out treasure chests - they have their own section
     const usableItems = items.filter(item => item.itemType !== ITEM_TYPES.TREASURE_CHEST)
@@ -184,24 +219,104 @@ export default function UseItemsSection(): React.JSX.Element {
 
                         {/* Color Picker for Color Change item */}
                         {selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE && (
-                            <div className="flex items-center gap-4 bg-black/30 rounded-xl p-4 mb-4">
-                                <Palette className="w-6 h-6 text-pink-400" />
-                                <Input
-                                    type="text"
-                                    value={newColor}
-                                    onChange={(e) => setNewColor(e.target.value.toUpperCase())}
-                                    placeholder="#7CB342"
-                                    className={`font-mono text-lg bg-black/50 border-2 ${
-                                        isValidHexColor(newColor)
-                                            ? "border-lime-400/50 text-lime-400"
-                                            : "border-red-400/50 text-red-400"
-                                    }`}
-                                    maxLength={7}
-                                />
-                                <div
-                                    className="w-12 h-12 rounded-lg border-2 border-white/30"
-                                    style={{ backgroundColor: isValidHexColor(newColor) ? newColor : "#000" }}
-                                />
+                            <div className="bg-black/30 rounded-xl p-4 mb-4">
+                                <div className="flex items-center justify-center gap-2 mb-4">
+                                    <Palette className="w-5 h-5 text-pink-400" />
+                                    <p className="font-righteous text-white/70 text-lg">Select New Color</p>
+                                </div>
+
+                                {/* Hue Slider */}
+                                <div className="mb-4">
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="360"
+                                        value={hue}
+                                        onChange={(e) => setHue(Number(e.target.value))}
+                                        className="w-full h-4 rounded-full appearance-none cursor-pointer"
+                                        style={{
+                                            background: `linear-gradient(to right,
+                                                hsl(0, 100%, 50%),
+                                                hsl(60, 100%, 50%),
+                                                hsl(120, 100%, 50%),
+                                                hsl(180, 100%, 50%),
+                                                hsl(240, 100%, 50%),
+                                                hsl(300, 100%, 50%),
+                                                hsl(360, 100%, 50%)
+                                            )`,
+                                        }}
+                                    />
+                                    <style>{`
+                                        input[type="range"]::-webkit-slider-thumb {
+                                            appearance: none;
+                                            width: 24px;
+                                            height: 24px;
+                                            border-radius: 50%;
+                                            background: white;
+                                            border: 3px solid #000;
+                                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                                            cursor: pointer;
+                                        }
+                                        input[type="range"]::-moz-range-thumb {
+                                            width: 24px;
+                                            height: 24px;
+                                            border-radius: 50%;
+                                            background: white;
+                                            border: 3px solid #000;
+                                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                                            cursor: pointer;
+                                        }
+                                    `}</style>
+                                </div>
+
+                                {/* Color Palette */}
+                                <div className="grid grid-cols-6 gap-2 mb-4">
+                                    {paletteColors.map((hex, index) => (
+                                        <button
+                                            key={`${hue}-${index}`}
+                                            onClick={() => setNewColor(hex)}
+                                            className={`
+                                                w-full aspect-square rounded-lg transition-all duration-200
+                                                hover:scale-110 hover:z-10 relative
+                                                ${newColor === hex
+                                                    ? "ring-4 ring-white ring-offset-2 ring-offset-black/40 scale-110 z-10"
+                                                    : "ring-1 ring-white/20"
+                                                }
+                                            `}
+                                            style={{ backgroundColor: hex }}
+                                            title={hex}
+                                        />
+                                    ))}
+                                </div>
+
+                                {/* Color Preview & Input */}
+                                <div className="flex items-center gap-4">
+                                    <div
+                                        className="w-12 h-12 rounded-xl border-4 border-white/30 shadow-lg flex-shrink-0"
+                                        style={{ backgroundColor: isValidHexColor(newColor) ? newColor : "#000000" }}
+                                    />
+                                    <div className="flex-1">
+                                        <label className="font-righteous text-white/50 text-xs block mb-1">
+                                            Hex Color Value
+                                        </label>
+                                        <Input
+                                            type="text"
+                                            value={newColor}
+                                            onChange={(e) => {
+                                                let color = e.target.value.startsWith("#") ? e.target.value : `#${e.target.value}`
+                                                color = color.replace(/[^#0-9A-Fa-f]/g, "")
+                                                if (color.length <= 7) setNewColor(color.toUpperCase())
+                                            }}
+                                            placeholder="#7CB342"
+                                            className={`font-mono text-lg bg-black/50 border-2 ${
+                                                isValidHexColor(newColor)
+                                                    ? "border-lime-400/50 text-lime-400"
+                                                    : "border-red-400/50 text-red-400"
+                                            }`}
+                                            maxLength={7}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         )}
 

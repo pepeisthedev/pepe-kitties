@@ -7,6 +7,7 @@ interface ItemCardProps {
   selected?: boolean
   onClick?: () => void
   showDescription?: boolean
+  size?: "sm" | "md" | "lg"
 }
 
 const ITEM_COLORS: Record<number, string> = {
@@ -33,24 +34,32 @@ export default function ItemCard({
   selected = false,
   onClick,
   showDescription = false,
+  size = "md",
 }: ItemCardProps): React.JSX.Element {
   const colorClass = ITEM_COLORS[itemType] || "border-white/30 bg-white/5"
   const selectedRingClass = ITEM_SELECTED_COLORS[itemType] || "ring-lime-400"
   const name = ITEM_TYPE_NAMES[itemType] || "Unknown Item"
   const description = ITEM_TYPE_DESCRIPTIONS[itemType] || ""
 
+  const sizeClasses = {
+    sm: { icon: "w-12 h-12", padding: "p-2", name: "text-xs", id: "text-[10px]" },
+    md: { icon: "w-16 h-16", padding: "p-3", name: "text-sm", id: "text-xs" },
+    lg: { icon: "w-24 h-24", padding: "p-4", name: "text-lg", id: "text-sm" },
+  }
+  const sizeClass = sizeClasses[size]
+
   return (
     <button
       onClick={onClick}
       className={`
-        relative p-3 rounded-xl border-2 transition-all duration-200
+        relative ${sizeClass.padding} rounded-xl border-2 transition-all duration-200
         ${colorClass}
         ${selected ? `ring-4 ${selectedRingClass} scale-105` : "hover:scale-105"}
         ${onClick ? "cursor-pointer" : "cursor-default"}
       `}
     >
       {/* Item icon */}
-      <div className="w-16 h-16 mx-auto mb-2">
+      <div className={`${sizeClass.icon} mx-auto mb-2`}>
         <img
           src={`/items/${itemType}.svg`}
           alt={name}
@@ -63,10 +72,10 @@ export default function ItemCard({
       </div>
 
       {/* Item name */}
-      <p className="font-bangers text-sm text-white text-center">{name}</p>
+      <p className={`font-bangers ${sizeClass.name} text-white text-center`}>{name}</p>
 
       {/* Token ID */}
-      <p className="font-righteous text-xs text-white/50 text-center">#{tokenId}</p>
+      <p className={`font-righteous ${sizeClass.id} text-white/50 text-center`}>#{tokenId}</p>
 
       {/* Description */}
       {showDescription && description && (

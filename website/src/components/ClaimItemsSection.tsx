@@ -3,9 +3,10 @@ import { useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
-import { useUnclaimedKitties, useContractData, useContracts, useOwnedItems } from "../hooks"
+import { useUnclaimedKitties, useContractData, useContracts, useOwnedItems, useOwnedKitties } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
+import ItemCard from "./ItemCard"
 import { ITEM_TYPE_NAMES } from "../config/contracts"
 import { Gift } from "lucide-react"
 
@@ -15,10 +16,33 @@ export default function ClaimItemsSection(): React.JSX.Element {
     const { data: contractData } = useContractData()
     const { unclaimedIds, isLoading, error, refetch } = useUnclaimedKitties()
     const { refetch: refetchItems } = useOwnedItems()
+    const { refetch: refetchKitties } = useOwnedKitties()
 
     const [claimingId, setClaimingId] = useState<number | null>(null)
     const [showModal, setShowModal] = useState(false)
-    const [modalData, setModalData] = useState<{ success: boolean; message: string; itemType?: number }>({ success: false, message: "" })
+    const [modalData, setModalData] = useState<{ success: boolean; message: string; itemType?: number; itemTokenId?: number }>({ success: false, message: "" })
+
+    const parseItemClaimedEvent = (receipt: any) => {
+        const contract = contracts!.items.read
+        for (const log of receipt.logs) {
+            try {
+                const parsed = contract.interface.parseLog({
+                    topics: log.topics as string[],
+                    data: log.data
+                })
+                if (parsed?.name === "ItemClaimed") {
+                    return {
+                        kittyId: Number(parsed.args.kittyId),
+                        itemTokenId: Number(parsed.args.itemTokenId),
+                        itemType: Number(parsed.args.itemType)
+                    }
+                }
+            } catch {
+                // Not an ItemClaimed event, continue
+            }
+        }
+        return null
+    }
 
     const handleClaim = async (kittyId: number) => {
         if (!contracts) return
@@ -27,12 +51,22 @@ export default function ClaimItemsSection(): React.JSX.Element {
         try {
             const contract = await contracts.items.write()
             const tx = await contract.claimItem(kittyId)
-            await tx.wait()
+            const receipt = await tx.wait()
 
-            // TODO: Parse event to get the item type
-            setModalData({ success: true, message: `Item claimed for Kitty #${kittyId}!` })
+            const claimedItem = parseItemClaimedEvent(receipt)
+            const itemName = claimedItem ? ITEM_TYPE_NAMES[claimedItem.itemType] : "Item"
+
+            setModalData({
+                success: true,
+                message: `You got a ${itemName}!`,
+                itemType: claimedItem?.itemType,
+                itemTokenId: claimedItem?.itemTokenId
+            })
+
+            // Refresh all relevant data
             refetch()
             refetchItems()
+            refetchKitties()
         } catch (err: any) {
             setModalData({ success: false, message: err.message || "Claim failed" })
         } finally {
@@ -151,7 +185,17 @@ export default function ClaimItemsSection(): React.JSX.Element {
                 title={modalData.success ? "Item Claimed!" : "Error"}
                 description={modalData.message}
                 success={modalData.success}
-            />
+            >
+                {modalData.success && modalData.itemType && modalData.itemTokenId && (
+                    <div className="flex flex-col items-center gap-2">
+                        <ItemCard
+                            tokenId={modalData.itemTokenId}
+                            itemType={modalData.itemType}
+                            size="lg"
+                        />
+                    </div>
+                )}
+            </ResultModal>
         </Section>
     )
 }

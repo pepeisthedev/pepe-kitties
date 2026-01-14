@@ -7,7 +7,7 @@ import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
 import { Sparkles, Zap, Palette } from "lucide-react"
-import { useContractData, useContracts } from "../hooks"
+import { useContractData, useContracts, useOwnedKitties, useUnclaimedKitties } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
 import KittyRenderer from "./KittyRenderer"
@@ -50,6 +50,8 @@ export default function MintSection(): React.JSX.Element {
     const { open } = useAppKit()
     const contracts = useContracts()
     const { data: contractData, isLoading: dataLoading, refetch } = useContractData()
+    const { refetch: refetchKitties } = useOwnedKitties()
+    const { refetch: refetchUnclaimed } = useUnclaimedKitties()
 
     const [skinColor, setSkinColor] = useState<string>("#7CB342")
     const [hue, setHue] = useState<number>(120)
@@ -72,8 +74,8 @@ export default function MintSection(): React.JSX.Element {
 
     const paletteColors = generatePalette(hue)
 
-    const parseKittyMintedEvent = async (receipt: any) => {
-        const contract = await contracts!.pepeKitties.read()
+    const parseKittyMintedEvent = (receipt: any) => {
+        const contract = contracts!.pepeKitties.read
         for (const log of receipt.logs) {
             try {
                 const parsed = contract.interface.parseLog({
@@ -108,13 +110,16 @@ export default function MintSection(): React.JSX.Element {
             const tx = await contract.mint(skinColor, { value: parseEther(contractData.mintPrice) })
             setLoadingMessage("Confirming transaction...")
             const receipt = await tx.wait()
-            const mintedKitty = await parseKittyMintedEvent(receipt)
+            const mintedKitty = parseKittyMintedEvent(receipt)
             setModalData({
                 success: true,
                 message: `Pepe Kitty #${mintedKitty?.tokenId ?? '?'} has been minted!`,
                 mintedKitty: mintedKitty ?? undefined
             })
+            // Refresh all relevant data
             refetch()
+            refetchKitties()
+            refetchUnclaimed()
         } catch (err: any) {
             setModalData({ success: false, message: err.message || "Minting failed" })
         } finally {
@@ -134,13 +139,16 @@ export default function MintSection(): React.JSX.Element {
             const tx = await contract.mintPepeKitty(skinColor)
             setLoadingMessage("Confirming transaction...")
             const receipt = await tx.wait()
-            const mintedKitty = await parseKittyMintedEvent(receipt)
+            const mintedKitty = parseKittyMintedEvent(receipt)
             setModalData({
                 success: true,
                 message: `Pepe Kitty #${mintedKitty?.tokenId ?? '?'} minted with Mint Pass!`,
                 mintedKitty: mintedKitty ?? undefined
             })
+            // Refresh all relevant data
             refetch()
+            refetchKitties()
+            refetchUnclaimed()
         } catch (err: any) {
             setModalData({ success: false, message: err.message || "Minting failed" })
         } finally {
