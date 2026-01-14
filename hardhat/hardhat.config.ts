@@ -23,18 +23,21 @@ const config: HardhatUserConfig = {
     },
     baseSepolia: {
       url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
-      accounts: process.env.BASE_SEPOLIA_PRIVATE_KEY && process.env.BASE_SEPOLIA_PRIVATE_KEY.length === 64
-        ? [process.env.BASE_SEPOLIA_PRIVATE_KEY]
+      accounts: process.env.BASE_SEPOLIA_PRIVATE_KEY
+        ? [process.env.BASE_SEPOLIA_PRIVATE_KEY.startsWith("0x")
+            ? process.env.BASE_SEPOLIA_PRIVATE_KEY
+            : `0x${process.env.BASE_SEPOLIA_PRIVATE_KEY}`]
         : [],
       chainId: 84532,
     },
     base: {
       url: process.env.BASE_MAINNET_RPC_URL || "https://mainnet.base.org",
-      accounts: process.env.BASE_PRIVATE_KEY && process.env.BASE_PRIVATE_KEY.length === 64
-        ? [process.env.BASE_PRIVATE_KEY]
+      accounts: process.env.BASE_PRIVATE_KEY
+        ? [process.env.BASE_PRIVATE_KEY.startsWith("0x")
+            ? process.env.BASE_PRIVATE_KEY
+            : `0x${process.env.BASE_PRIVATE_KEY}`]
         : [],
       chainId: 8453,
-
     },
   },
   etherscan: {

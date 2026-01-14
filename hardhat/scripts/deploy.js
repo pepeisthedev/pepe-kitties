@@ -5,7 +5,17 @@ async function main() {
     console.log("Pepe Kitties Deployment Script");
     console.log("=".repeat(60));
 
-    const [deployer] = await ethers.getSigners();
+    const signers = await ethers.getSigners();
+    if (signers.length === 0) {
+        console.error("\nError: No wallet configured for this network!");
+        console.error("Make sure you have set the private key in your .env file:");
+        console.error("  - For baseSepolia: BASE_SEPOLIA_PRIVATE_KEY=your_private_key");
+        console.error("  - For base mainnet: BASE_PRIVATE_KEY=your_private_key");
+        console.error("\nThe private key can be with or without '0x' prefix.");
+        process.exit(1);
+    }
+
+    const [deployer] = signers;
     const deployerAddress = await deployer.getAddress();
     const networkInfo = await ethers.provider.getNetwork();
 
