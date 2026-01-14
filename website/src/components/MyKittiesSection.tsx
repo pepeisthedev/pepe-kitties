@@ -94,7 +94,7 @@ export default function MyKittiesSection(): React.JSX.Element {
     return (
         <Section id="my-kitties">
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 text-comic-shadow-lg mb-4">
+                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 mb-4">
                     MY PEPE KITTIES
                 </h2>
     

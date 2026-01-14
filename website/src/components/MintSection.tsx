@@ -180,7 +180,7 @@ export default function MintSection(): React.JSX.Element {
     return (
         <Section id="mint">
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 text-comic-shadow-lg mb-4">
+                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400  mb-4">
                     MINT YOUR PEPE KITTY
                 </h2>
        

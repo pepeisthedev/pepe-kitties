@@ -47,7 +47,7 @@ export default function TreasureChestSection(): React.JSX.Element {
     return (
         <Section id="treasure-chests">
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 text-comic-shadow-lg mb-4">
+                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400  mb-4">
                     TREASURE CHESTS
                 </h2>
                 <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">

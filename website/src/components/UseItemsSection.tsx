@@ -138,7 +138,7 @@ export default function UseItemsSection(): React.JSX.Element {
     return (
         <Section id="use-items">
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 text-comic-shadow-lg mb-4">
+                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400  mb-4">
                     USE ITEMS
                 </h2>
                 <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
