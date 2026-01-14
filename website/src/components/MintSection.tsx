@@ -178,7 +178,7 @@ export default function MintSection(): React.JSX.Element {
     }
 
     return (
-        <Section id="mint" variant="default">
+        <Section id="mint">
             <div className="text-center mb-12">
                 <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 text-comic-shadow-lg mb-4">
                     MINT YOUR PEPE KITTY
@@ -188,9 +188,9 @@ export default function MintSection(): React.JSX.Element {
 
             <div className="grid md:grid-cols-2 gap-8 items-stretch">
                 {/* NFT Preview Card */}
-                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl overflow-hidden backdrop-blur-sm hover:border-pink-400 transition-colors duration-300 h-full flex flex-col">
+                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl overflow-hidden backdrop-blur-sm hover:border-lime-300 transition-colors duration-300 h-full flex flex-col">
                     <CardContent className="p-8 flex-1 flex flex-col justify-center">
-                        <div className="relative aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-lime-400/20 to-pink-400/20 border-4 border-dashed border-white/30 flex items-center justify-center">
+                        <div className="relative aspect-square rounded-2xl overflow-hidden bg-black/30 border-4 border-dashed border-lime-400/30 flex items-center justify-center">
                             <PepeSvg
                                 color={skinColor}
                                 className="w-full h-full object-contain hover:animate-jackpot transition-transform"
@@ -351,8 +351,7 @@ export default function MintSection(): React.JSX.Element {
                                 onClick={handleMint}
                                 disabled={(isConnected && !isValidHexColor(skinColor)) || isMinting}
                                 className="w-full py-6 rounded-2xl font-bangers text-2xl
-                                    bg-gradient-to-r from-lime-500 via-green-500 to-emerald-500
-                                    hover:from-lime-400 hover:via-green-400 hover:to-emerald-400
+                                    bg-lime-500 hover:bg-lime-400
                                     text-black border-4 border-lime-300
                                     transform hover:scale-105 transition-all duration-300
                                     shadow-lg hover:shadow-lime-400/50
@@ -384,7 +383,7 @@ export default function MintSection(): React.JSX.Element {
                         { label: "Minted", value: contractData?.totalMinted?.toLocaleString() || "0" },
                         { label: "Remaining", value: ((contractData?.supply || 0) - (contractData?.totalMinted || 0)).toLocaleString() },
                     ].map((stat, i) => (
-                        <Card key={i} className="bg-black/30 border-2 border-white/20 rounded-xl backdrop-blur-sm md:col-span-2">
+                        <Card key={i} className="bg-black/30 border-2 border-lime-400 rounded-xl backdrop-blur-sm md:col-span-2">
                             <CardContent className="p-4 text-center">
                                 <p className="font-righteous text-white/60 text-xs">{stat.label}</p>
                                 <p className="font-bangers text-xl text-lime-400">{stat.value}</p>

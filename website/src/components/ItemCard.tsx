@@ -11,21 +11,21 @@ interface ItemCardProps {
 }
 
 const ITEM_COLORS: Record<number, string> = {
-  [ITEM_TYPES.COLOR_CHANGE]: "border-pink-400 bg-pink-400/10",
-  [ITEM_TYPES.HEAD_REROLL]: "border-purple-400 bg-purple-400/10",
-  [ITEM_TYPES.BRONZE_SKIN]: "border-amber-600 bg-amber-600/10",
-  [ITEM_TYPES.SILVER_SKIN]: "border-gray-300 bg-gray-300/10",
-  [ITEM_TYPES.GOLD_SKIN]: "border-yellow-400 bg-yellow-400/10",
-  [ITEM_TYPES.TREASURE_CHEST]: "border-amber-700 bg-amber-700/10",
+  [ITEM_TYPES.COLOR_CHANGE]: "border-lime-400/50 bg-black/30",
+  [ITEM_TYPES.HEAD_REROLL]: "border-lime-400/50 bg-black/30",
+  [ITEM_TYPES.BRONZE_SKIN]: "border-lime-400/50 bg-black/30",
+  [ITEM_TYPES.SILVER_SKIN]: "border-lime-400/50 bg-black/30",
+  [ITEM_TYPES.GOLD_SKIN]: "border-lime-400/50 bg-black/30",
+  [ITEM_TYPES.TREASURE_CHEST]: "border-lime-400/50 bg-black/30",
 }
 
 const ITEM_SELECTED_COLORS: Record<number, string> = {
-  [ITEM_TYPES.COLOR_CHANGE]: "ring-pink-400",
-  [ITEM_TYPES.HEAD_REROLL]: "ring-purple-400",
-  [ITEM_TYPES.BRONZE_SKIN]: "ring-amber-600",
-  [ITEM_TYPES.SILVER_SKIN]: "ring-gray-300",
-  [ITEM_TYPES.GOLD_SKIN]: "ring-yellow-400",
-  [ITEM_TYPES.TREASURE_CHEST]: "ring-amber-700",
+  [ITEM_TYPES.COLOR_CHANGE]: "ring-lime-400",
+  [ITEM_TYPES.HEAD_REROLL]: "ring-lime-400",
+  [ITEM_TYPES.BRONZE_SKIN]: "ring-lime-400",
+  [ITEM_TYPES.SILVER_SKIN]: "ring-lime-400",
+  [ITEM_TYPES.GOLD_SKIN]: "ring-lime-400",
+  [ITEM_TYPES.TREASURE_CHEST]: "ring-lime-400",
 }
 
 export default function ItemCard({
@@ -54,7 +54,7 @@ export default function ItemCard({
       className={`
         relative ${sizeClass.padding} rounded-xl border-2 transition-all duration-200
         ${colorClass}
-        ${selected ? `ring-4 ${selectedRingClass} scale-105` : "hover:scale-105"}
+        ${selected ? `ring-2 ${selectedRingClass}` : "hover:border-lime-400"}
         ${onClick ? "cursor-pointer" : "cursor-default"}
       `}
     >

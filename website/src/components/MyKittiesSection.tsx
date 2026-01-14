@@ -92,18 +92,16 @@ export default function MyKittiesSection(): React.JSX.Element {
     const claimableCount = kitties.filter(k => canClaim(k.tokenId)).length
 
     return (
-        <Section id="my-kitties" variant="alternate">
+        <Section id="my-kitties">
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-pink-400 text-comic-shadow-lg mb-4">
-                    MY KITTIES
+                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 text-comic-shadow-lg mb-4">
+                    MY PEPE KITTIES
                 </h2>
-                <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
-                    Your collection of adorable Pepe Kitties
-                </p>
+    
             </div>
 
             {!isConnected ? (
-                <Card className="bg-black/40 border-4 border-pink-400 rounded-3xl">
+                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl">
                     <CardContent className="p-12 text-center">
                         <p className="font-righteous text-xl text-white/70">
                             Connect your wallet to see your Pepe Kitties
@@ -123,7 +121,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                     </CardContent>
                 </Card>
             ) : kitties.length === 0 ? (
-                <Card className="bg-black/40 border-4 border-pink-400 rounded-3xl">
+                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl">
                     <CardContent className="p-12 text-center">
                         <p className="font-bangers text-3xl text-white/70 mb-4">No Kitties Yet!</p>
                         <p className="font-righteous text-lg text-white/50">
@@ -135,12 +133,12 @@ export default function MyKittiesSection(): React.JSX.Element {
                 <>
                     {/* Claim Item Banner */}
                     {claimableCount > 0 && (
-                        <Card className="bg-purple-900/40 border-2 border-purple-400 rounded-2xl mb-6">
+                        <Card className="bg-black/40 border-2 border-lime-400 rounded-2xl mb-6">
                             <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
-                                    <Gift className="w-8 h-8 text-purple-400" />
+                                    <Gift className="w-8 h-8 text-lime-400" />
                                     <div>
-                                        <p className="font-bangers text-xl text-purple-400">
+                                        <p className="font-bangers text-xl text-lime-400">
                                             {claimableCount} {claimableCount === 1 ? 'Kitty' : 'Kitties'} can claim items!
                                         </p>
                                         <p className="font-righteous text-sm text-white/60">
@@ -153,7 +151,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                     disabled={!selectedCanClaim || isClaiming}
                                     className={`px-6 py-3 rounded-xl font-bangers text-lg transition-all ${
                                         selectedCanClaim
-                                            ? "bg-purple-500 hover:bg-purple-400 text-white"
+                                            ? "bg-lime-500 hover:bg-lime-400 text-black"
                                             : "bg-gray-600 text-gray-400 cursor-not-allowed"
                                     }`}
                                 >
@@ -182,18 +180,18 @@ export default function MyKittiesSection(): React.JSX.Element {
                                     onClick={() => handleKittyClick(kitty.tokenId)}
                                     className={`bg-black/40 border-2 rounded-2xl transition-all cursor-pointer ${
                                         isSelected
-                                            ? "border-pink-400 ring-2 ring-pink-400 scale-105"
+                                            ? "border-lime-400 ring-2 ring-lime-400 scale-105"
                                             : hasClaimable
-                                            ? "border-purple-400/70 hover:border-purple-400"
-                                            : "border-pink-400/50 hover:border-pink-400"
+                                            ? "border-lime-400/70 hover:border-lime-400"
+                                            : "border-lime-400/50 hover:border-lime-400"
                                     }`}
                                 >
                                     <CardContent className="p-4 relative">
                                         {/* Claimable indicator */}
                                         {hasClaimable && (
                                             <div className="absolute top-2 right-2 z-10">
-                                                <div className="bg-purple-500 rounded-full p-1.5 animate-pulse">
-                                                    <Gift className="w-4 h-4 text-white" />
+                                                <div className="bg-lime-500 rounded-full p-1.5 animate-pulse">
+                                                    <Gift className="w-4 h-4 text-black" />
                                                 </div>
                                             </div>
                                         )}
@@ -201,7 +199,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                         <div className="aspect-square mb-3">
                                             <KittyRenderer {...kitty} size="sm" />
                                         </div>
-                                        <p className="font-bangers text-lg text-pink-400 text-center">
+                                        <p className="font-bangers text-lg text-lime-400 text-center">
                                             #{kitty.tokenId}
                                         </p>
                                         {kitty.specialSkin > 0 && (
@@ -210,7 +208,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                             </p>
                                         )}
                                         {hasClaimable && (
-                                            <p className="font-righteous text-xs text-purple-400 text-center mt-1">
+                                            <p className="font-righteous text-xs text-lime-400 text-center mt-1">
                                                 Can claim item!
                                             </p>
                                         )}

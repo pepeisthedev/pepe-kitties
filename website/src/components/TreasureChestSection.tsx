@@ -45,9 +45,9 @@ export default function TreasureChestSection(): React.JSX.Element {
     }
 
     return (
-        <Section id="treasure-chests" variant="alternate">
+        <Section id="treasure-chests">
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-yellow-400 text-comic-shadow-lg mb-4">
+                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 text-comic-shadow-lg mb-4">
                     TREASURE CHESTS
                 </h2>
                 <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
@@ -57,11 +57,11 @@ export default function TreasureChestSection(): React.JSX.Element {
 
             {/* Reward Info */}
             {contractData && (
-                <Card className="bg-black/40 border-2 border-yellow-400/50 rounded-2xl mb-8 max-w-md mx-auto">
+                <Card className="bg-black/40 border-2 border-lime-400/50 rounded-2xl mb-8 max-w-md mx-auto">
                     <CardContent className="p-6 text-center">
-                        <Coins className="w-12 h-12 text-yellow-400 mx-auto mb-3" />
+                        <Coins className="w-12 h-12 text-lime-400 mx-auto mb-3" />
                         <p className="font-righteous text-white/70 mb-2">Reward per Chest</p>
-                        <p className="font-bangers text-4xl text-yellow-400">
+                        <p className="font-bangers text-4xl text-lime-400">
                             {contractData.chestETHAmount} ETH
                         </p>
                         <p className="font-righteous text-xs text-white/50 mt-3">
@@ -72,7 +72,7 @@ export default function TreasureChestSection(): React.JSX.Element {
             )}
 
             {!isConnected ? (
-                <Card className="bg-black/40 border-4 border-yellow-400 rounded-3xl">
+                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl">
                     <CardContent className="p-12 text-center">
                         <p className="font-righteous text-xl text-white/70">
                             Connect your wallet to view your treasure chests
@@ -84,7 +84,7 @@ export default function TreasureChestSection(): React.JSX.Element {
                     <LoadingSpinner size="lg" message="Loading chests..." />
                 </div>
             ) : chests.length === 0 ? (
-                <Card className="bg-black/40 border-4 border-yellow-400 rounded-3xl">
+                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl">
                     <CardContent className="p-12 text-center">
                         <p className="font-bangers text-3xl text-white/70 mb-4">No Treasure Chests</p>
                         <p className="font-righteous text-lg text-white/50">
@@ -97,7 +97,7 @@ export default function TreasureChestSection(): React.JSX.Element {
                     {chests.map((chest) => (
                         <Card
                             key={chest.tokenId}
-                            className="bg-gradient-to-br from-amber-900/50 to-yellow-900/50 border-2 border-yellow-400 rounded-2xl"
+                            className="bg-gradient-to-br from-amber-900/50 to-yellow-900/50 border-2 border-lime-400 rounded-2xl"
                         >
                             <CardContent className="p-6 text-center">
                                 <div className="w-24 h-24 mx-auto mb-4">
@@ -107,7 +107,7 @@ export default function TreasureChestSection(): React.JSX.Element {
                                         className="w-full h-full object-contain"
                                     />
                                 </div>
-                                <p className="font-bangers text-xl text-yellow-400 mb-2">
+                                <p className="font-bangers text-xl text-lime-400 mb-2">
                                     Chest #{chest.tokenId}
                                 </p>
                                 <p className="font-righteous text-sm text-white/70 mb-4">

@@ -136,7 +136,7 @@ export default function UseItemsSection(): React.JSX.Element {
         (selectedItem.itemType !== ITEM_TYPES.COLOR_CHANGE || isValidHexColor(newColor))
 
     return (
-        <Section id="use-items" variant="default">
+        <Section id="use-items">
             <div className="text-center mb-12">
                 <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 text-comic-shadow-lg mb-4">
                     USE ITEMS
@@ -171,15 +171,15 @@ export default function UseItemsSection(): React.JSX.Element {
                                     No kitties owned
                                 </p>
                             ) : (
-                                <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
+                                <div className="grid grid-cols-4 gap-3 overflow-hidden">
                                     {kitties.map((kitty) => (
                                         <button
                                             key={kitty.tokenId}
                                             onClick={() => setSelectedKitty(kitty)}
                                             className={`p-2 rounded-xl border-2 transition-all ${
                                                 selectedKitty?.tokenId === kitty.tokenId
-                                                    ? "border-lime-400 ring-2 ring-lime-400 scale-105"
-                                                    : "border-white/20 hover:border-lime-400/50"
+                                                    ? "border-lime-400 ring-2 ring-lime-400"
+                                                    : "border-lime-400/50 hover:border-lime-400"
                                             }`}
                                         >
                                             <div className="aspect-square">
@@ -194,9 +194,9 @@ export default function UseItemsSection(): React.JSX.Element {
                     </Card>
 
                     {/* Items Panel */}
-                    <Card className="bg-black/40 border-2 border-orange-400 rounded-2xl">
+                    <Card className="bg-black/40 border-2 border-lime-400 rounded-2xl">
                         <CardContent className="p-4">
-                            <p className="font-bangers text-xl text-orange-400 mb-4 text-center">
+                            <p className="font-bangers text-xl text-lime-400 mb-4 text-center">
                                 Select an Item
                             </p>
                             {itemsLoading ? (
@@ -208,7 +208,7 @@ export default function UseItemsSection(): React.JSX.Element {
                                     No items available
                                 </p>
                             ) : (
-                                <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
+                                <div className="grid grid-cols-4 gap-3 overflow-hidden">
                                     {usableItems.map((item) => (
                                         <ItemCard
                                             key={item.tokenId}

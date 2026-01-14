@@ -14,27 +14,27 @@ const features = [
         icon: Heart,
         title: "COMMUNITY FIRST",
         description: "Join the most pawsitive community in Web3. We're all gonna make it, fren!",
-        color: "text-pink-400",
+        color: "text-lime-400",
     },
     {
         icon: Users,
         title: "10K UNIQUE KITTIES",
         description: "Algorithmically generated with over 200 traits. No two Pepe Kitties are alike!",
-        color: "text-orange-400",
+        color: "text-lime-400",
     },
     {
         icon: Flame,
         title: "RARE TRAITS",
         description: "Legendary, epic, and rare traits that make your kitty extra spicy. Much wow!",
-        color: "text-yellow-400",
+        color: "text-lime-400",
     },
 ]
 
 export default function AboutSection(): React.JSX.Element {
     return (
-        <Section id="about" variant="alternate">
+        <Section id="about">
             <div className="text-center mb-16">
-                <h2 className="font-bangers text-5xl md:text-7xl text-pink-400 text-comic-shadow-lg mb-4">
+                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 text-comic-shadow-lg mb-4">
                     🚀 WHY PEPE KITTIES? 🚀
                 </h2>
                 <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
@@ -46,8 +46,8 @@ export default function AboutSection(): React.JSX.Element {
                 {features.map((feature, i) => (
                     <Card
                         key={i}
-                        className="bg-black/40 border-4 border-white/20 rounded-3xl backdrop-blur-sm
-                            hover:border-pink-400 transition-all duration-300 hover:scale-[1.02] group"
+                        className="bg-black/40 border-4 border-lime-400 rounded-3xl backdrop-blur-sm
+                            hover:border-lime-300 transition-all duration-300 hover:scale-[1.02] group"
                     >
                         <CardContent className="p-8">
                             <div className="flex items-start gap-4">
@@ -69,7 +69,7 @@ export default function AboutSection(): React.JSX.Element {
             </div>
 
             {/* Fun Stats Banner */}
-            <Card className="bg-gradient-to-r from-lime-500/20 via-pink-500/20 to-orange-500/20 border-4 border-white/30 rounded-3xl backdrop-blur-sm">
+            <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl backdrop-blur-sm">
                 <CardContent className="p-8">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
                         {[
