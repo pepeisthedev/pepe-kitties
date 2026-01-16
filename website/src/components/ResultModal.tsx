@@ -39,14 +39,14 @@ export default function ResultModal({
             )}
           </div>
           <DialogTitle
-            className={`font-bangers text-3xl ${
+            className={`font-bangers text-3xl text-center ${
               success ? "text-lime-400" : "text-red-400"
             }`}
           >
             {title}
           </DialogTitle>
           {description && (
-            <DialogDescription className="font-righteous text-white/70 text-base mt-2">
+            <DialogDescription className="font-righteous text-white/70 text-base mt-2 text-center">
               {description}
             </DialogDescription>
           )}
@@ -54,7 +54,7 @@ export default function ResultModal({
 
         {children && <div className="py-4">{children}</div>}
 
-        <DialogFooter className="justify-center">
+        <DialogFooter className="sm:justify-center">
           <Button
             onClick={onClose}
             className={`font-bangers text-xl px-8 py-3 rounded-xl ${

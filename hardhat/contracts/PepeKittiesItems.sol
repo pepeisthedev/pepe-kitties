@@ -20,6 +20,12 @@ interface ISVGItemsRenderer {
     function render(uint256 _itemType) external view returns (string memory);
 }
 
+interface IERC721 {
+    function balanceOf(address owner) external view returns (uint256);
+    function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256);
+    function safeTransferFrom(address from, address to, uint256 tokenId) external;
+}
+
 contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     using Strings for uint256;
 
@@ -30,9 +36,11 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
     uint256 public constant SILVER_SKIN = 4;
     uint256 public constant GOLD_SKIN = 5;
     uint256 public constant TREASURE_CHEST = 6;
+    uint256 public constant BEAD_PUNK = 7;      // External NFT reward
 
     IPepeKitties public pepeKitties;
     ISVGItemsRenderer public svgRenderer;
+    IERC721 public beadPunksContract;
 
     uint256 private _tokenIdCounter;
     uint256 private randomNonce;
@@ -54,6 +62,7 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
     uint256 public bronzeSkinWeight = 1500;   // 15%
     uint256 public silverSkinWeight = 1000;   // 10%
     uint256 public goldSkinWeight = 500;      // 5%
+    uint256 public beadPunkWeight = 100;      // 1% - rare external NFT (only when available)
 
     // Events
     event ItemClaimed(
@@ -92,6 +101,12 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
         uint256 indexed itemTokenId,
         address indexed owner,
         uint256 ethAmount
+    );
+
+    event BeadPunkClaimed(
+        uint256 indexed kittyId,
+        uint256 indexed beadPunkTokenId,
+        address indexed owner
     );
 
     constructor(
@@ -199,10 +214,35 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
 
         hasClaimed[kittyId] = true;
 
+        // Check if we have any Bead Punks available
+        bool hasBeadPunks = address(beadPunksContract) != address(0) &&
+                           beadPunksContract.balanceOf(address(this)) > 0;
+
+        // Calculate total weight (only include Bead Punk weight if available)
+        uint256 totalWeight = colorChangeWeight + headRerollWeight + bronzeSkinWeight +
+                              silverSkinWeight + goldSkinWeight;
+        if (hasBeadPunks) {
+            totalWeight += beadPunkWeight;
+        }
+
         // Determine item type based on weighted random
-        uint256 rand = _getRandom(10000);
+        uint256 rand = _getRandom(totalWeight);
         uint256 newItemType;
         uint256 cumulative = 0;
+
+        // Check for Bead Punk first (if available)
+        if (hasBeadPunks) {
+            cumulative += beadPunkWeight;
+            if (rand < cumulative) {
+                // Transfer a Bead Punk to the user
+                uint256 beadPunkTokenId = beadPunksContract.tokenOfOwnerByIndex(address(this), 0);
+                beadPunksContract.safeTransferFrom(address(this), msg.sender, beadPunkTokenId);
+                emit BeadPunkClaimed(kittyId, beadPunkTokenId, msg.sender);
+                // Also emit ItemClaimed for consistency with BEAD_PUNK type
+                emit ItemClaimed(kittyId, beadPunkTokenId, msg.sender, BEAD_PUNK);
+                return;
+            }
+        }
 
         cumulative += colorChangeWeight;
         if (rand < cumulative) {
@@ -334,6 +374,14 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
         chestETHAmount = _amount;
     }
 
+    function setBeadPunksContract(address _beadPunks) external onlyOwner {
+        beadPunksContract = IERC721(_beadPunks);
+    }
+
+    function setBeadPunkWeight(uint256 _weight) external onlyOwner {
+        beadPunkWeight = _weight;
+    }
+
     function setRarityWeights(
         uint256 _colorChange,
         uint256 _headReroll,
@@ -364,6 +412,11 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
 
     function totalMinted() public view returns (uint256) {
         return _tokenIdCounter;
+    }
+
+    function getAvailableBeadPunks() public view returns (uint256) {
+        if (address(beadPunksContract) == address(0)) return 0;
+        return beadPunksContract.balanceOf(address(this));
     }
 
     function getItemInfo(uint256 itemTokenId)
@@ -442,6 +495,16 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
 
     function _requireCallerIsContractOwner() internal view override {
         _checkOwner();
+    }
+
+    // Allow contract to receive ERC721 NFTs (Bead Punks)
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes calldata
+    ) external pure returns (bytes4) {
+        return this.onERC721Received.selector;
     }
 
     // Allow contract to receive ETH for chest rewards

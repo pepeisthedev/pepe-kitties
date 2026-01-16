@@ -6,9 +6,19 @@ import { Button } from "./ui/button"
 import { useUnclaimedKitties, useContractData, useContracts, useOwnedItems, useOwnedKitties } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
-import ItemCard from "./ItemCard"
-import { ITEM_TYPE_NAMES } from "../config/contracts"
+import { ITEM_TYPE_NAMES, ITEM_TYPES } from "../config/contracts"
 import { Gift } from "lucide-react"
+
+// Map item types to their image paths
+const ITEM_IMAGES: Record<number, string> = {
+    [ITEM_TYPES.COLOR_CHANGE]: "/items/color-change.png",
+    [ITEM_TYPES.HEAD_REROLL]: "/items/head-reroll.png",
+    [ITEM_TYPES.BRONZE_SKIN]: "/items/bronze-skin.png",
+    [ITEM_TYPES.SILVER_SKIN]: "/items/silver-skin.png",
+    [ITEM_TYPES.GOLD_SKIN]: "/items/gold-skin.png",
+    [ITEM_TYPES.TREASURE_CHEST]: "/items/treasure-chest.png",
+    [ITEM_TYPES.BEAD_PUNK]: "/beadpunk.jpg",
+}
 
 export default function ClaimItemsSection(): React.JSX.Element {
     const { isConnected } = useAppKitAccount()
@@ -54,11 +64,12 @@ export default function ClaimItemsSection(): React.JSX.Element {
             const receipt = await tx.wait()
 
             const claimedItem = parseItemClaimedEvent(receipt)
+            const isBeadPunk = claimedItem?.itemType === ITEM_TYPES.BEAD_PUNK
             const itemName = claimedItem ? ITEM_TYPE_NAMES[claimedItem.itemType] : "Item"
 
             setModalData({
                 success: true,
-                message: `You got a ${itemName}!`,
+                message: isBeadPunk ? "Congratz, you got a Beadpunk!" : `You got a ${itemName}!`,
                 itemType: claimedItem?.itemType,
                 itemTokenId: claimedItem?.itemTokenId
             })
@@ -182,16 +193,16 @@ export default function ClaimItemsSection(): React.JSX.Element {
             <ResultModal
                 isOpen={showModal}
                 onClose={() => setShowModal(false)}
-                title={modalData.success ? "Item Claimed!" : "Error"}
-                description={modalData.message}
+                title={modalData.success ? (modalData.itemType === ITEM_TYPES.BEAD_PUNK ? "Rare Drop!" : "Item Claimed!") : "Error"}
+                description={modalData.success ? undefined : modalData.message}
                 success={modalData.success}
             >
-                {modalData.success && modalData.itemType && modalData.itemTokenId && (
-                    <div className="flex flex-col items-center gap-2">
-                        <ItemCard
-                            tokenId={modalData.itemTokenId}
-                            itemType={modalData.itemType}
-                            size="lg"
+                {modalData.success && modalData.itemType !== undefined && (
+                    <div className="flex justify-center">
+                        <img
+                            src={ITEM_IMAGES[modalData.itemType]}
+                            alt={ITEM_TYPE_NAMES[modalData.itemType]}
+                            className="w-48 h-48 rounded-2xl border-4 border-purple-400 shadow-lg object-cover"
                         />
                     </div>
                 )}

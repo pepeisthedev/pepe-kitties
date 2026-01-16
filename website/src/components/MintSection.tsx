@@ -6,11 +6,20 @@ import PepeSvg from "./PepeSvg"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
-import { Sparkles, Zap, Palette } from "lucide-react"
+import { Sparkles, Zap, Palette, CheckCircle, XCircle } from "lucide-react"
 import { useContractData, useContracts, useOwnedKitties, useUnclaimedKitties } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
-import ResultModal from "./ResultModal"
 import KittyRenderer from "./KittyRenderer"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "./ui/dialog"
+
+type MintStatus = 'idle' | 'pending' | 'confirming' | 'success' | 'error'
 
 // Convert HSL to Hex
 const hslToHex = (h: number, s: number, l: number): string => {
@@ -56,21 +65,16 @@ export default function MintSection(): React.JSX.Element {
     const [skinColor, setSkinColor] = useState<string>("#7CB342")
     const [hue, setHue] = useState<number>(120)
     const [mintType, setMintType] = useState<"paid" | "free">("paid")
-    const [isMinting, setIsMinting] = useState(false)
-    const [loadingMessage, setLoadingMessage] = useState("")
-    const [showModal, setShowModal] = useState(false)
-    const [modalData, setModalData] = useState<{
-        success: boolean
-        message: string
-        mintedKitty?: {
-            tokenId: number
-            bodyColor: string
-            head: number
-            mouth: number
-            belly: number
-            background: number
-        }
-    }>({ success: false, message: "" })
+    const [mintStatus, setMintStatus] = useState<MintStatus>('idle')
+    const [errorMessage, setErrorMessage] = useState("")
+    const [mintedKitty, setMintedKitty] = useState<{
+        tokenId: number
+        bodyColor: string
+        head: number
+        mouth: number
+        belly: number
+        background: number
+    } | null>(null)
 
     const paletteColors = generatePalette(hue)
 
@@ -103,28 +107,25 @@ export default function MintSection(): React.JSX.Element {
         if (!isConnected) { open(); return }
         if (!contracts || !contractData) return
 
-        setIsMinting(true)
+        setMintStatus('pending')
+        setMintedKitty(null)
+        setErrorMessage("")
+
         try {
-            setLoadingMessage("Waiting for wallet approval...")
             const contract = await contracts.pepeKitties.write()
             const tx = await contract.mint(skinColor, { value: parseEther(contractData.mintPrice) })
-            setLoadingMessage("Confirming transaction...")
+            setMintStatus('confirming')
             const receipt = await tx.wait()
-            const mintedKitty = parseKittyMintedEvent(receipt)
-            setModalData({
-                success: true,
-                message: `Pepe Kitty #${mintedKitty?.tokenId ?? '?'} has been minted!`,
-                mintedKitty: mintedKitty ?? undefined
-            })
+            const kitty = parseKittyMintedEvent(receipt)
+            setMintedKitty(kitty)
+            setMintStatus('success')
             // Refresh all relevant data
             refetch()
             refetchKitties()
             refetchUnclaimed()
         } catch (err: any) {
-            setModalData({ success: false, message: err.message || "Minting failed" })
-        } finally {
-            setIsMinting(false)
-            setShowModal(true)
+            setErrorMessage(err.message || "Minting failed")
+            setMintStatus('error')
         }
     }
 
@@ -132,29 +133,30 @@ export default function MintSection(): React.JSX.Element {
         if (!isConnected) { open(); return }
         if (!contracts || !contractData || contractData.userMintPassBalance < 1) return
 
-        setIsMinting(true)
+        setMintStatus('pending')
+        setMintedKitty(null)
+        setErrorMessage("")
+
         try {
-            setLoadingMessage("Waiting for wallet approval...")
             const contract = await contracts.mintPass.write()
             const tx = await contract.mintPepeKitty(skinColor)
-            setLoadingMessage("Confirming transaction...")
+            setMintStatus('confirming')
             const receipt = await tx.wait()
-            const mintedKitty = parseKittyMintedEvent(receipt)
-            setModalData({
-                success: true,
-                message: `Pepe Kitty #${mintedKitty?.tokenId ?? '?'} minted with Mint Pass!`,
-                mintedKitty: mintedKitty ?? undefined
-            })
+            const kitty = parseKittyMintedEvent(receipt)
+            setMintedKitty(kitty)
+            setMintStatus('success')
             // Refresh all relevant data
             refetch()
             refetchKitties()
             refetchUnclaimed()
         } catch (err: any) {
-            setModalData({ success: false, message: err.message || "Minting failed" })
-        } finally {
-            setIsMinting(false)
-            setShowModal(true)
+            setErrorMessage(err.message || "Minting failed")
+            setMintStatus('error')
         }
+    }
+
+    const closeModal = () => {
+        setMintStatus('idle')
     }
 
     const handleMint = () => {
@@ -349,7 +351,7 @@ export default function MintSection(): React.JSX.Element {
                             {/* Mint Button */}
                             <Button
                                 onClick={handleMint}
-                                disabled={(isConnected && !isValidHexColor(skinColor)) || isMinting}
+                                disabled={(isConnected && !isValidHexColor(skinColor)) || mintStatus !== 'idle'}
                                 className="w-full py-6 rounded-2xl font-bangers text-2xl
                                     bg-lime-500 hover:bg-lime-400
                                     text-black border-4 border-lime-300
@@ -357,15 +359,9 @@ export default function MintSection(): React.JSX.Element {
                                     shadow-lg hover:shadow-lime-400/50
                                     disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                             >
-                                {isMinting ? (
-                                    <LoadingSpinner size="sm" message={loadingMessage} />
-                                ) : (
-                                    <>
-                                        <Sparkles className="w-6 h-6 mr-2" />
-                                        {isConnected ? (mintType === "free" ? "MINT FREE!" : `MINT (${contractData?.mintPrice || "0"} ETH)`) : "CONNECT TO MINT"}
-                                        <Zap className="w-6 h-6 ml-2" />
-                                    </>
-                                )}
+                                <Sparkles className="w-6 h-6 mr-2" />
+                                {isConnected ? (mintType === "free" ? "MINT FREE!" : `MINT (${contractData?.mintPrice || "0"} ETH)`) : "CONNECT TO MINT"}
+                                <Zap className="w-6 h-6 ml-2" />
                             </Button>
                     </CardContent>
                 </Card>
@@ -393,32 +389,103 @@ export default function MintSection(): React.JSX.Element {
                 )}
             </div>
 
-            {/* Result Modal */}
-            <ResultModal
-                isOpen={showModal}
-                onClose={() => setShowModal(false)}
-                title={modalData.success ? "Success!" : "Error"}
-                description={modalData.message}
-                success={modalData.success}
-            >
-                {modalData.success && modalData.mintedKitty && (
-                    <div className="flex flex-col items-center gap-4">
-                        <KittyRenderer
-                            bodyColor={modalData.mintedKitty.bodyColor}
-                            head={modalData.mintedKitty.head}
-                            mouth={modalData.mintedKitty.mouth}
-                            belly={modalData.mintedKitty.belly}
-                            background={modalData.mintedKitty.background}
-                            specialSkin={0}
-                            size="lg"
-                        />
-                        <div className="text-center text-white/70 font-righteous text-sm">
-                            <p>Head: #{modalData.mintedKitty.head} | Mouth: #{modalData.mintedKitty.mouth}</p>
-                            <p>Belly: #{modalData.mintedKitty.belly} | Background: #{modalData.mintedKitty.background}</p>
+            {/* Mint Modal */}
+            <Dialog open={mintStatus !== 'idle'} onOpenChange={(open) => !open && (mintStatus === 'success' || mintStatus === 'error') && closeModal()}>
+                <DialogContent className="bg-black/95 border-2 border-lime-400 rounded-2xl max-w-md">
+                    <DialogHeader className="text-center">
+                        {/* Pending State - Waiting for wallet */}
+                        {mintStatus === 'pending' && (
+                            <>
+                                <div className="flex justify-center mb-4">
+                                    <LoadingSpinner size="lg" />
+                                </div>
+                                <DialogTitle className="font-bangers text-3xl text-lime-400">
+                                    Confirm Transaction
+                                </DialogTitle>
+                                <DialogDescription className="font-righteous text-white/70 text-base mt-2">
+                                    Confirm the transaction in your wallet to mint your Pepe Kitty
+                                </DialogDescription>
+                            </>
+                        )}
+
+                        {/* Confirming State - Transaction submitted */}
+                        {mintStatus === 'confirming' && (
+                            <>
+                                <div className="flex justify-center mb-4">
+                                    <LoadingSpinner size="lg" />
+                                </div>
+                                <DialogTitle className="font-bangers text-3xl text-lime-400">
+                                    Minting...
+                                </DialogTitle>
+                                <DialogDescription className="font-righteous text-white/70 text-base mt-2">
+                                    Your Pepe Kitty is being minted. Please wait...
+                                </DialogDescription>
+                            </>
+                        )}
+
+                        {/* Success State */}
+                        {mintStatus === 'success' && (
+                            <>
+                                <div className="flex justify-center mb-4">
+                                    <CheckCircle className="w-16 h-16 text-lime-400" />
+                                </div>
+                                <DialogTitle className="font-bangers text-3xl text-lime-400 text-center">
+                                    Success!
+                                </DialogTitle>
+                                <DialogDescription className="font-righteous text-white/70 text-base mt-2 text-center">
+                                    Pepe Kitty #{mintedKitty?.tokenId ?? '?'} has been minted!
+                                </DialogDescription>
+                            </>
+                        )}
+
+                        {/* Error State */}
+                        {mintStatus === 'error' && (
+                            <>
+                                <div className="flex justify-center mb-4">
+                                    <XCircle className="w-16 h-16 text-red-400" />
+                                </div>
+                                <DialogTitle className="font-bangers text-3xl text-red-400">
+                                    Error
+                                </DialogTitle>
+                                <DialogDescription className="font-righteous text-white/70 text-base mt-2">
+                                    {errorMessage}
+                                </DialogDescription>
+                            </>
+                        )}
+                    </DialogHeader>
+
+                    {/* Show minted kitty on success */}
+                    {mintStatus === 'success' && mintedKitty && (
+                        <div className="py-4 flex justify-center">
+                            <KittyRenderer
+                                bodyColor={mintedKitty.bodyColor}
+                                head={mintedKitty.head}
+                                mouth={mintedKitty.mouth}
+                                belly={mintedKitty.belly}
+                                background={mintedKitty.background}
+                                specialSkin={0}
+                                size="lg"
+                            />
                         </div>
-                    </div>
-                )}
-            </ResultModal>
+                    )}
+
+                    {/* Footer buttons only for success/error states */}
+                    {(mintStatus === 'success' || mintStatus === 'error') && (
+                        <DialogFooter className="sm:justify-center">
+                            <Button
+                                onClick={closeModal}
+                                className={`font-bangers text-xl px-8 py-3 rounded-xl ${
+                                    mintStatus === 'success'
+                                        ? "bg-lime-500 hover:bg-lime-400 text-black"
+                                        : "bg-red-500 hover:bg-red-400 text-white"
+                                }`}
+                            >
+                                {mintStatus === 'success' ? "Awesome!" : "Close"}
+                            </Button>
+                        </DialogFooter>
+                    )}
+                </DialogContent>
+            </Dialog>
         </Section>
     )
 }

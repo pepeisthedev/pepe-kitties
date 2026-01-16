@@ -58,6 +58,7 @@ export default function UseItemsSection(): React.JSX.Element {
     const [showResultModal, setShowResultModal] = useState(false)
     const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [modalData, setModalData] = useState<{ success: boolean; message: string }>({ success: false, message: "" })
+    const [resultKitty, setResultKitty] = useState<Kitty | null>(null)
 
     const paletteColors = generatePalette(hue)
 
@@ -91,6 +92,24 @@ export default function UseItemsSection(): React.JSX.Element {
         setShowConfirmModal(true)
     }
 
+    const parseHeadRerolledEvent = (receipt: any): number | null => {
+        const contract = contracts!.pepeKitties.read
+        for (const log of receipt.logs) {
+            try {
+                const parsed = contract.interface.parseLog({
+                    topics: log.topics as string[],
+                    data: log.data
+                })
+                if (parsed?.name === "HeadRerolled") {
+                    return Number(parsed.args.newHead)
+                }
+            } catch {
+                // Not a HeadRerolled event, continue
+            }
+        }
+        return null
+    }
+
     const handleConfirmApply = async () => {
         if (!contracts || !selectedKitty || !selectedItem) return
 
@@ -112,7 +131,27 @@ export default function UseItemsSection(): React.JSX.Element {
                 tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId)
             }
 
-            await tx.wait()
+            const receipt = await tx.wait()
+
+            // Build the resulting kitty state
+            let updatedKitty: Kitty = { ...selectedKitty }
+
+            if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) {
+                updatedKitty.bodyColor = newColor
+            } else if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) {
+                const newHead = parseHeadRerolledEvent(receipt)
+                if (newHead !== null) {
+                    updatedKitty.head = newHead
+                }
+            } else if (selectedItem.itemType === ITEM_TYPES.BRONZE_SKIN) {
+                updatedKitty.specialSkin = 1
+            } else if (selectedItem.itemType === ITEM_TYPES.SILVER_SKIN) {
+                updatedKitty.specialSkin = 2
+            } else if (selectedItem.itemType === ITEM_TYPES.GOLD_SKIN) {
+                updatedKitty.specialSkin = 3
+            }
+
+            setResultKitty(updatedKitty)
 
             let message = `${selectedItem.name} applied to Kitty #${selectedKitty.tokenId}!`
             if (selectedItem.itemType === ITEM_TYPES.GOLD_SKIN) {
@@ -125,6 +164,7 @@ export default function UseItemsSection(): React.JSX.Element {
             refetchKitties()
             refetchItems()
         } catch (err: any) {
+            setResultKitty(null)
             setModalData({ success: false, message: err.message || "Failed to apply item" })
         } finally {
             setIsApplying(false)
@@ -452,11 +492,29 @@ export default function UseItemsSection(): React.JSX.Element {
             {/* Result Modal */}
             <ResultModal
                 isOpen={showResultModal}
-                onClose={() => setShowResultModal(false)}
+                onClose={() => {
+                    setShowResultModal(false)
+                    setResultKitty(null)
+                }}
                 title={modalData.success ? "Item Applied!" : "Error"}
-                description={modalData.message}
+                description={modalData.success ? undefined : modalData.message}
                 success={modalData.success}
-            />
+            >
+                {modalData.success && resultKitty && (
+                    <div className="flex justify-center">
+                        <KittyRenderer
+                            tokenId={resultKitty.tokenId}
+                            bodyColor={resultKitty.bodyColor}
+                            head={resultKitty.head}
+                            mouth={resultKitty.mouth}
+                            belly={resultKitty.belly}
+                            background={resultKitty.background}
+                            specialSkin={resultKitty.specialSkin}
+                            size="lg"
+                        />
+                    </div>
+                )}
+            </ResultModal>
         </Section>
     )
 }

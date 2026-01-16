@@ -18,6 +18,7 @@ export const ITEM_TYPES = {
   SILVER_SKIN: 4,
   GOLD_SKIN: 5,
   TREASURE_CHEST: 6,
+  BEAD_PUNK: 7,
 } as const
 
 // Item type names for display
@@ -28,6 +29,7 @@ export const ITEM_TYPE_NAMES: Record<number, string> = {
   [ITEM_TYPES.SILVER_SKIN]: "Silver Skin",
   [ITEM_TYPES.GOLD_SKIN]: "Gold Skin",
   [ITEM_TYPES.TREASURE_CHEST]: "Treasure Chest",
+  [ITEM_TYPES.BEAD_PUNK]: "Bead Punk",
 }
 
 // Item descriptions
@@ -38,4 +40,5 @@ export const ITEM_TYPE_DESCRIPTIONS: Record<number, string> = {
   [ITEM_TYPES.SILVER_SKIN]: "Apply a silver skin to your Pepe Kitty",
   [ITEM_TYPES.GOLD_SKIN]: "Apply a golden skin (+ free treasure chest!)",
   [ITEM_TYPES.TREASURE_CHEST]: "Burn to claim ETH rewards",
+  [ITEM_TYPES.BEAD_PUNK]: "A rare Bead Punk NFT!",
 }
