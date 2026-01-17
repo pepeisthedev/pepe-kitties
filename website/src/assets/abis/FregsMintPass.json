@@ -170,6 +170,25 @@
       {
         "indexed": true,
         "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "color",
+        "type": "string"
+      }
+    ],
+    "name": "FregMinted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
         "name": "buyer",
         "type": "address"
       },
@@ -200,25 +219,6 @@
       }
     ],
     "name": "OwnershipTransferred",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "color",
-        "type": "string"
-      }
-    ],
-    "name": "PepeKittyMinted",
     "type": "event"
   },
   {
@@ -440,6 +440,19 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "fregs",
+    "outputs": [
+      {
+        "internalType": "contract IFregs",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -474,6 +487,32 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_color",
+        "type": "string"
+      }
+    ],
+    "name": "mintFreg",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string[]",
+        "name": "_colors",
+        "type": "string[]"
+      }
+    ],
+    "name": "mintFregBatch",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -513,32 +552,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_color",
-        "type": "string"
-      }
-    ],
-    "name": "mintPepeKitty",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string[]",
-        "name": "_colors",
-        "type": "string[]"
-      }
-    ],
-    "name": "mintPepeKittyBatch",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -583,19 +596,6 @@
     "name": "ownerMint",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "pepeKitties",
-    "outputs": [
-      {
-        "internalType": "contract IPepeKitties",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -705,6 +705,19 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "_fregs",
+        "type": "address"
+      }
+    ],
+    "name": "setFregs",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "_max",
         "type": "uint256"
@@ -737,19 +750,6 @@
       }
     ],
     "name": "setMintPassSaleActive",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_pepeKitties",
-        "type": "address"
-      }
-    ],
-    "name": "setPepeKitties",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-interface IPepeKitties {
+interface IFregs {
     function ownerOf(uint256 tokenId) external view returns (address);
     function rerollHead(uint256 tokenId, address sender) external;
     function setSpecialSkin(uint256 tokenId, uint256 _specialSkin, address sender) external;
@@ -26,7 +26,7 @@ interface IERC721 {
     function safeTransferFrom(address from, address to, uint256 tokenId) external;
 }
 
-contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
+contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     using Strings for uint256;
 
     // Item type constants
@@ -38,14 +38,14 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
     uint256 public constant TREASURE_CHEST = 6;
     uint256 public constant BEAD_PUNK = 7;      // External NFT reward
 
-    IPepeKitties public pepeKitties;
+    IFregs public fregs;
     ISVGItemsRenderer public svgRenderer;
     IERC721 public beadPunksContract;
 
     uint256 private _tokenIdCounter;
     uint256 private randomNonce;
 
-    // Track which kitties have claimed items
+    // Track which fregs have claimed items
     mapping(uint256 => bool) public hasClaimed;
 
     // Item type for each token
@@ -66,7 +66,7 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
 
     // Events
     event ItemClaimed(
-        uint256 indexed kittyId,
+        uint256 indexed fregId,
         uint256 indexed itemTokenId,
         address indexed owner,
         uint256 itemType
@@ -74,20 +74,20 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
 
     event ColorChangeUsed(
         uint256 indexed itemTokenId,
-        uint256 indexed kittyId,
+        uint256 indexed fregId,
         address indexed owner,
         string newColor
     );
 
     event HeadRerollUsed(
         uint256 indexed itemTokenId,
-        uint256 indexed kittyId,
+        uint256 indexed fregId,
         address indexed owner
     );
 
     event SpecialSkinItemUsed(
         uint256 indexed itemTokenId,
-        uint256 indexed kittyId,
+        uint256 indexed fregId,
         address indexed owner,
         uint256 specialSkin
     );
@@ -104,7 +104,7 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
     );
 
     event BeadPunkClaimed(
-        uint256 indexed kittyId,
+        uint256 indexed fregId,
         uint256 indexed beadPunkTokenId,
         address indexed owner
     );
@@ -114,13 +114,13 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
         uint96 royaltyFeeNumerator_,
         string memory name_,
         string memory symbol_,
-        address _pepeKitties
+        address _fregs
     )
         ERC721AC(name_, symbol_)
         BasicRoyalties(royaltyReceiver_, royaltyFeeNumerator_)
         Ownable(address(msg.sender))
     {
-        pepeKitties = IPepeKitties(_pepeKitties);
+        fregs = IFregs(_fregs);
     }
 
     function _baseURI() internal pure override returns (string memory) {
@@ -174,11 +174,11 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
     }
 
     function _getItemDescription(uint256 _itemType) internal pure returns (string memory) {
-        if (_itemType == COLOR_CHANGE) return "Change your Pepe Kitty's body color to any hex color";
-        if (_itemType == HEAD_REROLL) return "Use this item to reroll your Pepe Kitty's head trait";
-        if (_itemType == BRONZE_SKIN) return "Apply a bronze skin to your Pepe Kitty";
-        if (_itemType == SILVER_SKIN) return "Apply a silver skin to your Pepe Kitty";
-        if (_itemType == GOLD_SKIN) return "Apply a golden skin to your Pepe Kitty";
+        if (_itemType == COLOR_CHANGE) return "Change your Freg's body color to any hex color";
+        if (_itemType == HEAD_REROLL) return "Use this item to reroll your Freg's head trait";
+        if (_itemType == BRONZE_SKIN) return "Apply a bronze skin to your Freg";
+        if (_itemType == SILVER_SKIN) return "Apply a silver skin to your Freg";
+        if (_itemType == GOLD_SKIN) return "Apply a golden skin to your Freg";
         if (_itemType == TREASURE_CHEST) return "Burn this chest to claim ETH rewards";
         return "Unknown item";
     }
@@ -208,11 +208,11 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
 
     // ============ Claim Item ============
 
-    function claimItem(uint256 kittyId) external nonReentrant {
-        require(pepeKitties.ownerOf(kittyId) == msg.sender, "Not kitty owner");
-        require(!hasClaimed[kittyId], "Already claimed");
+    function claimItem(uint256 fregId) external nonReentrant {
+        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
+        require(!hasClaimed[fregId], "Already claimed");
 
-        hasClaimed[kittyId] = true;
+        hasClaimed[fregId] = true;
 
         // Check if we have any Bead Punks available
         bool hasBeadPunks = address(beadPunksContract) != address(0) &&
@@ -237,9 +237,9 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
                 // Transfer a Bead Punk to the user
                 uint256 beadPunkTokenId = beadPunksContract.tokenOfOwnerByIndex(address(this), 0);
                 beadPunksContract.safeTransferFrom(address(this), msg.sender, beadPunkTokenId);
-                emit BeadPunkClaimed(kittyId, beadPunkTokenId, msg.sender);
+                emit BeadPunkClaimed(fregId, beadPunkTokenId, msg.sender);
                 // Also emit ItemClaimed for consistency with BEAD_PUNK type
-                emit ItemClaimed(kittyId, beadPunkTokenId, msg.sender, BEAD_PUNK);
+                emit ItemClaimed(fregId, beadPunkTokenId, msg.sender, BEAD_PUNK);
                 return;
             }
         }
@@ -271,7 +271,7 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
         _tokenIdCounter += 1;
         itemType[newItemId] = newItemType;
 
-        emit ItemClaimed(kittyId, newItemId, msg.sender, newItemType);
+        emit ItemClaimed(fregId, newItemId, msg.sender, newItemType);
     }
 
     function _getRandom(uint256 max) internal returns (uint256) {
@@ -292,31 +292,31 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
 
     // ============ Use Items ============
 
-    function useColorChange(uint256 itemTokenId, uint256 kittyId, string memory newColor) external nonReentrant {
+    function useColorChange(uint256 itemTokenId, uint256 fregId, string memory newColor) external nonReentrant {
         require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
         require(itemType[itemTokenId] == COLOR_CHANGE, "Not a color change item");
-        require(pepeKitties.ownerOf(kittyId) == msg.sender, "Not kitty owner");
+        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
 
         _burn(itemTokenId);
-        pepeKitties.setBodyColor(kittyId, newColor, msg.sender);
+        fregs.setBodyColor(fregId, newColor, msg.sender);
 
-        emit ColorChangeUsed(itemTokenId, kittyId, msg.sender, newColor);
+        emit ColorChangeUsed(itemTokenId, fregId, msg.sender, newColor);
     }
 
-    function useHeadReroll(uint256 itemTokenId, uint256 kittyId) external nonReentrant {
+    function useHeadReroll(uint256 itemTokenId, uint256 fregId) external nonReentrant {
         require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
         require(itemType[itemTokenId] == HEAD_REROLL, "Not a head reroll item");
-        require(pepeKitties.ownerOf(kittyId) == msg.sender, "Not kitty owner");
+        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
 
         _burn(itemTokenId);
-        pepeKitties.rerollHead(kittyId, msg.sender);
+        fregs.rerollHead(fregId, msg.sender);
 
-        emit HeadRerollUsed(itemTokenId, kittyId, msg.sender);
+        emit HeadRerollUsed(itemTokenId, fregId, msg.sender);
     }
 
-    function useSpecialSkinItem(uint256 itemTokenId, uint256 kittyId) external nonReentrant {
+    function useSpecialSkinItem(uint256 itemTokenId, uint256 fregId) external nonReentrant {
         require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
-        require(pepeKitties.ownerOf(kittyId) == msg.sender, "Not kitty owner");
+        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
 
         uint256 iType = itemType[itemTokenId];
         require(
@@ -331,9 +331,9 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
         else specialSkinValue = 3; // GOLD_SKIN
 
         _burn(itemTokenId);
-        pepeKitties.setSpecialSkin(kittyId, specialSkinValue, msg.sender);
+        fregs.setSpecialSkin(fregId, specialSkinValue, msg.sender);
 
-        emit SpecialSkinItemUsed(itemTokenId, kittyId, msg.sender, specialSkinValue);
+        emit SpecialSkinItemUsed(itemTokenId, fregId, msg.sender, specialSkinValue);
 
         // If gold skin, also mint a treasure chest
         if (iType == GOLD_SKIN && treasureChestCount < MAX_TREASURE_CHESTS) {
@@ -362,8 +362,8 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
 
     // ============ Owner Functions ============
 
-    function setPepeKitties(address _pepeKitties) external onlyOwner {
-        pepeKitties = IPepeKitties(_pepeKitties);
+    function setFregs(address _fregs) external onlyOwner {
+        fregs = IFregs(_fregs);
     }
 
     function setSVGRenderer(address _svgRenderer) external onlyOwner {
@@ -449,14 +449,14 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
         return (tokenIds, types);
     }
 
-    function getUnclaimedKitties(address owner) external view returns (uint256[] memory) {
-        uint256 kittySupply = pepeKitties.totalMinted();
+    function getUnclaimedFregs(address owner) external view returns (uint256[] memory) {
+        uint256 fregSupply = fregs.totalMinted();
         uint256 count = 0;
 
         // First pass: count unclaimed
-        for (uint256 i = 0; i < kittySupply; i++) {
-            try pepeKitties.ownerOf(i) returns (address kittyOwner) {
-                if (kittyOwner == owner && !hasClaimed[i]) {
+        for (uint256 i = 0; i < fregSupply; i++) {
+            try fregs.ownerOf(i) returns (address fregOwner) {
+                if (fregOwner == owner && !hasClaimed[i]) {
                     count++;
                 }
             } catch {
@@ -467,9 +467,9 @@ contract PepeKittiesItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard 
         // Second pass: collect IDs
         uint256[] memory unclaimed = new uint256[](count);
         uint256 index = 0;
-        for (uint256 i = 0; i < kittySupply && index < count; i++) {
-            try pepeKitties.ownerOf(i) returns (address kittyOwner) {
-                if (kittyOwner == owner && !hasClaimed[i]) {
+        for (uint256 i = 0; i < fregSupply && index < count; i++) {
+            try fregs.ownerOf(i) returns (address fregOwner) {
+                if (fregOwner == owner && !hasClaimed[i]) {
                     unclaimed[index] = i;
                     index++;
                 }

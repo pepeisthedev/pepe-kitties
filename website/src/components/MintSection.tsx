@@ -6,7 +6,7 @@ import PepeSvg from "./PepeSvg"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
-import { Sparkles, Zap, Palette, CheckCircle, XCircle } from "lucide-react"
+import { Sparkles, Zap, Palette, CheckCircle, XCircle, Gift } from "lucide-react"
 import { useContractData, useContracts, useOwnedKitties, useUnclaimedKitties } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import KittyRenderer from "./KittyRenderer"
@@ -64,7 +64,6 @@ export default function MintSection(): React.JSX.Element {
 
     const [skinColor, setSkinColor] = useState<string>("#7CB342")
     const [hue, setHue] = useState<number>(120)
-    const [mintType, setMintType] = useState<"paid" | "free">("paid")
     const [mintStatus, setMintStatus] = useState<MintStatus>('idle')
     const [errorMessage, setErrorMessage] = useState("")
     const [mintedKitty, setMintedKitty] = useState<{
@@ -78,15 +77,19 @@ export default function MintSection(): React.JSX.Element {
 
     const paletteColors = generatePalette(hue)
 
-    const parseKittyMintedEvent = (receipt: any) => {
-        const contract = contracts!.pepeKitties.read
+    // Check if user has mint passes for free mint
+    const hasMintPass = contractData && contractData.userMintPassBalance > 0
+    const mintPassCount = contractData?.userMintPassBalance || 0
+
+    const parseFregMintedEvent = (receipt: any) => {
+        const contract = contracts!.fregs.read
         for (const log of receipt.logs) {
             try {
                 const parsed = contract.interface.parseLog({
                     topics: log.topics as string[],
                     data: log.data
                 })
-                if (parsed?.name === "KittyMinted") {
+                if (parsed?.name === "FregMinted") {
                     return {
                         tokenId: Number(parsed.args.tokenId),
                         bodyColor: parsed.args.bodyColor,
@@ -97,13 +100,13 @@ export default function MintSection(): React.JSX.Element {
                     }
                 }
             } catch {
-                // Not a KittyMinted event, continue
+                // Not a FregMinted event, continue
             }
         }
         return null
     }
 
-    const handlePaidMint = async () => {
+    const handleMint = async () => {
         if (!isConnected) { open(); return }
         if (!contracts || !contractData) return
 
@@ -112,37 +115,20 @@ export default function MintSection(): React.JSX.Element {
         setErrorMessage("")
 
         try {
-            const contract = await contracts.pepeKitties.write()
-            const tx = await contract.mint(skinColor, { value: parseEther(contractData.mintPrice) })
+            let tx
+            if (hasMintPass) {
+                // Free mint using mint pass
+                const contract = await contracts.mintPass.write()
+                tx = await contract.mintFreg(skinColor)
+            } else {
+                // Paid mint
+                const contract = await contracts.fregs.write()
+                tx = await contract.mint(skinColor, { value: parseEther(contractData.mintPrice) })
+            }
+
             setMintStatus('confirming')
             const receipt = await tx.wait()
-            const kitty = parseKittyMintedEvent(receipt)
-            setMintedKitty(kitty)
-            setMintStatus('success')
-            // Refresh all relevant data
-            refetch()
-            refetchKitties()
-            refetchUnclaimed()
-        } catch (err: any) {
-            setErrorMessage(err.message || "Minting failed")
-            setMintStatus('error')
-        }
-    }
-
-    const handleFreeMint = async () => {
-        if (!isConnected) { open(); return }
-        if (!contracts || !contractData || contractData.userMintPassBalance < 1) return
-
-        setMintStatus('pending')
-        setMintedKitty(null)
-        setErrorMessage("")
-
-        try {
-            const contract = await contracts.mintPass.write()
-            const tx = await contract.mintPepeKitty(skinColor)
-            setMintStatus('confirming')
-            const receipt = await tx.wait()
-            const kitty = parseKittyMintedEvent(receipt)
+            const kitty = parseFregMintedEvent(receipt)
             setMintedKitty(kitty)
             setMintStatus('success')
             // Refresh all relevant data
@@ -157,11 +143,6 @@ export default function MintSection(): React.JSX.Element {
 
     const closeModal = () => {
         setMintStatus('idle')
-    }
-
-    const handleMint = () => {
-        if (mintType === "free") handleFreeMint()
-        else handlePaidMint()
     }
 
     const handleColorInput = (value: string) => {
@@ -183,9 +164,9 @@ export default function MintSection(): React.JSX.Element {
         <Section id="mint">
             <div className="text-center mb-12">
                 <h2 className="font-bangers text-5xl md:text-7xl text-lime-400  mb-4">
-                    MINT YOUR PEPE KITTY
+                    MINT YOUR FREG
                 </h2>
-       
+
             </div>
 
             <div className="grid md:grid-cols-2 gap-8 items-stretch">
@@ -197,44 +178,34 @@ export default function MintSection(): React.JSX.Element {
                                 color={skinColor}
                                 className="w-full h-full object-contain hover:animate-jackpot transition-transform"
                             />
-                        
+
                         </div>
 
-                
+
                     </CardContent>
                 </Card>
 
                 {/* Mint Controls */}
                 <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl backdrop-blur-sm h-full flex flex-col">
                     <CardContent className="p-8 space-y-6 flex-1">
-                            {/* Mint Type Toggle */}
-                            {contractData && contractData.userMintPassBalance > 0 && (
-                                <div className="flex justify-center gap-2 mb-4">
-                                    <Button
-                                        onClick={() => setMintType("paid")}
-                                        className={`px-4 py-2 rounded-xl font-bangers ${mintType === "paid" ? "bg-lime-500 text-black" : "bg-white/10 text-white"}`}
-                                    >
-                                        Paid Mint
-                                    </Button>
-                                    <Button
-                                        onClick={() => setMintType("free")}
-                                        className={`px-4 py-2 rounded-xl font-bangers ${mintType === "free" ? "bg-lime-500 text-black" : "bg-white/10 text-white"}`}
-                                    >
-                                        Free Mint ({contractData.userMintPassBalance} passes)
-                                    </Button>
-                                </div>
-                            )}
-
                             {/* Price Display */}
                             <div className="text-center">
                                 <p className="font-righteous text-white/70 text-lg mb-2">
-                                    {mintType === "free" ? "Free with Mint Pass" : "Price"}
+                                    Price
                                 </p>
                                 <div className="font-bangers text-4xl text-lime-400">
                                     {dataLoading ? (
                                         <LoadingSpinner size="sm" />
-                                    ) : mintType === "free" ? (
-                                        <span>FREE</span>
+                                    ) : hasMintPass ? (
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <Gift className="w-8 h-8" />
+                                                <span>FREE</span>
+                                            </div>
+                                            <span className="text-base text-white/60 font-righteous">
+                                                with Mint Pass ({mintPassCount} remaining)
+                                            </span>
+                                        </div>
                                     ) : (
                                         <span className="animate-count-up">{contractData?.mintPrice || "0"} ETH</span>
                                     )}
@@ -359,9 +330,18 @@ export default function MintSection(): React.JSX.Element {
                                     shadow-lg hover:shadow-lime-400/50
                                     disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                             >
-                                <Sparkles className="w-6 h-6 mr-2" />
-                                {isConnected ? (mintType === "free" ? "MINT FREE!" : `MINT (${contractData?.mintPrice || "0"} ETH)`) : "CONNECT TO MINT"}
-                                <Zap className="w-6 h-6 ml-2" />
+                                {hasMintPass ? (
+                                    <>
+                                        <Gift className="w-6 h-6 mr-2" />
+                                        {isConnected ? "MINT FREE!" : "CONNECT TO MINT"}
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-6 h-6 mr-2" />
+                                        {isConnected ? `MINT (${contractData?.mintPrice || "0"} ETH)` : "CONNECT TO MINT"}
+                                        <Zap className="w-6 h-6 ml-2" />
+                                    </>
+                                )}
                             </Button>
                     </CardContent>
                 </Card>
@@ -403,7 +383,7 @@ export default function MintSection(): React.JSX.Element {
                                     Confirm Transaction
                                 </DialogTitle>
                                 <DialogDescription className="font-righteous text-white/70 text-base mt-2">
-                                    Confirm the transaction in your wallet to mint your Pepe Kitty
+                                    Confirm the transaction in your wallet to mint your Freg
                                 </DialogDescription>
                             </>
                         )}
@@ -418,7 +398,7 @@ export default function MintSection(): React.JSX.Element {
                                     Minting...
                                 </DialogTitle>
                                 <DialogDescription className="font-righteous text-white/70 text-base mt-2">
-                                    Your Pepe Kitty is being minted. Please wait...
+                                    Your Freg is being minted. Please wait...
                                 </DialogDescription>
                             </>
                         )}
@@ -433,7 +413,7 @@ export default function MintSection(): React.JSX.Element {
                                     Success!
                                 </DialogTitle>
                                 <DialogDescription className="font-righteous text-white/70 text-base mt-2 text-center">
-                                    Pepe Kitty #{mintedKitty?.tokenId ?? '?'} has been minted!
+                                    Freg #{mintedKitty?.tokenId ?? '?'} has been minted!
                                 </DialogDescription>
                             </>
                         )}

@@ -97,7 +97,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
                     CLAIM ITEMS
                 </h2>
                 <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
-                    Each Pepe Kitty can claim one random item!
+                    Each Freg can claim one random item!
                 </p>
             </div>
 
@@ -168,7 +168,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
                         >
                             <CardContent className="p-4 text-center">
                                 <p className="font-bangers text-lg text-purple-400 mb-3">
-                                    Kitty #{kittyId}
+                                    Freg #{kittyId}
                                 </p>
                                 <Button
                                     onClick={() => handleClaim(kittyId)}

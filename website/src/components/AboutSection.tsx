@@ -7,7 +7,7 @@ const features = [
     {
         icon: Rocket,
         title: "TO THE MOON",
-        description: "Each Pepe Kitty is your ticket to the meme economy. Diamond paws only! 💎🐾",
+        description: "Each Freg is your ticket to the meme economy. Diamond paws only!",
         color: "text-lime-400",
     },
     {
@@ -18,14 +18,14 @@ const features = [
     },
     {
         icon: Users,
-        title: "10K UNIQUE KITTIES",
-        description: "Algorithmically generated with over 200 traits. No two Pepe Kitties are alike!",
+        title: "10K UNIQUE FREGS",
+        description: "Algorithmically generated with over 200 traits. No two Fregs are alike!",
         color: "text-lime-400",
     },
     {
         icon: Flame,
         title: "RARE TRAITS",
-        description: "Legendary, epic, and rare traits that make your kitty extra spicy. Much wow!",
+        description: "Legendary, epic, and rare traits that make your Freg extra spicy. Much wow!",
         color: "text-lime-400",
     },
 ]
@@ -35,7 +35,7 @@ export default function AboutSection(): React.JSX.Element {
         <Section id="about">
             <div className="text-center mb-16">
                 <h2 className="font-bangers text-5xl md:text-7xl text-lime-400  mb-4">
-                    🚀 WHY PEPE KITTIES? 🚀
+                    WHY FREGS?
                 </h2>
                 <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
                     Because the internet demanded the ultimate crossover. Memes + Cats = Inevitable.
@@ -95,7 +95,7 @@ export default function AboutSection(): React.JSX.Element {
                 <div className="inline-block px-8 py-4 bg-black/40 border-4 border-dashed border-lime-400/50 rounded-2xl">
                     <p className="font-bangers text-2xl text-lime-400 mb-2">🔮 COMING SOON 🔮</p>
                     <p className="font-righteous text-white/70">
-                        Staking • Breeding • Pepe Kitty Metaverse • More Chaos!
+                        Staking • Breeding • Freg Metaverse • More Chaos!
                     </p>
                 </div>
             </div>

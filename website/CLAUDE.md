@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Pepe Kitties is a Web3 DApp for NFT minting on the Base blockchain. Built with React 19, Vite, and Reown AppKit (formerly WalletConnect) for wallet integration.
+Fregs is a Web3 DApp for NFT minting on the Base blockchain. Built with React 19, Vite, and Reown AppKit (formerly WalletConnect) for wallet integration.
 
 ## Commands
 

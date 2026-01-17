@@ -2,12 +2,12 @@ import { useMemo } from "react"
 import { useAppKitProvider } from "@reown/appkit/react"
 import { BrowserProvider, Contract } from "ethers"
 import {
-  PEPE_KITTIES_ADDRESS,
-  PEPE_KITTIES_ITEMS_ADDRESS,
-  PEPE_KITTIES_MINTPASS_ADDRESS,
-  PepeKittiesABI,
-  PepeKittiesItemsABI,
-  PepeKittiesMintPassABI,
+  FREGS_ADDRESS,
+  FREGS_ITEMS_ADDRESS,
+  FREGS_MINTPASS_ADDRESS,
+  FregsABI,
+  FregsItemsABI,
+  FregsMintPassABI,
 } from "../config/contracts"
 
 export function useContracts() {
@@ -21,25 +21,25 @@ export function useContracts() {
     return {
       provider,
       getSigner: async () => provider.getSigner(),
-      pepeKitties: {
-        read: new Contract(PEPE_KITTIES_ADDRESS, PepeKittiesABI, provider),
+      fregs: {
+        read: new Contract(FREGS_ADDRESS, FregsABI, provider),
         write: async () => {
           const signer = await provider.getSigner()
-          return new Contract(PEPE_KITTIES_ADDRESS, PepeKittiesABI, signer)
+          return new Contract(FREGS_ADDRESS, FregsABI, signer)
         },
       },
       items: {
-        read: new Contract(PEPE_KITTIES_ITEMS_ADDRESS, PepeKittiesItemsABI, provider),
+        read: new Contract(FREGS_ITEMS_ADDRESS, FregsItemsABI, provider),
         write: async () => {
           const signer = await provider.getSigner()
-          return new Contract(PEPE_KITTIES_ITEMS_ADDRESS, PepeKittiesItemsABI, signer)
+          return new Contract(FREGS_ITEMS_ADDRESS, FregsItemsABI, signer)
         },
       },
       mintPass: {
-        read: new Contract(PEPE_KITTIES_MINTPASS_ADDRESS, PepeKittiesMintPassABI, provider),
+        read: new Contract(FREGS_MINTPASS_ADDRESS, FregsMintPassABI, provider),
         write: async () => {
           const signer = await provider.getSigner()
-          return new Contract(PEPE_KITTIES_MINTPASS_ADDRESS, PepeKittiesMintPassABI, signer)
+          return new Contract(FREGS_MINTPASS_ADDRESS, FregsMintPassABI, signer)
         },
       },
     }

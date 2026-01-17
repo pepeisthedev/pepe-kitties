@@ -11,10 +11,10 @@ interface ISVGTraitRenderer {
     function meta(uint256 traitId) external view returns (string memory);
 }
 
-contract PepeKittiesSVGRenderer is Ownable {
+contract FregsSVGRenderer is Ownable {
     using Strings for uint256;
 
-    // Trait type constants (must match PepeKitties.sol)
+    // Trait type constants (must match Fregs.sol)
     uint256 public constant TRAIT_HEAD = 1;
     uint256 public constant TRAIT_MOUTH = 2;
     uint256 public constant TRAIT_BELLY = 3;
@@ -36,7 +36,7 @@ contract PepeKittiesSVGRenderer is Ownable {
     // ============ Main Render Function ============
 
     /**
-     * @notice Renders the complete SVG for a Pepe Kitty
+     * @notice Renders the complete SVG for a Freg
      * @dev If specialSkin > 0, renders: special_skin + head + mouth
      *      Otherwise renders: body (with color) + belly + head + mouth
      */

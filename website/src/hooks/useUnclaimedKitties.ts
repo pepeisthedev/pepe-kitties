@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from "react"
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react"
 import { BrowserProvider, Contract } from "ethers"
 import {
-  PEPE_KITTIES_ITEMS_ADDRESS,
-  PepeKittiesItemsABI,
+  FREGS_ITEMS_ADDRESS,
+  FregsItemsABI,
 } from "../config/contracts"
 
 export function useUnclaimedKitties() {
@@ -25,15 +25,15 @@ export function useUnclaimedKitties() {
 
     try {
       const provider = new BrowserProvider(walletProvider as any)
-      const contract = new Contract(PEPE_KITTIES_ITEMS_ADDRESS, PepeKittiesItemsABI, provider)
+      const contract = new Contract(FREGS_ITEMS_ADDRESS, FregsItemsABI, provider)
 
-      const result = await contract.getUnclaimedKitties(address)
+      const result = await contract.getUnclaimedFregs(address)
       const ids = result.map((id: bigint) => Number(id))
 
       setUnclaimedIds(ids)
     } catch (err) {
-      console.error("Error fetching unclaimed kitties:", err)
-      setError(err instanceof Error ? err.message : "Failed to fetch unclaimed kitties")
+      console.error("Error fetching unclaimed fregs:", err)
+      setError(err instanceof Error ? err.message : "Failed to fetch unclaimed fregs")
     } finally {
       setIsLoading(false)
     }

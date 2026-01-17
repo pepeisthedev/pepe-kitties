@@ -95,7 +95,7 @@ export default function MyKittiesSection(): React.JSX.Element {
         <Section id="my-kitties">
             <div className="text-center mb-12">
                 <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 mb-4">
-                    MY PEPE KITTIES
+                    MY FREGS
                 </h2>
     
             </div>
@@ -104,28 +104,28 @@ export default function MyKittiesSection(): React.JSX.Element {
                 <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl">
                     <CardContent className="p-12 text-center">
                         <p className="font-righteous text-xl text-white/70">
-                            Connect your wallet to see your Pepe Kitties
+                            Connect your wallet to see your Fregs
                         </p>
                     </CardContent>
                 </Card>
             ) : isLoading ? (
                 <div className="flex justify-center py-12">
-                    <LoadingSpinner size="lg" message="Loading your kitties..." />
+                    <LoadingSpinner size="lg" message="Loading your Fregs..." />
                 </div>
             ) : error ? (
                 <Card className="bg-black/40 border-4 border-red-400 rounded-3xl">
                     <CardContent className="p-12 text-center">
                         <p className="font-righteous text-xl text-red-400">
-                            Error loading kitties: {error}
+                            Error loading Fregs: {error}
                         </p>
                     </CardContent>
                 </Card>
             ) : kitties.length === 0 ? (
                 <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl">
                     <CardContent className="p-12 text-center">
-                        <p className="font-bangers text-3xl text-white/70 mb-4">No Kitties Yet!</p>
+                        <p className="font-bangers text-3xl text-white/70 mb-4">No Fregs Yet!</p>
                         <p className="font-righteous text-lg text-white/50">
-                            Mint your first Pepe Kitty above to start your collection
+                            Mint your first Freg above to start your collection
                         </p>
                     </CardContent>
                 </Card>
@@ -139,10 +139,10 @@ export default function MyKittiesSection(): React.JSX.Element {
                                     <Gift className="w-8 h-8 text-lime-400" />
                                     <div>
                                         <p className="font-bangers text-xl text-lime-400">
-                                            {claimableCount} {claimableCount === 1 ? 'Kitty' : 'Kitties'} can claim items!
+                                            {claimableCount} {claimableCount === 1 ? 'Freg' : 'Fregs'} can claim items!
                                         </p>
                                         <p className="font-righteous text-sm text-white/60">
-                                            Select a kitty with the gift icon to claim
+                                            Select a Freg with the gift icon to claim
                                         </p>
                                     </div>
                                 </div>
@@ -160,7 +160,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                     ) : (
                                         <>
                                             <Gift className="w-5 h-5 mr-2" />
-                                            {selectedCanClaim ? `Claim for #${selectedKittyId}` : "Select a Kitty"}
+                                            {selectedCanClaim ? `Claim for #${selectedKittyId}` : "Select a Freg"}
                                         </>
                                     )}
                                 </Button>

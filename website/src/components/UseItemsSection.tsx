@@ -93,7 +93,7 @@ export default function UseItemsSection(): React.JSX.Element {
     }
 
     const parseHeadRerolledEvent = (receipt: any): number | null => {
-        const contract = contracts!.pepeKitties.read
+        const contract = contracts!.fregs.read
         for (const log of receipt.logs) {
             try {
                 const parsed = contract.interface.parseLog({
@@ -153,7 +153,7 @@ export default function UseItemsSection(): React.JSX.Element {
 
             setResultKitty(updatedKitty)
 
-            let message = `${selectedItem.name} applied to Kitty #${selectedKitty.tokenId}!`
+            let message = `${selectedItem.name} applied to Freg #${selectedKitty.tokenId}!`
             if (selectedItem.itemType === ITEM_TYPES.GOLD_SKIN) {
                 message += " You also received a Treasure Chest!"
             }
@@ -182,7 +182,7 @@ export default function UseItemsSection(): React.JSX.Element {
                     USE ITEMS
                 </h2>
                 <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
-                    Select a kitty and an item to combine them!
+                    Select a Freg and an item to combine them!
                 </p>
             </div>
 
@@ -200,7 +200,7 @@ export default function UseItemsSection(): React.JSX.Element {
                     <Card className="bg-black/40 border-2 border-lime-400 rounded-2xl">
                         <CardContent className="p-4">
                             <p className="font-bangers text-xl text-lime-400 mb-4 text-center">
-                                Select a Kitty
+                                Select a Freg
                             </p>
                             {kittiesLoading ? (
                                 <div className="flex justify-center py-8">

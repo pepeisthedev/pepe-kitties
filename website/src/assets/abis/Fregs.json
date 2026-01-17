@@ -364,31 +364,6 @@
         "type": "uint256"
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "oldHead",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newHead",
-        "type": "uint256"
-      }
-    ],
-    "name": "HeadRerolled",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
         "indexed": true,
         "internalType": "address",
         "name": "owner",
@@ -425,7 +400,32 @@
         "type": "uint256"
       }
     ],
-    "name": "KittyMinted",
+    "name": "FregMinted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "oldHead",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newHead",
+        "type": "uint256"
+      }
+    ],
+    "name": "HeadRerolled",
     "type": "event"
   },
   {
@@ -791,7 +791,7 @@
         "type": "address"
       }
     ],
-    "name": "getOwnedKitties",
+    "name": "getOwnedFregs",
     "outputs": [
       {
         "internalType": "uint256[]",

@@ -7,20 +7,20 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-interface IPepeKitties {
+interface IFregs {
     function freeMint(string memory _color, address _sender) external;
 }
 
-contract PepeKittiesMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
+contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     using Strings for uint256;
 
     // Token ID for the mint pass (ERC1155 can have multiple token types)
     uint256 public constant MINT_PASS = 1;
 
-    IPepeKitties public pepeKitties;
+    IFregs public fregs;
 
-    string public name = "Pepe Kitties Mint Pass";
-    string public symbol = "PKMINTPASS";
+    string public name = "Fregs Mint Pass";
+    string public symbol = "FREGMINTPASS";
 
     // Mint pass configuration
     uint256 public mintPassPrice = 0.0005 ether;
@@ -30,7 +30,7 @@ contract PepeKittiesMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGua
 
     // Events
     event MintPassPurchased(address indexed buyer, uint256 amount);
-    event PepeKittyMinted(address indexed user, string color);
+    event FregMinted(address indexed user, string color);
 
     constructor(string memory uri_) ERC1155(uri_) Ownable(msg.sender) {}
 
@@ -48,42 +48,42 @@ contract PepeKittiesMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGua
         emit MintPassPurchased(msg.sender, amount);
     }
 
-    // ============ Use Mint Pass to Mint PepeKitty ============
+    // ============ Use Mint Pass to Mint Freg ============
 
-    function mintPepeKitty(string memory _color) external nonReentrant {
+    function mintFreg(string memory _color) external nonReentrant {
         require(balanceOf(msg.sender, MINT_PASS) >= 1, "No mint pass");
-        require(address(pepeKitties) != address(0), "PepeKitties not set");
+        require(address(fregs) != address(0), "Fregs not set");
 
         // Burn the mint pass
         _burn(msg.sender, MINT_PASS, 1);
 
-        // Call freeMint on PepeKitties contract
-        pepeKitties.freeMint(_color, msg.sender);
+        // Call freeMint on Fregs contract
+        fregs.freeMint(_color, msg.sender);
 
-        emit PepeKittyMinted(msg.sender, _color);
+        emit FregMinted(msg.sender, _color);
     }
 
-    // Batch mint multiple kitties at once
-    function mintPepeKittyBatch(string[] memory _colors) external nonReentrant {
+    // Batch mint multiple fregs at once
+    function mintFregBatch(string[] memory _colors) external nonReentrant {
         uint256 amount = _colors.length;
         require(amount > 0, "Must mint at least 1");
         require(balanceOf(msg.sender, MINT_PASS) >= amount, "Not enough mint passes");
-        require(address(pepeKitties) != address(0), "PepeKitties not set");
+        require(address(fregs) != address(0), "Fregs not set");
 
         // Burn the mint passes
         _burn(msg.sender, MINT_PASS, amount);
 
-        // Mint each kitty
+        // Mint each freg
         for (uint256 i = 0; i < amount; i++) {
-            pepeKitties.freeMint(_colors[i], msg.sender);
-            emit PepeKittyMinted(msg.sender, _colors[i]);
+            fregs.freeMint(_colors[i], msg.sender);
+            emit FregMinted(msg.sender, _colors[i]);
         }
     }
 
     // ============ Owner Functions ============
 
-    function setPepeKitties(address _pepeKitties) external onlyOwner {
-        pepeKitties = IPepeKitties(_pepeKitties);
+    function setFregs(address _fregs) external onlyOwner {
+        fregs = IFregs(_fregs);
     }
 
     function setURI(string memory newuri) external onlyOwner {
@@ -159,8 +159,8 @@ contract PepeKittiesMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGua
 
     function _encodeMetadata() internal view returns (string memory) {
         bytes memory json = abi.encodePacked(
-            '{"name": "Pepe Kitties Mint Pass",',
-            '"description": "Use this pass to mint a free Pepe Kitty NFT with your chosen color!",',
+            '{"name": "Fregs Mint Pass",',
+            '"description": "Use this pass to mint a free Freg NFT with your chosen color!",',
             '"image": "data:image/svg+xml;base64,',
             _encodePlaceholderSVG(),
             '","attributes": [{"trait_type": "Type", "value": "Mint Pass"},',
@@ -176,7 +176,7 @@ contract PepeKittiesMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGua
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">',
             '<rect width="200" height="200" fill="#1a1a2e"/>',
             '<rect x="20" y="20" width="160" height="160" rx="20" fill="#16213e" stroke="#e94560" stroke-width="3"/>',
-            '<text x="100" y="90" text-anchor="middle" fill="#e94560" font-size="16" font-weight="bold">PEPE KITTIES</text>',
+            '<text x="100" y="90" text-anchor="middle" fill="#e94560" font-size="16" font-weight="bold">FREGS</text>',
             '<text x="100" y="120" text-anchor="middle" fill="#fff" font-size="14">MINT PASS</text>',
             '</svg>'
         );

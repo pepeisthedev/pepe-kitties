@@ -2,16 +2,16 @@ import { useState, useEffect, useCallback } from "react"
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react"
 import { BrowserProvider, Contract, formatEther } from "ethers"
 import {
-  PEPE_KITTIES_ADDRESS,
-  PEPE_KITTIES_ITEMS_ADDRESS,
-  PEPE_KITTIES_MINTPASS_ADDRESS,
-  PepeKittiesABI,
-  PepeKittiesItemsABI,
-  PepeKittiesMintPassABI,
+  FREGS_ADDRESS,
+  FREGS_ITEMS_ADDRESS,
+  FREGS_MINTPASS_ADDRESS,
+  FregsABI,
+  FregsItemsABI,
+  FregsMintPassABI,
 } from "../config/contracts"
 
 export interface ContractData {
-  // PepeKitties
+  // Fregs
   mintPrice: string
   supply: number
   totalMinted: number
@@ -51,9 +51,9 @@ export function useContractData() {
       const provider = new BrowserProvider(walletProvider as any)
 
       // Create contract instances
-      const pepeKitties = new Contract(PEPE_KITTIES_ADDRESS, PepeKittiesABI, provider)
-      const items = new Contract(PEPE_KITTIES_ITEMS_ADDRESS, PepeKittiesItemsABI, provider)
-      const mintPass = new Contract(PEPE_KITTIES_MINTPASS_ADDRESS, PepeKittiesMintPassABI, provider)
+      const fregs = new Contract(FREGS_ADDRESS, FregsABI, provider)
+      const items = new Contract(FREGS_ITEMS_ADDRESS, FregsItemsABI, provider)
+      const mintPass = new Contract(FREGS_MINTPASS_ADDRESS, FregsMintPassABI, provider)
 
       // Fetch all data in parallel
       const [
@@ -73,13 +73,13 @@ export function useContractData() {
         silverSkinWeight,
         goldSkinWeight,
       ] = await Promise.all([
-        pepeKitties.mintPrice(),
-        pepeKitties.supply(),
-        pepeKitties.totalMinted(),
+        fregs.mintPrice(),
+        fregs.supply(),
+        fregs.totalMinted(),
         mintPass.mintPassPrice(),
         mintPass.mintPassSaleActive(),
         mintPass.maxMintPasses(),
-        address ? mintPass.balanceOf(address, 0) : Promise.resolve(0n), // Token ID 0 for mint pass
+        address ? mintPass.balanceOf(address, 1) : Promise.resolve(0n), // Token ID 1 for mint pass (MINT_PASS constant)
         items.chestETHAmount(),
         items.treasureChestCount(),
         items.MAX_TREASURE_CHESTS(),
@@ -89,6 +89,13 @@ export function useContractData() {
         items.silverSkinWeight(),
         items.goldSkinWeight(),
       ])
+
+      console.log("Contract data fetched:", {
+        address,
+        userMintPassBalance: Number(userMintPassBalance),
+        mintPassSaleActive,
+        maxMintPasses: Number(maxMintPasses),
+      })
 
       setData({
         mintPrice: formatEther(mintPrice),
@@ -116,10 +123,10 @@ export function useContractData() {
   }, [walletProvider, address])
 
   useEffect(() => {
-    if (walletProvider) {
+    if (walletProvider && isConnected) {
       fetchData()
     }
-  }, [fetchData, walletProvider])
+  }, [fetchData, walletProvider, isConnected, address])
 
   return { data, isLoading, error, refetch: fetchData }
 }

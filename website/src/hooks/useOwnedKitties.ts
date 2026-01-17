@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react"
 import { BrowserProvider, Contract } from "ethers"
-import { PEPE_KITTIES_ADDRESS, PepeKittiesABI } from "../config/contracts"
+import { FREGS_ADDRESS, FregsABI } from "../config/contracts"
 
 export interface Kitty {
   tokenId: number
@@ -32,9 +32,9 @@ export function useOwnedKitties() {
 
     try {
       const provider = new BrowserProvider(walletProvider as any)
-      const contract = new Contract(PEPE_KITTIES_ADDRESS, PepeKittiesABI, provider)
+      const contract = new Contract(FREGS_ADDRESS, FregsABI, provider)
 
-      const result = await contract.getOwnedKitties(address)
+      const result = await contract.getOwnedFregs(address)
       const [tokenIds, bodyColors, heads, mouths, bellies, specialSkins, backgrounds] = result
 
       const kittyList: Kitty[] = tokenIds.map((id: bigint, i: number) => ({
@@ -50,8 +50,8 @@ export function useOwnedKitties() {
 
       setKitties(kittyList)
     } catch (err) {
-      console.error("Error fetching owned kitties:", err)
-      setError(err instanceof Error ? err.message : "Failed to fetch owned kitties")
+      console.error("Error fetching owned fregs:", err)
+      setError(err instanceof Error ? err.message : "Failed to fetch owned fregs")
     } finally {
       setIsLoading(false)
     }

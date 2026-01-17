@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from "react"
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react"
 import { BrowserProvider, Contract } from "ethers"
 import {
-  PEPE_KITTIES_ITEMS_ADDRESS,
-  PepeKittiesItemsABI,
+  FREGS_ITEMS_ADDRESS,
+  FregsItemsABI,
   ITEM_TYPE_NAMES,
 } from "../config/contracts"
 
@@ -32,7 +32,7 @@ export function useOwnedItems() {
 
     try {
       const provider = new BrowserProvider(walletProvider as any)
-      const contract = new Contract(PEPE_KITTIES_ITEMS_ADDRESS, PepeKittiesItemsABI, provider)
+      const contract = new Contract(FREGS_ITEMS_ADDRESS, FregsItemsABI, provider)
 
       const result = await contract.getOwnedItems(address)
       const [tokenIds, types] = result

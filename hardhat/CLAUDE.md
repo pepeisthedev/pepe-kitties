@@ -1,8 +1,8 @@
-# CLAUDE.md - Pepe Kitties Smart Contracts
+# CLAUDE.md - Fregs Smart Contracts
 
 ## Project Overview
 
-Solidity smart contracts for Pepe Kitties NFT project on Base blockchain. Uses ERC721AC (gas-efficient) with on-chain SVG rendering.
+Solidity smart contracts for Fregs NFT project on Base blockchain. Uses ERC721AC (gas-efficient) with on-chain SVG rendering.
 
 ## Commands
 
@@ -18,10 +18,10 @@ npx hardhat run scripts/deploy.ts --network base  # Deploy to Base
 
 | Contract | Type | Purpose |
 |----------|------|---------|
-| `PepeKitties.sol` | ERC721AC | Main NFT - stores traits, renders SVG |
-| `PepeKittiesItems.sol` | ERC721AC | Consumable items - special skins, head reroll, treasure chest |
-| `PepeKittiesMintPass.sol` | ERC1155 | Mint passes for free mints |
-| `PepeKittiesSVGRenderer.sol` | Ownable | SVG rendering with sub-contracts for each trait |
+| `Fregs.sol` | ERC721AC | Main NFT - stores traits, renders SVG |
+| `FregsItems.sol` | ERC721AC | Consumable items - special skins, head reroll, treasure chest |
+| `FregsMintPass.sol` | ERC1155 | Mint passes for free mints |
+| `FregsSVGRenderer.sol` | Ownable | SVG rendering with sub-contracts for each trait |
 
 ### Dependencies
 - `@limitbreak/creator-token-standards` - ERC721AC (gas-efficient ERC721A + creator royalties)
@@ -43,7 +43,7 @@ constructor(
 {}
 ```
 
-## PepeKitties.sol
+## Fregs.sol
 
 ### Traits (all public mappings)
 - `bodyColor[tokenId]` - Hex color string from mint (e.g., "#ff5733")
@@ -68,7 +68,7 @@ constructor(
 - `HeadRerolled(tokenId, oldHead, newHead)`
 - `SpecialSkinApplied(tokenId, specialSkin)`
 
-## PepeKittiesItems.sol
+## FregsItems.sol
 
 ### Item Types (constants)
 ```solidity
@@ -98,51 +98,51 @@ TREASURE_CHEST = 5  // Burnable for ETH
 - Max 5 treasure chests total (created when gold skin used)
 - `chestETHAmount` configurable by owner
 
-## PepeKittiesMintPass.sol
+## FregsMintPass.sol
 
 ### Key Functions
 - `purchaseMintPass(amount)` - Buy passes (configurable price)
-- `mintPepeKitty(color)` - Burns 1 pass, mints free kitty
-- `mintPepeKittyBatch(colors[])` - Batch mint multiple
+- `mintFregs(color)` - Burns 1 pass, mints free kitty
+- `mintFregsBatch(colors[])` - Batch mint multiple
 - `ownerMint(to, amount)` - Owner mints for giveaways
 - `airdrop(recipients[], amounts[])` - Batch airdrop
 
 ### Events
 - `MintPassPurchased(buyer, amount)`
-- `PepeKittyMinted(user, color)`
+- `FregsMinted(user, color)`
 
 ## Deployment Order
 
-1. Deploy `PepeKitties`
-2. Deploy `PepeKittiesItems` (pass PepeKitties address)
-3. Deploy `PepeKittiesMintPass`
+1. Deploy `Fregs`
+2. Deploy `FregsItems` (pass Fregs address)
+3. Deploy `FregsMintPass`
 4. Configure cross-references:
    ```solidity
-   pepeKitties.setItemsContract(itemsAddress)
-   pepeKitties.setMintPassContract(mintPassAddress)
-   mintPass.setPepeKitties(pepeKittiesAddress)
+   Fregs.setItemsContract(itemsAddress)
+   Fregs.setMintPassContract(mintPassAddress)
+   mintPass.setFregs(FregsAddress)
    ```
-5. Deploy SVG renderer and call `pepeKitties.setSVGRenderer(rendererAddress)`
+5. Deploy SVG renderer and call `Fregs.setSVGRenderer(rendererAddress)`
 6. Fund items contract for chest rewards: `items.depositETH{value: ...}()`
 
 ## Cross-Contract Communication
 
 ```
-MintPass.mintPepeKitty(color)
+MintPass.mintFregs(color)
     -> burns pass
-    -> calls PepeKitties.freeMint(color, user)
+    -> calls Fregs.freeMint(color, user)
 
 Items.useHeadReroll(itemId, kittyId)
     -> burns item
-    -> calls PepeKitties.rerollHead(kittyId, user)
+    -> calls Fregs.rerollHead(kittyId, user)
 
 Items.useSpecialSkinItem(itemId, kittyId)
     -> burns item
-    -> calls PepeKitties.setSpecialSkin(kittyId, specialSkin, user)
+    -> calls Fregs.setSpecialSkin(kittyId, specialSkin, user)
     -> if gold: mints treasure chest
 ```
 
-## PepeKittiesSVGRenderer.sol
+## FregsSVGRenderer.sol
 
 ### Architecture
 Uses sub-contracts for each trait type:
@@ -170,11 +170,11 @@ if (specialSkin > 0) {
 
 All have owner setter functions:
 
-**PepeKitties:**
+**Fregs:**
 - `mintPrice`, `supply`, `headTraitCount`, `mouthTraitCount`, `bellyTraitCount`
 
-**PepeKittiesItems:**
+**FregsItems:**
 - `chestETHAmount`, rarity weights via `setRarityWeights()`
 
-**PepeKittiesMintPass:**
+**FregsMintPass:**
 - `mintPassPrice`, `maxMintPasses`, `mintPassSaleActive`

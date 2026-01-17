@@ -23,7 +23,7 @@
       },
       {
         "internalType": "address",
-        "name": "_pepeKitties",
+        "name": "_fregs",
         "type": "address"
       }
     ],
@@ -290,13 +290,38 @@
       {
         "indexed": true,
         "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "beadPunkTokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "BeadPunkClaimed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
         "name": "itemTokenId",
         "type": "uint256"
       },
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "kittyId",
+        "name": "fregId",
         "type": "uint256"
       },
       {
@@ -377,7 +402,7 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "kittyId",
+        "name": "fregId",
         "type": "uint256"
       },
       {
@@ -396,7 +421,7 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "kittyId",
+        "name": "fregId",
         "type": "uint256"
       },
       {
@@ -452,7 +477,7 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "kittyId",
+        "name": "fregId",
         "type": "uint256"
       },
       {
@@ -583,6 +608,19 @@
     ],
     "name": "TreasureChestMinted",
     "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "BEAD_PUNK",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
     "inputs": [],
@@ -740,6 +778,32 @@
   },
   {
     "inputs": [],
+    "name": "beadPunkWeight",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "beadPunksContract",
+    "outputs": [
+      {
+        "internalType": "contract IERC721",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "bronzeSkinWeight",
     "outputs": [
       {
@@ -781,7 +845,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "kittyId",
+        "name": "fregId",
         "type": "uint256"
       }
     ],
@@ -811,6 +875,19 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "fregs",
+    "outputs": [
+      {
+        "internalType": "contract IFregs",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -824,6 +901,19 @@
         "internalType": "address",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAvailableBeadPunks",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -916,7 +1006,7 @@
         "type": "address"
       }
     ],
-    "name": "getUnclaimedKitties",
+    "name": "getUnclaimedFregs",
     "outputs": [
       {
         "internalType": "uint256[]",
@@ -1029,6 +1119,40 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "",
+        "type": "bytes"
+      }
+    ],
+    "name": "onERC721Received",
+    "outputs": [
+      {
+        "internalType": "bytes4",
+        "name": "",
+        "type": "bytes4"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "owner",
     "outputs": [
@@ -1053,19 +1177,6 @@
     "outputs": [
       {
         "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "pepeKitties",
-    "outputs": [
-      {
-        "internalType": "contract IPepeKitties",
         "name": "",
         "type": "address"
       }
@@ -1195,6 +1306,32 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "_weight",
+        "type": "uint256"
+      }
+    ],
+    "name": "setBeadPunkWeight",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_beadPunks",
+        "type": "address"
+      }
+    ],
+    "name": "setBeadPunksContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "_amount",
         "type": "uint256"
       }
@@ -1208,11 +1345,11 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_pepeKitties",
+        "name": "_fregs",
         "type": "address"
       }
     ],
-    "name": "setPepeKitties",
+    "name": "setFregs",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1437,7 +1574,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "kittyId",
+        "name": "fregId",
         "type": "uint256"
       },
       {
@@ -1460,7 +1597,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "kittyId",
+        "name": "fregId",
         "type": "uint256"
       }
     ],
@@ -1478,7 +1615,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "kittyId",
+        "name": "fregId",
         "type": "uint256"
       }
     ],

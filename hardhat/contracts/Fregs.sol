@@ -23,7 +23,7 @@ interface ISVGRenderer {
     function meta(uint256 _traitType, uint256 _traitId) external view returns (string memory);
 }
 
-contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
+contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     using Strings for uint256;
 
     ISVGRenderer public svgRenderer;
@@ -58,7 +58,7 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     uint256 public backgroundTraitCount = 1;
 
     // Events
-    event KittyMinted(
+    event FregMinted(
         uint256 indexed tokenId,
         address indexed owner,
         string bodyColor,
@@ -139,9 +139,9 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             bytes(
                 string(
                     abi.encodePacked(
-                        '{"name": "Pepe Kitty #',
+                        '{"name": "Freg #',
                         Strings.toString(tokenId),
-                        '","description": "Pepe Kitties - Customizable NFT Frogs on Base","image": "data:image/svg+xml;base64,',
+                        '","description": "Fregs - Customizable NFT Frogs on Base","image": "data:image/svg+xml;base64,',
                         Base64.encode(bytes(svg)),
                         '","attributes": [',
                         attributes,
@@ -179,7 +179,7 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         background[newTokenId] = _getRandom(backgroundTraitCount) + 1;
         specialSkin[newTokenId] = 0; // No special skin by default
 
-        emit KittyMinted(
+        emit FregMinted(
             newTokenId,
             msg.sender,
             _color,
@@ -209,7 +209,7 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         background[newTokenId] = _getRandomForAddress(backgroundTraitCount, _sender) + 1;
         specialSkin[newTokenId] = 0; // No special skin by default
 
-        emit KittyMinted(
+        emit FregMinted(
             newTokenId,
             _sender,
             _color,
@@ -344,7 +344,7 @@ contract PepeKitties is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         return _tokenIdCounter;
     }
 
-    function getOwnedKitties(address owner)
+    function getOwnedFregs(address owner)
         external
         view
         returns (

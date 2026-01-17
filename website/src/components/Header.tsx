@@ -11,7 +11,7 @@ interface HeaderProps {
 
 const navItems: { id: SectionId; label: string }[] = [
     { id: "mint", label: "Mint" },
-    { id: "my-kitties", label: "My Kitties" },
+    { id: "my-kitties", label: "My Fregs" },
     { id: "use-items", label: "Use Items" },
     { id: "treasure-chests", label: "Chests" },
     { id: "about", label: "About" },
@@ -46,12 +46,12 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                 {/* Logo */}
                 <div className="flex items-center gap-3">
                     <img
-                        src="/favicon.ico"
-                        alt="Pepe Kitty"
+                        src="/fregs.svg"
+                        alt="Fregs"
                         className="w-12 h-12 rounded-full border-3 border-lime-400 shadow-lg hover:animate-pulse-rainbow"
                     />
                     <h1 className="font-bangers text-xl md:text-4xl text-lime-400 text-comic-shadow tracking-wider">
-                        PEPE KITTIES
+                        FREGS
                     </h1>
                 </div>
 
