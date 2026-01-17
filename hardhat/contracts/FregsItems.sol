@@ -52,7 +52,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     mapping(uint256 => uint256) public itemType;
 
     // Treasure chest tracking
-    uint256 public treasureChestCount;
+    uint256 public treasureChestCount;      // Total chests ever found (max 5)
+    uint256 public chestsBurned;            // Total chests burned (for calculating active supply)
     uint256 public constant MAX_TREASURE_CHESTS = 5;
     uint256 public chestETHAmount = 0.1 ether;
 
@@ -63,6 +64,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     uint256 public silverSkinWeight = 1000;   // 10%
     uint256 public goldSkinWeight = 500;      // 5%
     uint256 public beadPunkWeight = 100;      // 1% - rare external NFT (only when available)
+    uint256 public treasureChestWeight = 50;  // 0.5% - ultra rare, max 5 ever
 
     // Events
     event ItemClaimed(
@@ -218,11 +220,17 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         bool hasBeadPunks = address(beadPunksContract) != address(0) &&
                            beadPunksContract.balanceOf(address(this)) > 0;
 
-        // Calculate total weight (only include Bead Punk weight if available)
+        // Check if treasure chests are still available (max 5 ever)
+        bool chestsAvailable = treasureChestCount < MAX_TREASURE_CHESTS;
+
+        // Calculate total weight (only include special items if available)
         uint256 totalWeight = colorChangeWeight + headRerollWeight + bronzeSkinWeight +
                               silverSkinWeight + goldSkinWeight;
         if (hasBeadPunks) {
             totalWeight += beadPunkWeight;
+        }
+        if (chestsAvailable) {
+            totalWeight += treasureChestWeight;
         }
 
         // Determine item type based on weighted random
@@ -240,6 +248,22 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
                 emit BeadPunkClaimed(fregId, beadPunkTokenId, msg.sender);
                 // Also emit ItemClaimed for consistency with BEAD_PUNK type
                 emit ItemClaimed(fregId, beadPunkTokenId, msg.sender, BEAD_PUNK);
+                return;
+            }
+        }
+
+        // Check for Treasure Chest (ultra rare, if still available)
+        if (chestsAvailable) {
+            cumulative += treasureChestWeight;
+            if (rand < cumulative) {
+                uint256 chestId = _tokenIdCounter;
+                _safeMint(msg.sender, 1);
+                _tokenIdCounter += 1;
+                itemType[chestId] = TREASURE_CHEST;
+                treasureChestCount += 1;
+
+                emit TreasureChestMinted(chestId, msg.sender);
+                emit ItemClaimed(fregId, chestId, msg.sender, TREASURE_CHEST);
                 return;
             }
         }
@@ -334,17 +358,6 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         fregs.setSpecialSkin(fregId, specialSkinValue, msg.sender);
 
         emit SpecialSkinItemUsed(itemTokenId, fregId, msg.sender, specialSkinValue);
-
-        // If gold skin, also mint a treasure chest
-        if (iType == GOLD_SKIN && treasureChestCount < MAX_TREASURE_CHESTS) {
-            uint256 chestId = _tokenIdCounter;
-            _safeMint(msg.sender, 1);
-            _tokenIdCounter += 1;
-            itemType[chestId] = TREASURE_CHEST;
-            treasureChestCount += 1;
-
-            emit TreasureChestMinted(chestId, msg.sender);
-        }
     }
 
     function burnChest(uint256 chestTokenId) external nonReentrant {
@@ -353,7 +366,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         require(address(this).balance >= chestETHAmount, "Insufficient contract balance");
 
         _burn(chestTokenId);
-        treasureChestCount -= 1;
+        chestsBurned += 1;
+        // Note: treasureChestCount is NOT decremented because it tracks total chests ever found (max 5)
 
         payable(msg.sender).transfer(chestETHAmount);
 
@@ -382,6 +396,10 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         beadPunkWeight = _weight;
     }
 
+    function setTreasureChestWeight(uint256 _weight) external onlyOwner {
+        treasureChestWeight = _weight;
+    }
+
     function setRarityWeights(
         uint256 _colorChange,
         uint256 _headReroll,
@@ -401,7 +419,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function withdrawExcess() external onlyOwner {
-        uint256 reserved = treasureChestCount * chestETHAmount;
+        uint256 activeChests = treasureChestCount - chestsBurned;
+        uint256 reserved = activeChests * chestETHAmount;
         require(address(this).balance > reserved, "No excess funds");
         payable(owner()).transfer(address(this).balance - reserved);
     }
@@ -417,6 +436,14 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     function getAvailableBeadPunks() public view returns (uint256) {
         if (address(beadPunksContract) == address(0)) return 0;
         return beadPunksContract.balanceOf(address(this));
+    }
+
+    function getActiveChestSupply() public view returns (uint256) {
+        return treasureChestCount - chestsBurned;
+    }
+
+    function getRemainingChests() public view returns (uint256) {
+        return MAX_TREASURE_CHESTS - treasureChestCount;
     }
 
     function getItemInfo(uint256 itemTokenId)

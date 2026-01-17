@@ -51,7 +51,7 @@ export default function TreasureChestSection(): React.JSX.Element {
                     TREASURE CHESTS
                 </h2>
                 <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
-                    Burn your treasure chests to claim ETH rewards!
+                    Burn your treasure chest to claim the reward!
                 </p>
             </div>
 
@@ -64,9 +64,16 @@ export default function TreasureChestSection(): React.JSX.Element {
                         <p className="font-bangers text-4xl text-lime-400">
                             {contractData.chestETHAmount} ETH
                         </p>
-                        <p className="font-righteous text-xs text-white/50 mt-3">
-                            {contractData.treasureChestCount} / {contractData.maxTreasureChests} chests in circulation
-                        </p>
+                        <div className="mt-4 pt-4 border-t border-lime-400/20">
+                            <p className="font-righteous text-sm text-white/70 mb-1">
+                                {contractData.remainingChests > 0 ? (
+                                    <><span className="text-lime-400 font-bold">{contractData.remainingChests}</span> chests still to be found</>
+                                ) : (
+                                    <span className="text-orange-400">All chests have been found!</span>
+                                )}
+                            </p>
+                     
+                        </div>
                     </CardContent>
                 </Card>
             )}
@@ -88,7 +95,7 @@ export default function TreasureChestSection(): React.JSX.Element {
                     <CardContent className="p-12 text-center">
                         <p className="font-bangers text-3xl text-white/70 mb-4">No Treasure Chests</p>
                         <p className="font-righteous text-lg text-white/50">
-                            Apply a Gold Skin to your kitty to receive a treasure chest!
+                            Treasure chests are ultra-rare drops when claiming items from your Fregs!
                         </p>
                     </CardContent>
                 </Card>

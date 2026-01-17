@@ -26,11 +26,14 @@ export interface ContractData {
   chestETHAmount: string
   treasureChestCount: number
   maxTreasureChests: number
+  activeChestSupply: number
+  remainingChests: number
   colorChangeWeight: number
   headRerollWeight: number
   bronzeSkinWeight: number
   silverSkinWeight: number
   goldSkinWeight: number
+  treasureChestWeight: number
 }
 
 export function useContractData() {
@@ -67,11 +70,14 @@ export function useContractData() {
         chestETHAmount,
         treasureChestCount,
         maxTreasureChests,
+        activeChestSupply,
+        remainingChests,
         colorChangeWeight,
         headRerollWeight,
         bronzeSkinWeight,
         silverSkinWeight,
         goldSkinWeight,
+        treasureChestWeight,
       ] = await Promise.all([
         fregs.mintPrice(),
         fregs.supply(),
@@ -83,11 +89,14 @@ export function useContractData() {
         items.chestETHAmount(),
         items.treasureChestCount(),
         items.MAX_TREASURE_CHESTS(),
+        items.getActiveChestSupply(),
+        items.getRemainingChests(),
         items.colorChangeWeight(),
         items.headRerollWeight(),
         items.bronzeSkinWeight(),
         items.silverSkinWeight(),
         items.goldSkinWeight(),
+        items.treasureChestWeight(),
       ])
 
       console.log("Contract data fetched:", {
@@ -108,11 +117,14 @@ export function useContractData() {
         chestETHAmount: formatEther(chestETHAmount),
         treasureChestCount: Number(treasureChestCount),
         maxTreasureChests: Number(maxTreasureChests),
+        activeChestSupply: Number(activeChestSupply),
+        remainingChests: Number(remainingChests),
         colorChangeWeight: Number(colorChangeWeight),
         headRerollWeight: Number(headRerollWeight),
         bronzeSkinWeight: Number(bronzeSkinWeight),
         silverSkinWeight: Number(silverSkinWeight),
         goldSkinWeight: Number(goldSkinWeight),
+        treasureChestWeight: Number(treasureChestWeight),
       })
     } catch (err) {
       console.error("Error fetching contract data:", err)
