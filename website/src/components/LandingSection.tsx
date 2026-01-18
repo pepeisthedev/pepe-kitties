@@ -20,7 +20,7 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                     playsInline
                     className="absolute inset-0 w-full h-full object-cover"
                 >
-                    <source src="/background-landing.MP4" type="video/mp4" />
+                    <source src="https://pub-59fac2662d16414c8202fc478b0c90b7.r2.dev/landing/background-landing.MP4" type="video/mp4" />
                 </video>
             ) : (
                 <>
@@ -32,7 +32,7 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                         playsInline
                         className="hidden md:block absolute inset-0 w-full h-full object-cover"
                     >
-                        <source src="https://doodles-core20230309024055214100000003.s3.us-east-1.amazonaws.com/landing-pages/homepage_video_build.mp4" type="video/mp4" />
+                        <source src="https://pub-59fac2662d16414c8202fc478b0c90b7.r2.dev/landing/homepage_video_build.mp4" type="video/mp4" />
                     </video>
 
                     {/* Mobile Video Background (9:16 aspect ratio) */}
@@ -43,7 +43,7 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                         playsInline
                         className="md:hidden absolute inset-0 w-full h-full object-cover"
                     >
-                        <source src="https://doodles-core20230309024055214100000003.s3.us-east-1.amazonaws.com/landing-pages/homepage_video_build_9x16.mp4" type="video/mp4" />
+                        <source src="https://pub-59fac2662d16414c8202fc478b0c90b7.r2.dev/landing/homepage_video_build_9x16.mp4" type="video/mp4" />
                     </video>
                 </>
             )}
