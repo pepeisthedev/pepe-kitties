@@ -81,7 +81,7 @@ function LinkCard({
             target="_blank"
             rel="noopener noreferrer"
             className={`${bgColor} rounded-3xl p-6 flex flex-col items-center justify-center
-                aspect-square md:aspect-auto
+                w-full h-full
                 hover:scale-105 transition-transform duration-300 cursor-pointer ${className}`}
         >
             <Icon className="w-10 h-10 md:w-14 md:h-14 text-black mb-3" />
@@ -243,49 +243,61 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                 style={{ background: 'linear-gradient(135deg, #134e4a 0%, #064e3b 25%, #14532d 50%, #1a2e05 100%)' }}
             >
                 <div className="max-w-6xl mx-auto">
-                    {/* Mobile Layout: 2 columns */}
-                    <div className="grid grid-cols-2 gap-4 md:hidden">
-                        {/* Video Card 1 - DoodleFreg */}
-                        <VideoCard
-                            src={`${VIDEO_BASE_URL}/DoodleFreg.MOV`}
-                            clickable={false}
-                        />
+                    {/* Mobile Layout: 2 columns staggered masonry */}
+                    <div
+                        className="grid grid-cols-2 gap-4 md:hidden"
+                        style={{
+                            gridTemplateRows: 'repeat(8, 80px)'
+                        }}
+                    >
+                        {/* Left column: DoodleFreg tall (rows 1-3), OpenSea square (rows 4-5), HoodieFreg tall (rows 6-8) */}
+                        <div style={{ gridColumn: 1, gridRow: '1 / 4' }}>
+                            <VideoCard
+                                src={`${VIDEO_BASE_URL}/DoodleFreg.MOV`}
+                                clickable={false}
+                                className="w-full h-full !aspect-auto"
+                            />
+                        </div>
+                        <div style={{ gridColumn: 1, gridRow: '4 / 6' }}>
+                            <LinkCard
+                                href={SOCIAL_LINKS.opensea}
+                                icon={OpenSeaLogo}
+                                label="OpenSea"
+                                bgColor="bg-emerald-400"
+                            />
+                        </div>
+                        <div style={{ gridColumn: 1, gridRow: '6 / 9' }}>
+                            <VideoCard
+                                src={`${VIDEO_BASE_URL}/HoodieFreg.MOV`}
+                                clickable={false}
+                                className="w-full h-full !aspect-auto"
+                            />
+                        </div>
 
-                        {/* X Link Card */}
-                        <LinkCard
-                            href={SOCIAL_LINKS.x}
-                            icon={XLogo}
-                            label="Follow on X"
-                            bgColor="bg-lime-400"
-                        />
-
-                        {/* OpenSea Link Card */}
-                        <LinkCard
-                            href={SOCIAL_LINKS.opensea}
-                            icon={OpenSeaLogo}
-                            label="OpenSea"
-                            bgColor="bg-emerald-400"
-                        />
-
-                        {/* Static Image Card */}
-                        <ImageCard
-                            src="/frogz/freg1.png"
-                            clickable={false}
-                        />
-
-                        {/* Video Card 2 - HoodieFreg */}
-                        <VideoCard
-                            src={`${VIDEO_BASE_URL}/HoodieFreg.MOV`}
-                            clickable={false}
-                        />
-
-                        {/* Etherscan Link Card */}
-                        <LinkCard
-                            href={SOCIAL_LINKS.etherscan}
-                            icon={EtherscanLogo}
-                            label="Etherscan"
-                            bgColor="bg-teal-400"
-                        />
+                        {/* Right column: X square (rows 1-2), freg1 tall (rows 3-5), Etherscan square (rows 6-7) */}
+                        <div style={{ gridColumn: 2, gridRow: '1 / 3' }}>
+                            <LinkCard
+                                href={SOCIAL_LINKS.x}
+                                icon={XLogo}
+                                label="Follow on X"
+                                bgColor="bg-lime-400"
+                            />
+                        </div>
+                        <div style={{ gridColumn: 2, gridRow: '3 / 6' }}>
+                            <ImageCard
+                                src="/frogz/freg1.png"
+                                clickable={false}
+                                className="w-full h-full !aspect-auto"
+                            />
+                        </div>
+                        <div style={{ gridColumn: 2, gridRow: '6 / 9' }}>
+                            <LinkCard
+                                href={SOCIAL_LINKS.etherscan}
+                                icon={EtherscanLogo}
+                                label="Etherscan"
+                                bgColor="bg-teal-400"
+                            />
+                        </div>
                     </div>
 
                     {/* Desktop Layout: 3 columns with organic masonry-like arrangement */}
