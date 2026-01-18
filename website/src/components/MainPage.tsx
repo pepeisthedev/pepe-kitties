@@ -1,15 +1,21 @@
 import React, { useState } from "react"
 import Header from "./Header"
+import LandingSection from "./LandingSection"
 import MintSection from "./MintSection"
 import MyKittiesSection from "./MyKittiesSection"
 import UseItemsSection from "./UseItemsSection"
 import TreasureChestSection from "./TreasureChestSection"
 import AboutSection from "./AboutSection"
 
-export type SectionId = "mint" | "my-kitties" | "use-items" | "treasure-chests" | "about"
+export type SectionId = "landing" | "mint" | "my-kitties" | "use-items" | "treasure-chests" | "about"
 
 export default function MainPage(): React.JSX.Element {
-    const [activeSection, setActiveSection] = useState<SectionId>("mint")
+    const [activeSection, setActiveSection] = useState<SectionId>("landing")
+
+    // Landing page is fullscreen without header
+    if (activeSection === "landing") {
+        return <LandingSection onEnter={() => setActiveSection("mint")} />
+    }
 
     const renderSection = () => {
         switch (activeSection) {

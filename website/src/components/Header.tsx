@@ -43,8 +43,11 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
     return (
         <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-black/30 border-b-4 border-lime-400">
             <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-                {/* Logo */}
-                <div className="flex items-center gap-3">
+                {/* Logo - click to go back to landing */}
+                <button
+                    onClick={() => onSectionChange("landing")}
+                    className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                >
                     <img
                         src="/fregs.svg"
                         alt="Fregs"
@@ -53,7 +56,7 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                     <h1 className="font-bangers text-xl md:text-4xl text-lime-400 text-comic-shadow tracking-wider">
                         FREGS
                     </h1>
-                </div>
+                </button>
 
                 {/* Desktop Navigation */}
                 <nav className="hidden md:flex items-center gap-4">
