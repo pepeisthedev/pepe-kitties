@@ -48,8 +48,8 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                 </>
             )}
 
-            {/* Left side dark gradient */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 via-20% to-transparent to-40%" />
+            {/* Left side dark gradient (desktop only) */}
+            <div className="hidden md:block absolute inset-0 bg-gradient-to-r from-black via-black/60 via-20% to-transparent to-40%" />
 
             {/* Content */}
             <div className="relative z-10 h-full flex items-end pb-12 md:pb-20">
