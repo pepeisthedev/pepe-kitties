@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react"
 
 interface KittyRendererProps {
   bodyColor: string
-  head: number
-  mouth: number
-  belly: number
-  specialSkin: number
+  head?: number
+  mouth?: number
+  belly?: number
+  specialSkin?: number
   size?: "sm" | "md" | "lg"
   className?: string
+  hideTraits?: boolean // Hide head, mouth, belly - for mint preview
 }
 
 // Cache for original SVG content to avoid repeated fetches
@@ -18,12 +19,13 @@ const svgCache: { body: string | null; background: string | null } = {
 
 export default function KittyRenderer({
   bodyColor,
-  head,
-  mouth,
-  belly,
-  specialSkin,
+  head = 1,
+  mouth = 1,
+  belly = 1,
+  specialSkin = 0,
   size = "md",
   className = "",
+  hideTraits = false,
 }: KittyRendererProps): React.JSX.Element {
   const [bodySvgUrl, setBodySvgUrl] = useState<string | null>(null)
   const [backgroundSvgUrl, setBackgroundSvgUrl] = useState<string | null>(null)
@@ -119,28 +121,32 @@ export default function KittyRenderer({
               className="absolute inset-0 w-full h-full object-contain"
             />
           )}
-          {/* Belly */}
-          <img
-            src={`/frogz/belly/${belly}.svg`}
-            alt={`Belly ${belly}`}
-            className="absolute inset-0 w-full h-full object-contain"
-          />
+          {/* Belly - hidden in preview mode */}
+          {!hideTraits && (
+            <img
+              src={`/frogz/belly/${belly}.svg`}
+              alt={`Belly ${belly}`}
+              className="absolute inset-0 w-full h-full object-contain"
+            />
+          )}
         </>
       )}
 
-      {/* Head - always rendered */}
+      {/* Head - always shown (has eyes) */}
       <img
         src={`/frogz/head/${head}.svg`}
         alt={`Head ${head}`}
         className="absolute inset-0 w-full h-full object-contain"
       />
 
-      {/* Mouth - always rendered */}
-      <img
-        src={`/frogz/mouth/${mouth}.svg`}
-        alt={`Mouth ${mouth}`}
-        className="absolute inset-0 w-full h-full object-contain"
-      />
+      {/* Mouth - hidden in preview mode */}
+      {!hideTraits && (
+        <img
+          src={`/frogz/mouth/${mouth}.svg`}
+          alt={`Mouth ${mouth}`}
+          className="absolute inset-0 w-full h-full object-contain"
+        />
+      )}
     </div>
   )
 }

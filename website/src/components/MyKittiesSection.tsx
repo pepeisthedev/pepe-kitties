@@ -196,8 +196,8 @@ export default function MyKittiesSection(): React.JSX.Element {
                                             </div>
                                         )}
 
-                                        <div className="aspect-square mb-3">
-                                            <KittyRenderer {...kitty} size="sm" />
+                                        <div className="overflow-hidden rounded-lg bg-white mb-3" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                            <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
                                         </div>
                                         <p className="font-bangers text-lg text-lime-400 text-center">
                                             #{kitty.tokenId}

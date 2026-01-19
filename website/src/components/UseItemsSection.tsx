@@ -222,8 +222,8 @@ export default function UseItemsSection(): React.JSX.Element {
                                                     : "border-lime-400/50 hover:border-lime-400"
                                             }`}
                                         >
-                                            <div className="aspect-square">
-                                                <KittyRenderer {...kitty} size="sm" />
+                                            <div className="overflow-hidden rounded-lg bg-white" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
                                             </div>
                                             <p className="font-bangers text-xs text-white mt-1">#{kitty.tokenId}</p>
                                         </button>
@@ -271,7 +271,9 @@ export default function UseItemsSection(): React.JSX.Element {
                     <CardContent className="p-6">
                         <div className="flex items-center justify-center gap-8 mb-6">
                             <div className="text-center">
-                                <KittyRenderer {...selectedKitty} size="md" />
+                                <div className="overflow-hidden rounded-xl bg-white w-40 h-40" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                    <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
+                                </div>
                                 <p className="font-bangers text-lime-400 mt-2">#{selectedKitty.tokenId}</p>
                             </div>
                             <Wand2 className="w-12 h-12 text-yellow-400 animate-pulse" />
@@ -291,18 +293,19 @@ export default function UseItemsSection(): React.JSX.Element {
                                 <div className="flex items-center justify-center gap-4 mb-6">
                                     <div className="text-center">
                                         <p className="font-righteous text-white/50 text-xs mb-2">Current</p>
-                                        <div className="w-24 h-24">
-                                            <KittyRenderer {...selectedKitty} size="sm" />
+                                        <div className="overflow-hidden rounded-lg bg-white w-24" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                            <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
                                         </div>
                                     </div>
                                     <div className="text-2xl text-white/50">→</div>
                                     <div className="text-center">
                                         <p className="font-righteous text-pink-400 text-xs mb-2">New Color</p>
-                                        <div className="w-24 h-24">
+                                        <div className="overflow-hidden rounded-lg bg-white w-24" style={{ aspectRatio: '617.49 / 644.18' }}>
                                             <KittyRenderer
                                                 {...selectedKitty}
                                                 bodyColor={isValidHexColor(newColor) ? newColor : selectedKitty.bodyColor}
                                                 size="sm"
+                                                className="w-full h-full"
                                             />
                                         </div>
                                     </div>
@@ -440,18 +443,19 @@ export default function UseItemsSection(): React.JSX.Element {
                                     <div className="flex items-center justify-center gap-6 mb-6">
                                         <div className="text-center">
                                             <p className="font-righteous text-white/50 text-sm mb-2">Before</p>
-                                            <div className="w-32 h-32">
-                                                <KittyRenderer {...selectedKitty} size="sm" />
+                                            <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
                                             </div>
                                         </div>
                                         <div className="text-3xl text-yellow-400">→</div>
                                         <div className="text-center">
                                             <p className="font-righteous text-lime-400 text-sm mb-2">After</p>
-                                            <div className="w-32 h-32">
+                                            <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
                                                 <KittyRenderer
                                                     {...selectedKitty}
                                                     bodyColor={newColor}
                                                     size="sm"
+                                                    className="w-full h-full"
                                                 />
                                             </div>
                                         </div>
@@ -460,8 +464,8 @@ export default function UseItemsSection(): React.JSX.Element {
                             ) : (
                                 <>
                                     <div className="flex justify-center mb-4">
-                                        <div className="w-32 h-32">
-                                            <KittyRenderer {...selectedKitty} size="sm" />
+                                        <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                            <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
                                         </div>
                                     </div>
                                     <p className="font-righteous text-white/70 text-center mb-6">
@@ -502,14 +506,17 @@ export default function UseItemsSection(): React.JSX.Element {
             >
                 {modalData.success && resultKitty && (
                     <div className="flex justify-center">
-                        <KittyRenderer
-                            bodyColor={resultKitty.bodyColor}
-                            head={resultKitty.head}
-                            mouth={resultKitty.mouth}
-                            belly={resultKitty.belly}
-                            specialSkin={resultKitty.specialSkin}
-                            size="lg"
-                        />
+                        <div className="overflow-hidden rounded-xl bg-white" style={{ aspectRatio: '617.49 / 644.18', width: '256px' }}>
+                            <KittyRenderer
+                                bodyColor={resultKitty.bodyColor}
+                                head={resultKitty.head}
+                                mouth={resultKitty.mouth}
+                                belly={resultKitty.belly}
+                                specialSkin={resultKitty.specialSkin}
+                                size="sm"
+                                className="w-full h-full"
+                            />
+                        </div>
                     </div>
                 )}
             </ResultModal>

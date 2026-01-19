@@ -175,10 +175,7 @@ export default function MintSection(): React.JSX.Element {
                         <div className="relative rounded-2xl overflow-hidden bg-white border-0 border-dashed border-lime-400/30 flex items-center justify-center" style={{ aspectRatio: '617.49 / 644.18' }}>
                             <KittyRenderer
                                 bodyColor={skinColor}
-                                head={1}
-                                mouth={1}
-                                belly={1}
-                                specialSkin={0}
+                                hideTraits
                                 size="sm"
                                 className="w-full h-full"
                             />
@@ -440,14 +437,17 @@ export default function MintSection(): React.JSX.Element {
                     {/* Show minted kitty on success */}
                     {mintStatus === 'success' && mintedKitty && (
                         <div className="py-4 flex justify-center">
-                            <KittyRenderer
-                                bodyColor={mintedKitty.bodyColor}
-                                head={mintedKitty.head}
-                                mouth={mintedKitty.mouth}
-                                belly={mintedKitty.belly}
-                                specialSkin={0}
-                                size="lg"
-                            />
+                            <div className="rounded-2xl overflow-hidden bg-white" style={{ aspectRatio: '617.49 / 644.18', width: '256px' }}>
+                                <KittyRenderer
+                                    bodyColor={mintedKitty.bodyColor}
+                                    head={mintedKitty.head}
+                                    mouth={mintedKitty.mouth}
+                                    belly={mintedKitty.belly}
+                                    specialSkin={0}
+                                    size="sm"
+                                    className="w-full h-full"
+                                />
+                            </div>
                         </div>
                     )}
 
