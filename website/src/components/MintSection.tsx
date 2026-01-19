@@ -2,7 +2,6 @@ import React, { useState } from "react"
 import { useAppKitAccount, useAppKit } from "@reown/appkit/react"
 import { parseEther } from "ethers"
 import Section from "./Section"
-import PepeSvg from "./PepeSvg"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
@@ -173,12 +172,16 @@ export default function MintSection(): React.JSX.Element {
                 {/* NFT Preview Card */}
                 <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl overflow-hidden backdrop-blur-sm hover:border-lime-300 transition-colors duration-300 h-full flex flex-col">
                     <CardContent className="p-8 flex-1 flex flex-col justify-center">
-                        <div className="relative aspect-square rounded-2xl overflow-hidden bg-black/30 border-4 border-dashed border-lime-400/30 flex items-center justify-center">
-                            <PepeSvg
-                                color={skinColor}
-                                className="w-full h-full object-contain hover:animate-jackpot transition-transform"
+                        <div className="relative rounded-2xl overflow-hidden bg-white border-0 border-dashed border-lime-400/30 flex items-center justify-center" style={{ aspectRatio: '617.49 / 644.18' }}>
+                            <KittyRenderer
+                                bodyColor={skinColor}
+                                head={1}
+                                mouth={1}
+                                belly={1}
+                                specialSkin={0}
+                                size="sm"
+                                className="w-full h-full"
                             />
-
                         </div>
 
 
@@ -442,7 +445,6 @@ export default function MintSection(): React.JSX.Element {
                                 head={mintedKitty.head}
                                 mouth={mintedKitty.mouth}
                                 belly={mintedKitty.belly}
-                                background={mintedKitty.background}
                                 specialSkin={0}
                                 size="lg"
                             />

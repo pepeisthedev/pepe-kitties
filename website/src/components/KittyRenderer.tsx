@@ -6,13 +6,15 @@ interface KittyRendererProps {
   mouth: number
   belly: number
   specialSkin: number
-  background: number
   size?: "sm" | "md" | "lg"
   className?: string
 }
 
-// Cache for body SVG to avoid repeated fetches
-let bodySvgCache: string | null = null
+// Cache for original SVG content to avoid repeated fetches
+const svgCache: { body: string | null; background: string | null } = {
+  body: null,
+  background: null,
+}
 
 export default function KittyRenderer({
   bodyColor,
@@ -20,11 +22,11 @@ export default function KittyRenderer({
   mouth,
   belly,
   specialSkin,
-  background,
   size = "md",
   className = "",
 }: KittyRendererProps): React.JSX.Element {
   const [bodySvgUrl, setBodySvgUrl] = useState<string | null>(null)
+  const [backgroundSvgUrl, setBackgroundSvgUrl] = useState<string | null>(null)
 
   const sizeClasses = {
     sm: "w-full h-full",
@@ -36,33 +38,25 @@ export default function KittyRenderer({
   // Otherwise render: background + body + belly + head + mouth
   const hasSpecialSkin = specialSkin > 0
 
-  // Default to background 1 if not set (for old kitties minted before update)
-  const bgIndex = background || 1
-
   // Fetch body SVG and replace color
   useEffect(() => {
     if (hasSpecialSkin) return
 
     const loadBody = async () => {
       try {
-        // Use cache if available
-        let svgText = bodySvgCache
-        if (!svgText) {
+        // Fetch and cache the original SVG if not already cached
+        if (!svgCache.body) {
           const response = await fetch("/frogz/body/1.svg")
-          svgText = await response.text()
-          bodySvgCache = svgText
+          svgCache.body = await response.text()
         }
 
         // Replace the default green color with the kitty's body color
-        const coloredSvg = svgText.replace(/#65b449/gi, bodyColor)
+        const coloredSvg = svgCache.body.replace(/#65b449/gi, bodyColor)
 
         // Create a blob URL for the modified SVG
         const blob = new Blob([coloredSvg], { type: "image/svg+xml" })
         const url = URL.createObjectURL(blob)
         setBodySvgUrl(url)
-
-        // Cleanup old URL
-        return () => URL.revokeObjectURL(url)
       } catch (err) {
         console.error("Error loading body SVG:", err)
       }
@@ -71,14 +65,41 @@ export default function KittyRenderer({
     loadBody()
   }, [bodyColor, hasSpecialSkin])
 
+  // Fetch background SVG and replace color
+  useEffect(() => {
+    const loadBackground = async () => {
+      try {
+        // Fetch and cache the original SVG if not already cached
+        if (!svgCache.background) {
+          const response = await fetch("/frogz/background/1.svg")
+          svgCache.background = await response.text()
+        }
+
+        // Replace the default green color with the kitty's body color
+        const coloredSvg = svgCache.background.replace(/#65b449/gi, bodyColor)
+
+        // Create a blob URL for the modified SVG
+        const blob = new Blob([coloredSvg], { type: "image/svg+xml" })
+        const url = URL.createObjectURL(blob)
+        setBackgroundSvgUrl(url)
+      } catch (err) {
+        console.error("Error loading background SVG:", err)
+      }
+    }
+
+    loadBackground()
+  }, [bodyColor])
+
   return (
     <div className={`relative ${sizeClasses[size]} ${className}`}>
       {/* Background - always rendered first */}
-      <img
-        src={`/frogz/background/${bgIndex}.svg`}
-        alt={`Background ${bgIndex}`}
-        className="absolute inset-0 w-full h-full object-contain"
-      />
+      {backgroundSvgUrl && (
+        <img
+          src={backgroundSvgUrl}
+          alt="Background"
+          className="absolute inset-0 w-full h-full object-contain"
+        />
+      )}
 
       {hasSpecialSkin ? (
         // Special skin renders (replaces body + belly)

@@ -503,12 +503,10 @@ export default function UseItemsSection(): React.JSX.Element {
                 {modalData.success && resultKitty && (
                     <div className="flex justify-center">
                         <KittyRenderer
-                            tokenId={resultKitty.tokenId}
                             bodyColor={resultKitty.bodyColor}
                             head={resultKitty.head}
                             mouth={resultKitty.mouth}
                             belly={resultKitty.belly}
-                            background={resultKitty.background}
                             specialSkin={resultKitty.specialSkin}
                             size="lg"
                         />
