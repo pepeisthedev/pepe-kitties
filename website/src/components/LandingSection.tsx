@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useState, useRef, useCallback } from "react"
 import { Button } from "./ui/button"
 
 interface LandingSectionProps {
@@ -13,6 +13,12 @@ const SOCIAL_LINKS = {
 }
 
 const VIDEO_BASE_URL = "https://pub-59fac2662d16414c8202fc478b0c90b7.r2.dev/landing"
+
+// Background videos that loop sequentially
+const BACKGROUND_VIDEOS = [
+    `${VIDEO_BASE_URL}/background-landing2.MOV`,
+    `${VIDEO_BASE_URL}/background-landing3.MOV`,
+]
 
 // X (Twitter) Logo
 function XLogo({ className }: { className?: string }) {
@@ -149,8 +155,21 @@ function ImageCard({ src, href, className = "", clickable = true }: { src: strin
 }
 
 export default function LandingSection({ onEnter }: LandingSectionProps): React.JSX.Element {
-    // Check if #fregs is in the URL to use local video
-    const useLocalVideo = typeof window !== "undefined" && window.location.hash === "#fregs"
+    const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
+    const videoRef = useRef<HTMLVideoElement>(null)
+
+    const handleVideoEnded = useCallback(() => {
+        // Switch to next video in sequence
+        setCurrentVideoIndex((prev) => (prev + 1) % BACKGROUND_VIDEOS.length)
+    }, [])
+
+    // When video index changes, play the new video
+    React.useEffect(() => {
+        if (videoRef.current) {
+            videoRef.current.load()
+            videoRef.current.play()
+        }
+    }, [currentVideoIndex])
 
     const scrollToCards = () => {
         document.getElementById('cards-section')?.scrollIntoView({ behavior: 'smooth' })
@@ -158,58 +177,31 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
 
     return (
         <div className="relative w-full bg-black">
-            {/* Hero Section */}
-            <div className="relative h-screen w-full overflow-hidden">
-                {useLocalVideo ? (
-                    // Local video background (when #fregs in URL)
-                    <video
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        className="absolute inset-0 w-full h-full object-cover"
-                    >
-                        <source src={`${VIDEO_BASE_URL}/background-landing.MP4`} type="video/mp4" />
-                    </video>
-                ) : (
-                    <>
-                        {/* Desktop Video Background */}
-                        <video
-                            autoPlay
-                            loop
-                            muted
-                            playsInline
-                            className="hidden md:block absolute inset-0 w-full h-full object-cover"
-                        >
-                            <source src={`${VIDEO_BASE_URL}/homepage_video_build.mp4`} type="video/mp4" />
-                        </video>
+            {/* Hero Section - shorter on mobile to show more of wide video */}
+            <div className="relative h-[100vh] md:h-screen w-full overflow-hidden">
+                {/* Background Video - loops between video 2 and 3 */}
+                <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    onEnded={handleVideoEnded}
+                    className="absolute inset-0 w-full h-full object-cover"
+                >
+                    <source src={BACKGROUND_VIDEOS[currentVideoIndex]} type="video/mp4" />
+                </video>
 
-                        {/* Mobile Video Background (9:16 aspect ratio) */}
-                        <video
-                            autoPlay
-                            loop
-                            muted
-                            playsInline
-                            className="md:hidden absolute inset-0 w-full h-full object-cover"
-                        >
-                            <source src={`${VIDEO_BASE_URL}/homepage_video_build_9x16.mp4`} type="video/mp4" />
-                        </video>
-                    </>
-                )}
-
-                {/* Left side dark gradient (desktop only) */}
-                <div className="hidden md:block absolute inset-0 bg-gradient-to-r from-black via-black/60 via-20% to-transparent to-40%" />
 
                 {/* Content */}
                 <div className="relative z-10 h-full flex items-end pb-24 md:pb-32">
                     <div className="max-w-[348px] md:max-w-[600px] mx-6 md:mx-16 lg:mx-24 text-left">
                         {/* Title */}
-                        <h1 className="text-white text-3xl md:text-[44px] font-bold tracking-tight mb-4 md:mb-8">
+                        <h1 className="text-black text-3xl md:text-[44px] font-bold tracking-tight mb-4 md:mb-8">
                             Fregs
                         </h1>
 
                         {/* Description */}
-                        <p className="text-white/90 text-xl md:text-2xl font-medium tracking-tight mb-6 md:mb-16">
+                        <p className="text-black/90 text-xl md:text-2xl font-medium tracking-tight mb-6 md:mb-16">
                             Born from forgotten swamps and half-remembered dreams, Freg wanders the blockchain in search of meaning. No one knows what he's seen, but he's definitely judging you.
                         </p>
 
@@ -232,7 +224,7 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                     className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-bounce"
                     aria-label="Scroll down"
                 >
-                    <ScrollArrow className="w-10 h-10 text-white/80 hover:text-white transition-colors" />
+                    <ScrollArrow className="w-10 h-10 text-black/80 hover:text-black transition-colors" />
                 </button>
             </div>
 
