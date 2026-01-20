@@ -39,10 +39,11 @@ export default function MyKittiesSection(): React.JSX.Element {
                     data: log.data
                 })
                 if (parsed?.name === "ItemClaimed") {
+                    // Event: ItemClaimed(uint256 indexed fregId, uint256 indexed itemTokenId, address indexed owner, uint256 itemType)
                     return {
-                        kittyId: Number(parsed.args.kittyId),
-                        itemTokenId: Number(parsed.args.itemTokenId),
-                        itemType: Number(parsed.args.itemType)
+                        fregId: Number(parsed.args.fregId ?? parsed.args[0]),
+                        itemTokenId: Number(parsed.args.itemTokenId ?? parsed.args[1]),
+                        itemType: Number(parsed.args.itemType ?? parsed.args[3])
                     }
                 }
             } catch {
@@ -228,7 +229,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                 description={modalData.message}
                 success={modalData.success}
             >
-                {modalData.success && modalData.itemType && modalData.itemTokenId && (
+                {modalData.success && modalData.itemType !== undefined && modalData.itemTokenId !== undefined && (
                     <div className="flex flex-col items-center gap-2">
                         <ItemCard
                             tokenId={modalData.itemTokenId}

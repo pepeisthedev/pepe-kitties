@@ -6,19 +6,9 @@ import { Button } from "./ui/button"
 import { useUnclaimedKitties, useContractData, useContracts, useOwnedItems, useOwnedKitties } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
+import ItemCard from "./ItemCard"
 import { ITEM_TYPE_NAMES, ITEM_TYPES } from "../config/contracts"
 import { Gift } from "lucide-react"
-
-// Map item types to their image paths
-const ITEM_IMAGES: Record<number, string> = {
-    [ITEM_TYPES.COLOR_CHANGE]: "/items/color-change.png",
-    [ITEM_TYPES.HEAD_REROLL]: "/items/head-reroll.png",
-    [ITEM_TYPES.BRONZE_SKIN]: "/items/bronze-skin.png",
-    [ITEM_TYPES.SILVER_SKIN]: "/items/silver-skin.png",
-    [ITEM_TYPES.GOLD_SKIN]: "/items/gold-skin.png",
-    [ITEM_TYPES.TREASURE_CHEST]: "/items/treasure-chest.png",
-    [ITEM_TYPES.BEAD_PUNK]: "/beadpunk.jpg",
-}
 
 export default function ClaimItemsSection(): React.JSX.Element {
     const { isConnected } = useAppKitAccount()
@@ -34,23 +24,46 @@ export default function ClaimItemsSection(): React.JSX.Element {
 
     const parseItemClaimedEvent = (receipt: any) => {
         const contract = contracts!.items.read
+        let itemClaimedResult = null
+        let treasureChestResult = null
+
+        console.log("Parsing receipt logs:", receipt.logs.length, "logs")
+
         for (const log of receipt.logs) {
             try {
                 const parsed = contract.interface.parseLog({
                     topics: log.topics as string[],
                     data: log.data
                 })
+                console.log("Parsed event:", parsed?.name, parsed?.args)
+
                 if (parsed?.name === "ItemClaimed") {
-                    return {
-                        kittyId: Number(parsed.args.kittyId),
-                        itemTokenId: Number(parsed.args.itemTokenId),
-                        itemType: Number(parsed.args.itemType)
+                    // Event: ItemClaimed(uint256 indexed fregId, uint256 indexed itemTokenId, address indexed owner, uint256 itemType)
+                    itemClaimedResult = {
+                        fregId: Number(parsed.args.fregId ?? parsed.args[0]),
+                        itemTokenId: Number(parsed.args.itemTokenId ?? parsed.args[1]),
+                        itemType: Number(parsed.args.itemType ?? parsed.args[3])
                     }
+                    console.log("ItemClaimed parsed:", itemClaimedResult)
+                }
+                // Fallback: also check TreasureChestMinted
+                if (parsed?.name === "TreasureChestMinted") {
+                    treasureChestResult = {
+                        itemTokenId: Number(parsed.args.itemTokenId ?? parsed.args[0]),
+                        itemType: ITEM_TYPES.TREASURE_CHEST
+                    }
+                    console.log("TreasureChestMinted parsed:", treasureChestResult)
                 }
             } catch {
-                // Not an ItemClaimed event, continue
+                // Not a recognized event, continue
             }
         }
+
+        // Prefer ItemClaimed, fallback to TreasureChestMinted
+        if (itemClaimedResult) return itemClaimedResult
+        if (treasureChestResult) return treasureChestResult
+
+        console.log("No ItemClaimed or TreasureChestMinted event found")
         return null
     }
 
@@ -64,15 +77,19 @@ export default function ClaimItemsSection(): React.JSX.Element {
             const receipt = await tx.wait()
 
             const claimedItem = parseItemClaimedEvent(receipt)
+            console.log("Claimed item result:", claimedItem)
+
             const isBeadPunk = claimedItem?.itemType === ITEM_TYPES.BEAD_PUNK
             const itemName = claimedItem ? ITEM_TYPE_NAMES[claimedItem.itemType] : "Item"
 
-            setModalData({
+            const newModalData = {
                 success: true,
                 message: isBeadPunk ? "Congratz, you got a Beadpunk!" : `You got a ${itemName}!`,
                 itemType: claimedItem?.itemType,
                 itemTokenId: claimedItem?.itemTokenId
-            })
+            }
+            console.log("Setting modal data:", newModalData)
+            setModalData(newModalData)
 
             // Refresh all relevant data
             refetch()
@@ -194,15 +211,15 @@ export default function ClaimItemsSection(): React.JSX.Element {
                 isOpen={showModal}
                 onClose={() => setShowModal(false)}
                 title={modalData.success ? (modalData.itemType === ITEM_TYPES.BEAD_PUNK ? "Rare Drop!" : "Item Claimed!") : "Error"}
-                description={modalData.success ? undefined : modalData.message}
+                description={modalData.success ? `You got a ${ITEM_TYPE_NAMES[modalData.itemType!] || "Item"}!` : modalData.message}
                 success={modalData.success}
             >
-                {modalData.success && modalData.itemType !== undefined && (
+                {modalData.success && modalData.itemType !== undefined && modalData.itemTokenId !== undefined && (
                     <div className="flex justify-center">
-                        <img
-                            src={ITEM_IMAGES[modalData.itemType]}
-                            alt={ITEM_TYPE_NAMES[modalData.itemType]}
-                            className="w-48 h-48 rounded-2xl border-4 border-purple-400 shadow-lg object-cover"
+                        <ItemCard
+                            tokenId={modalData.itemTokenId}
+                            itemType={modalData.itemType}
+                            size="lg"
                         />
                     </div>
                 )}

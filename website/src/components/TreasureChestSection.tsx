@@ -7,7 +7,7 @@ import { useOwnedItems, useContractData, useContracts } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
 import { ITEM_TYPES } from "../config/contracts"
-import { Flame, Coins } from "lucide-react"
+import { Flame } from "lucide-react"
 
 export default function TreasureChestSection(): React.JSX.Element {
     const { isConnected } = useAppKitAccount()
@@ -47,36 +47,22 @@ export default function TreasureChestSection(): React.JSX.Element {
     return (
         <Section id="treasure-chests">
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400  mb-4">
+                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 mb-4">
                     TREASURE CHESTS
                 </h2>
-                <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
-                    Burn your treasure chest to claim the reward!
+                <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto mb-2">
+                    Burn your treasure chest to claim ETH!
                 </p>
+                {contractData && (
+                    <p className="font-righteous text-sm text-white/60">
+                        {contractData.remainingChests > 0 ? (
+                            <><span className="text-lime-400 font-bold">{contractData.remainingChests}</span> chests still to be found</>
+                        ) : (
+                            <span className="text-orange-400">All chests have been found!</span>
+                        )}
+                    </p>
+                )}
             </div>
-
-            {/* Reward Info */}
-            {contractData && (
-                <Card className="bg-black/40 border-2 border-lime-400/50 rounded-2xl mb-8 max-w-md mx-auto">
-                    <CardContent className="p-6 text-center">
-                        <Coins className="w-12 h-12 text-lime-400 mx-auto mb-3" />
-                        <p className="font-righteous text-white/70 mb-2">Reward per Chest</p>
-                        <p className="font-bangers text-4xl text-lime-400">
-                            {contractData.chestETHAmount} ETH
-                        </p>
-                        <div className="mt-4 pt-4 border-t border-lime-400/20">
-                            <p className="font-righteous text-sm text-white/70 mb-1">
-                                {contractData.remainingChests > 0 ? (
-                                    <><span className="text-lime-400 font-bold">{contractData.remainingChests}</span> chests still to be found</>
-                                ) : (
-                                    <span className="text-orange-400">All chests have been found!</span>
-                                )}
-                            </p>
-                     
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
 
             {!isConnected ? (
                 <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl">
@@ -100,42 +86,34 @@ export default function TreasureChestSection(): React.JSX.Element {
                     </CardContent>
                 </Card>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
                     {chests.map((chest) => (
-                        <Card
-                            key={chest.tokenId}
-                            className="bg-gradient-to-br from-amber-900/50 to-yellow-900/50 border-2 border-lime-400 rounded-2xl"
-                        >
-                            <CardContent className="p-6 text-center">
-                                <div className="w-24 h-24 mx-auto mb-4">
-                                    <img
-                                        src="/items/6.svg"
-                                        alt="Treasure Chest"
-                                        className="w-full h-full object-contain"
-                                    />
-                                </div>
-                                <p className="font-bangers text-xl text-lime-400 mb-2">
-                                    Chest #{chest.tokenId}
-                                </p>
-                                <p className="font-righteous text-sm text-white/70 mb-4">
-                                    Contains {contractData?.chestETHAmount || "?"} ETH
-                                </p>
-                                <Button
-                                    onClick={() => handleBurn(chest.tokenId)}
-                                    disabled={burningId !== null}
-                                    className="w-full py-3 rounded-xl font-bangers text-lg bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400 text-white"
-                                >
-                                    {burningId === chest.tokenId ? (
-                                        <LoadingSpinner size="sm" />
-                                    ) : (
-                                        <>
-                                            <Flame className="w-5 h-5 mr-2" />
-                                            Burn & Claim
-                                        </>
-                                    )}
-                                </Button>
-                            </CardContent>
-                        </Card>
+                        <div key={chest.tokenId} className="flex flex-col items-center">
+                            <div className="w-48 h-48 mb-4">
+                                <img
+                                    src="/chest.png"
+                                    alt="Treasure Chest"
+                                    className="w-full h-full object-contain rounded-2xl"
+                                />
+                            </div>
+                            <p className="font-bangers text-2xl text-lime-400 mb-3">
+                                Chest #{chest.tokenId}
+                            </p>
+                            <Button
+                                onClick={() => handleBurn(chest.tokenId)}
+                                disabled={burningId !== null}
+                                className="px-8 py-3 rounded-xl font-bangers text-lg bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400 text-white"
+                            >
+                                {burningId === chest.tokenId ? (
+                                    <LoadingSpinner size="sm" />
+                                ) : (
+                                    <>
+                                        <Flame className="w-5 h-5 mr-2" />
+                                        Burn & Claim
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                     ))}
                 </div>
             )}

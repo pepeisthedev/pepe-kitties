@@ -1,6 +1,17 @@
 import React from "react"
 import { ITEM_TYPES, ITEM_TYPE_NAMES, ITEM_TYPE_DESCRIPTIONS } from "../config/contracts"
 
+// Map item types to their image paths
+const ITEM_IMAGES: Record<number, string> = {
+  [ITEM_TYPES.COLOR_CHANGE]: "/items/1.svg",
+  [ITEM_TYPES.HEAD_REROLL]: "/items/2.svg",
+  [ITEM_TYPES.BRONZE_SKIN]: "/items/3.svg",
+  [ITEM_TYPES.SILVER_SKIN]: "/items/4.svg",
+  [ITEM_TYPES.GOLD_SKIN]: "/items/5.svg",
+  [ITEM_TYPES.TREASURE_CHEST]: "/chest.png",
+  [ITEM_TYPES.BEAD_PUNK]: "/beadpunks.png",
+}
+
 interface ItemCardProps {
   tokenId: number
   itemType: number
@@ -17,6 +28,7 @@ const ITEM_COLORS: Record<number, string> = {
   [ITEM_TYPES.SILVER_SKIN]: "border-lime-400/50 bg-black/30",
   [ITEM_TYPES.GOLD_SKIN]: "border-lime-400/50 bg-black/30",
   [ITEM_TYPES.TREASURE_CHEST]: "border-lime-400/50 bg-black/30",
+  [ITEM_TYPES.BEAD_PUNK]: "border-purple-400/50 bg-black/30",
 }
 
 const ITEM_SELECTED_COLORS: Record<number, string> = {
@@ -26,6 +38,7 @@ const ITEM_SELECTED_COLORS: Record<number, string> = {
   [ITEM_TYPES.SILVER_SKIN]: "ring-lime-400",
   [ITEM_TYPES.GOLD_SKIN]: "ring-lime-400",
   [ITEM_TYPES.TREASURE_CHEST]: "ring-lime-400",
+  [ITEM_TYPES.BEAD_PUNK]: "ring-purple-400",
 }
 
 export default function ItemCard({
@@ -61,7 +74,7 @@ export default function ItemCard({
       {/* Item icon */}
       <div className={`${sizeClass.icon} mx-auto mb-2`}>
         <img
-          src={`/items/${itemType}.svg`}
+          src={ITEM_IMAGES[itemType] || `/items/${itemType}.svg`}
           alt={name}
           className="w-full h-full object-contain"
           onError={(e) => {
