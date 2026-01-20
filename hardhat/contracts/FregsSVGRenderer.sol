@@ -27,8 +27,8 @@ contract FregsSVGRenderer is Ownable {
     ISVGTraitRenderer public mouthContract;
     ISVGTraitRenderer public specialSkinContract;
 
-    // SVG dimensions and styling
-    string public svgHeader = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'>";
+    // SVG dimensions and styling (viewBox matches background/1.svg dimensions)
+    string public svgHeader = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 617.49 644.18'>";
     string public svgFooter = "</svg>";
 
     constructor() Ownable(msg.sender) {}
@@ -37,8 +37,9 @@ contract FregsSVGRenderer is Ownable {
 
     /**
      * @notice Renders the complete SVG for a Freg
-     * @dev If specialSkin > 0, renders: special_skin + head + mouth
-     *      Otherwise renders: body (with color) + belly + head + mouth
+     * @dev Renders: background (with color) + body layers + head + mouth
+     *      If specialSkin > 0, renders: background + special_skin + head + mouth
+     *      Otherwise renders: background + body (with color) + belly + head + mouth
      */
     function render(
         string memory _bodyColor,
@@ -47,6 +48,9 @@ contract FregsSVGRenderer is Ownable {
         uint256 _belly,
         uint256 _specialSkin
     ) external view returns (string memory) {
+        // Background layer - uses same color as body with 30% opacity
+        string memory backgroundLayer = _renderBackground(_bodyColor);
+
         string memory bodyLayer;
         string memory bellyLayer;
 
@@ -66,6 +70,7 @@ contract FregsSVGRenderer is Ownable {
         return string(
             abi.encodePacked(
                 svgHeader,
+                backgroundLayer,
                 bodyLayer,
                 bellyLayer,
                 headLayer,
@@ -98,6 +103,17 @@ contract FregsSVGRenderer is Ownable {
     }
 
     // ============ Internal Render Helpers ============
+
+    function _renderBackground(string memory _color) internal pure returns (string memory) {
+        // Background rect with 30% opacity, same color as body
+        return string(
+            abi.encodePacked(
+                "<rect width='617.49' height='644.18' fill='",
+                _color,
+                "' opacity='0.3'/>"
+            )
+        );
+    }
 
     function _renderBody(string memory _color) internal view returns (string memory) {
         if (address(bodyContract) != address(0)) {

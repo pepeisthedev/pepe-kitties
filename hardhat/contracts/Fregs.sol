@@ -10,13 +10,13 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 interface ISVGRenderer {
     // Renders full SVG - handles specialSkin logic internally
+    // Background uses same color as bodyColor
     function render(
         string memory _bodyColor,
         uint256 _head,
         uint256 _mouth,
         uint256 _belly,
-        uint256 _specialSkin,
-        uint256 _background
+        uint256 _specialSkin
     ) external view returns (string memory);
 
     // Get trait name for metadata
@@ -37,25 +37,22 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     address public mintPassContract;
 
     // Trait mappings
-    mapping(uint256 => string) public bodyColor;
+    mapping(uint256 => string) public bodyColor; // Also used for background color
     mapping(uint256 => uint256) public head;
     mapping(uint256 => uint256) public mouth;
     mapping(uint256 => uint256) public belly;
     mapping(uint256 => uint256) public specialSkin; // 0=none, 1=bronze, 2=silver, 3=gold
-    mapping(uint256 => uint256) public background;
 
     // Trait type constants for meta() calls
     uint256 public constant TRAIT_HEAD = 1;
     uint256 public constant TRAIT_MOUTH = 2;
     uint256 public constant TRAIT_BELLY = 3;
     uint256 public constant TRAIT_SPECIAL_SKIN = 4;
-    uint256 public constant TRAIT_BACKGROUND = 5;
 
     // Trait count configuration (for randomness ranges)
     uint256 public headTraitCount = 3;
     uint256 public mouthTraitCount = 1;
     uint256 public bellyTraitCount = 2;
-    uint256 public backgroundTraitCount = 1;
 
     // Events
     event FregMinted(
@@ -64,8 +61,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         string bodyColor,
         uint256 head,
         uint256 mouth,
-        uint256 belly,
-        uint256 background
+        uint256 belly
     );
 
     event HeadRerolled(uint256 indexed tokenId, uint256 oldHead, uint256 newHead);
@@ -95,8 +91,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             head[tokenId],
             mouth[tokenId],
             belly[tokenId],
-            specialSkin[tokenId],
-            background[tokenId]
+            specialSkin[tokenId]
         );
 
         string memory attributes;
@@ -106,7 +101,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             attributes = string(
                 abi.encodePacked(
                     '{"trait_type": "Background","value": "',
-                    svgRenderer.meta(TRAIT_BACKGROUND, background[tokenId]),
+                    bodyColor[tokenId],
                     '"},{"trait_type": "Special Skin","value": "',
                     _getSpecialSkinName(specialSkin[tokenId]),
                     '"},{"trait_type": "Head","value": "',
@@ -121,7 +116,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             attributes = string(
                 abi.encodePacked(
                     '{"trait_type": "Background","value": "',
-                    svgRenderer.meta(TRAIT_BACKGROUND, background[tokenId]),
+                    bodyColor[tokenId],
                     '"},{"trait_type": "Body Color","value": "',
                     bodyColor[tokenId],
                     '"},{"trait_type": "Head","value": "',
@@ -169,14 +164,13 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         _safeMint(msg.sender, 1);
         _tokenIdCounter += 1;
 
-        // Store body color
+        // Store body color (also used for background)
         bodyColor[newTokenId] = _color;
 
         // Assign random traits (1-indexed, 0 means no trait)
         head[newTokenId] = _getRandom(headTraitCount) + 1;
         mouth[newTokenId] = _getRandom(mouthTraitCount) + 1;
         belly[newTokenId] = _getRandom(bellyTraitCount) + 1;
-        background[newTokenId] = _getRandom(backgroundTraitCount) + 1;
         specialSkin[newTokenId] = 0; // No special skin by default
 
         emit FregMinted(
@@ -185,8 +179,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             _color,
             head[newTokenId],
             mouth[newTokenId],
-            belly[newTokenId],
-            background[newTokenId]
+            belly[newTokenId]
         );
     }
 
@@ -199,14 +192,13 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         _safeMint(_sender, 1);
         _tokenIdCounter += 1;
 
-        // Store body color
+        // Store body color (also used for background)
         bodyColor[newTokenId] = _color;
 
         // Assign random traits (1-indexed, 0 means no trait)
         head[newTokenId] = _getRandomForAddress(headTraitCount, _sender) + 1;
         mouth[newTokenId] = _getRandomForAddress(mouthTraitCount, _sender) + 1;
         belly[newTokenId] = _getRandomForAddress(bellyTraitCount, _sender) + 1;
-        background[newTokenId] = _getRandomForAddress(backgroundTraitCount, _sender) + 1;
         specialSkin[newTokenId] = 0; // No special skin by default
 
         emit FregMinted(
@@ -215,8 +207,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             _color,
             head[newTokenId],
             mouth[newTokenId],
-            belly[newTokenId],
-            background[newTokenId]
+            belly[newTokenId]
         );
     }
 
@@ -330,10 +321,6 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         bellyTraitCount = _count;
     }
 
-    function setBackgroundTraitCount(uint256 _count) public onlyOwner {
-        backgroundTraitCount = _count;
-    }
-
     function withdraw(uint256 _amount) external onlyOwner {
         payable(owner()).transfer(_amount);
     }
@@ -353,8 +340,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             uint256[] memory heads,
             uint256[] memory mouths,
             uint256[] memory bellies,
-            uint256[] memory specialSkins,
-            uint256[] memory backgrounds
+            uint256[] memory specialSkins
         )
     {
         uint256 tokenCount = balanceOf(owner);
@@ -362,7 +348,6 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             return (
                 new uint256[](0),
                 new string[](0),
-                new uint256[](0),
                 new uint256[](0),
                 new uint256[](0),
                 new uint256[](0),
@@ -376,7 +361,6 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         mouths = new uint256[](tokenCount);
         bellies = new uint256[](tokenCount);
         specialSkins = new uint256[](tokenCount);
-        backgrounds = new uint256[](tokenCount);
 
         uint256 index = 0;
         for (uint256 i = 0; i < _tokenIdCounter && index < tokenCount; i++) {
@@ -387,12 +371,11 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
                 mouths[index] = mouth[i];
                 bellies[index] = belly[i];
                 specialSkins[index] = specialSkin[i];
-                backgrounds[index] = background[i];
                 index++;
             }
         }
 
-        return (tokenIds, bodyColors, heads, mouths, bellies, specialSkins, backgrounds);
+        return (tokenIds, bodyColors, heads, mouths, bellies, specialSkins);
     }
 
     // ============ Required Overrides ============

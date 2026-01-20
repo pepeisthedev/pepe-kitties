@@ -71,7 +71,6 @@ export default function MintSection(): React.JSX.Element {
         head: number
         mouth: number
         belly: number
-        background: number
     } | null>(null)
 
     const paletteColors = generatePalette(hue)
@@ -94,8 +93,7 @@ export default function MintSection(): React.JSX.Element {
                         bodyColor: parsed.args.bodyColor,
                         head: Number(parsed.args.head),
                         mouth: Number(parsed.args.mouth),
-                        belly: Number(parsed.args.belly),
-                        background: Number(parsed.args.background)
+                        belly: Number(parsed.args.belly)
                     }
                 }
             } catch {
