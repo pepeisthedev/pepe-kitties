@@ -5,7 +5,6 @@ import {ERC721AC} from "@limitbreak/creator-token-standards/src/erc721c/ERC721AC
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./utils/BasicRoyalties.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 interface ISVGRenderer {
@@ -79,10 +78,6 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         Ownable(address(msg.sender))
     {}
 
-    function _baseURI() internal pure override returns (string memory) {
-        return "data:application/json;base64,";
-    }
-
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(_exists(tokenId), "Token does not exist");
 
@@ -130,23 +125,19 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             );
         }
 
-        string memory json = Base64.encode(
-            bytes(
-                string(
-                    abi.encodePacked(
-                        '{"name": "Freg #',
-                        Strings.toString(tokenId),
-                        '","description": "Fregs - Customizable NFT Frogs on Base","image": "data:image/svg+xml;base64,',
-                        Base64.encode(bytes(svg)),
-                        '","attributes": [',
-                        attributes,
-                        ']}'
-                    )
-                )
+        // Build JSON with embedded SVG (no base64 encoding)
+        // SVG uses single quotes so it can be embedded in JSON double-quoted strings
+        return string(
+            abi.encodePacked(
+                'data:application/json,{"name":"Freg #',
+                Strings.toString(tokenId),
+                '","description":"Fregs - Customizable NFT Frogs on Base","image":"data:image/svg+xml,',
+                svg,
+                '","attributes":[',
+                attributes,
+                ']}'
             )
         );
-
-        return string(abi.encodePacked(_baseURI(), json));
     }
 
     function _getSpecialSkinName(uint256 _specialSkin) internal pure returns (string memory) {

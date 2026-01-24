@@ -59,29 +59,31 @@ async function main() {
             const tokenUri = await fregs.tokenURI(tokenId);
 
             // Parse the data URI
-            // Format: data:application/json;base64,<base64-encoded-json>
+            // Format: data:application/json,<json> (no base64)
             let metadata;
-            if (tokenUri.startsWith("data:application/json;base64,")) {
+            if (tokenUri.startsWith("data:application/json,")) {
+                const jsonString = tokenUri.replace("data:application/json,", "");
+                metadata = JSON.parse(jsonString);
+            } else if (tokenUri.startsWith("data:application/json;base64,")) {
+                // Fallback for base64 encoded
                 const base64Data = tokenUri.replace("data:application/json;base64,", "");
                 const jsonString = Buffer.from(base64Data, "base64").toString("utf8");
                 metadata = JSON.parse(jsonString);
-            } else if (tokenUri.startsWith("data:application/json,")) {
-                const jsonString = tokenUri.replace("data:application/json,", "");
-                metadata = JSON.parse(decodeURIComponent(jsonString));
             } else {
                 console.log(`  Token ${tokenId}: Unknown URI format, skipping`);
                 continue;
             }
 
             // Extract SVG from image field
-            // Format: data:image/svg+xml;base64,<base64-encoded-svg>
+            // Format: data:image/svg+xml,<svg> (no base64)
             let svg;
             if (metadata.image) {
-                if (metadata.image.startsWith("data:image/svg+xml;base64,")) {
+                if (metadata.image.startsWith("data:image/svg+xml,")) {
+                    svg = metadata.image.replace("data:image/svg+xml,", "");
+                } else if (metadata.image.startsWith("data:image/svg+xml;base64,")) {
+                    // Fallback for base64 encoded
                     const base64Svg = metadata.image.replace("data:image/svg+xml;base64,", "");
                     svg = Buffer.from(base64Svg, "base64").toString("utf8");
-                } else if (metadata.image.startsWith("data:image/svg+xml,")) {
-                    svg = decodeURIComponent(metadata.image.replace("data:image/svg+xml,", ""));
                 } else {
                     svg = metadata.image; // Maybe it's raw SVG
                 }
