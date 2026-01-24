@@ -2,7 +2,6 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 
 // Interface for trait sub-contracts
 interface ISVGTraitRenderer {
@@ -12,8 +11,6 @@ interface ISVGTraitRenderer {
 }
 
 contract FregsSVGRenderer is Ownable {
-    using Strings for uint256;
-
     // Trait type constants (must match Fregs.sol)
     uint256 public constant TRAIT_HEAD = 1;
     uint256 public constant TRAIT_MOUTH = 2;
@@ -88,27 +85,24 @@ contract FregsSVGRenderer is Ownable {
      * @param _traitId The specific trait ID
      */
     function meta(uint256 _traitType, uint256 _traitId) external view returns (string memory) {
-        if (_traitType == TRAIT_HEAD && address(headContract) != address(0)) {
+        if (_traitType == TRAIT_HEAD) {
             return headContract.meta(_traitId);
-        } else if (_traitType == TRAIT_MOUTH && address(mouthContract) != address(0)) {
+        } else if (_traitType == TRAIT_MOUTH) {
             return mouthContract.meta(_traitId);
-        } else if (_traitType == TRAIT_BELLY && address(bellyContract) != address(0)) {
+        } else if (_traitType == TRAIT_BELLY) {
             return bellyContract.meta(_traitId);
-        } else if (_traitType == TRAIT_SPECIAL_SKIN && address(specialSkinContract) != address(0)) {
+        } else if (_traitType == TRAIT_SPECIAL_SKIN) {
             return specialSkinContract.meta(_traitId);
         }
-
-        // Fallback: return trait ID as string
-        return string(abi.encodePacked("Trait #", _traitId.toString()));
+        revert("Invalid trait type");
     }
 
     // ============ Internal Render Helpers ============
 
     function _renderBackground(string memory _color) internal pure returns (string memory) {
-        // Background rect with 30% opacity, same color as body
         return string(
             abi.encodePacked(
-                "<rect width='617.49' height='644.18' fill='",
+                "<rect width='100%' height='100%' fill='",
                 _color,
                 "' opacity='0.3'/>"
             )
@@ -116,92 +110,23 @@ contract FregsSVGRenderer is Ownable {
     }
 
     function _renderBody(string memory _color) internal view returns (string memory) {
-        if (address(bodyContract) != address(0)) {
-            return bodyContract.renderWithColor(_color);
-        }
-        // Placeholder body with color
-        return string(
-            abi.encodePacked(
-                "<ellipse cx='200' cy='250' rx='120' ry='140' fill='",
-                _color,
-                "'/>"
-            )
-        );
+        return bodyContract.renderWithColor(_color);
     }
 
     function _renderBelly(uint256 _bellyId) internal view returns (string memory) {
-        if (address(bellyContract) != address(0)) {
-            return bellyContract.render(_bellyId);
-        }
-        // Placeholder belly
-        return "<ellipse cx='200' cy='280' rx='60' ry='70' fill='#f5f5dc' opacity='0.8'/>";
+        return bellyContract.render(_bellyId);
     }
 
     function _renderHead(uint256 _headId) internal view returns (string memory) {
-        if (address(headContract) != address(0)) {
-            return headContract.render(_headId);
-        }
-        // Placeholder head with eyes
-        return string(
-            abi.encodePacked(
-                "<circle cx='200' cy='120' r='80' fill='inherit'/>",
-                "<circle cx='170' cy='100' r='20' fill='white'/>",
-                "<circle cx='230' cy='100' r='20' fill='white'/>",
-                "<circle cx='175' cy='105' r='8' fill='black'/>",
-                "<circle cx='235' cy='105' r='8' fill='black'/>"
-            )
-        );
+        return headContract.render(_headId);
     }
 
     function _renderMouth(uint256 _mouthId) internal view returns (string memory) {
-        if (address(mouthContract) != address(0)) {
-            return mouthContract.render(_mouthId);
-        }
-        // Placeholder mouth
-        return "<path d='M 180 140 Q 200 160 220 140' stroke='black' stroke-width='3' fill='none'/>";
+        return mouthContract.render(_mouthId);
     }
 
     function _renderSpecialSkin(uint256 _skinId) internal view returns (string memory) {
-        if (address(specialSkinContract) != address(0)) {
-            return specialSkinContract.render(_skinId);
-        }
-
-        // Placeholder special skins with gradients
-        string memory skinColor;
-        string memory gradientId;
-
-        if (_skinId == 1) {
-            // Bronze
-            skinColor = "#cd7f32";
-            gradientId = "bronzeGrad";
-        } else if (_skinId == 2) {
-            // Silver
-            skinColor = "#c0c0c0";
-            gradientId = "silverGrad";
-        } else {
-            // Gold
-            skinColor = "#ffd700";
-            gradientId = "goldGrad";
-        }
-
-        return string(
-            abi.encodePacked(
-                "<defs><linearGradient id='",
-                gradientId,
-                "' x1='0%' y1='0%' x2='100%' y2='100%'>",
-                "<stop offset='0%' style='stop-color:",
-                skinColor,
-                ";stop-opacity:1'/>",
-                "<stop offset='50%' style='stop-color:white;stop-opacity:0.3'/>",
-                "<stop offset='100%' style='stop-color:",
-                skinColor,
-                ";stop-opacity:1'/>",
-                "</linearGradient></defs>",
-                "<ellipse cx='200' cy='250' rx='120' ry='140' fill='url(#",
-                gradientId,
-                ")'/>"
-            )
-        );
+        return specialSkinContract.render(_skinId);
     }
 
     // ============ Owner Functions ============
