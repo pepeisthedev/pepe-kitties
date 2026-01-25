@@ -237,7 +237,7 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                     className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-bounce"
                     aria-label="Scroll down"
                 >
-                    <ScrollArrow className="w-10 h-10 text-black/80 hover:text-black transition-colors" />
+                    <ScrollArrow className="w-10 h-10 text-white/80 hover:text-black transition-colors cursor-pointer" />
                 </button>
             </div>
 
