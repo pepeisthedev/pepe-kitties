@@ -8,7 +8,7 @@ const ITEM_IMAGES: Record<number, string> = {
   [ITEM_TYPES.BRONZE_SKIN]: "/items/3.svg",
   [ITEM_TYPES.SILVER_SKIN]: "/items/4.svg",
   [ITEM_TYPES.GOLD_SKIN]: "/items/5.svg",
-  [ITEM_TYPES.TREASURE_CHEST]: "/chest.png",
+  [ITEM_TYPES.TREASURE_CHEST]: "/items/6.svg",
   [ITEM_TYPES.BEAD_PUNK]: "/beadpunks.png",
 }
 

@@ -131,16 +131,13 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(_exists(tokenId), "Token does not exist");
+        require(address(svgRenderer) != address(0), "SVG renderer not set");
 
         string memory itemName = _getItemName(itemType[tokenId]);
         string memory itemDescription = _getItemDescription(itemType[tokenId]);
 
-        string memory svg;
-        if (address(svgRenderer) != address(0)) {
-            svg = svgRenderer.render(itemType[tokenId]);
-        } else {
-            svg = _getPlaceholderSVG(itemType[tokenId]);
-        }
+        // Item types are 1-indexed, but SVGRouter is 0-indexed
+        string memory svg = svgRenderer.render(itemType[tokenId] - 1);
 
         string memory json = Base64.encode(
             bytes(
@@ -183,29 +180,6 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         if (_itemType == GOLD_SKIN) return "Apply a golden skin to your Freg";
         if (_itemType == TREASURE_CHEST) return "Burn this chest to claim ETH rewards";
         return "Unknown item";
-    }
-
-    function _getPlaceholderSVG(uint256 _itemType) internal pure returns (string memory) {
-        string memory color;
-        if (_itemType == COLOR_CHANGE) color = "#ff6b6b";
-        else if (_itemType == HEAD_REROLL) color = "#9333ea";
-        else if (_itemType == BRONZE_SKIN) color = "#cd7f32";
-        else if (_itemType == SILVER_SKIN) color = "#c0c0c0";
-        else if (_itemType == GOLD_SKIN) color = "#ffd700";
-        else if (_itemType == TREASURE_CHEST) color = "#8b4513";
-        else color = "#666666";
-
-        return string(
-            abi.encodePacked(
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">',
-                '<rect width="100" height="100" fill="',
-                color,
-                '"/>',
-                '<text x="50" y="55" text-anchor="middle" fill="white" font-size="12">',
-                _getItemName(_itemType),
-                '</text></svg>'
-            )
-        );
     }
 
     // ============ Claim Item ============

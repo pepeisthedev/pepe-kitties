@@ -15,6 +15,9 @@ const WEBSITE_ABI_PATH = path.join(__dirname, "../../website/src/assets/abis");
 // Path to the frogz SVG folder
 const FROGZ_PATH = path.join(__dirname, "../../website/public/frogz");
 
+// Path to the items SVG folder
+const ITEMS_PATH = path.join(__dirname, "../../website/public/items");
+
 // Copy ABI from artifacts to website
 function copyABI(contractName, targetFileName, subPath = "") {
     try {
@@ -229,6 +232,69 @@ async function deployTraitFolder(folderName, svgPartWriter) {
     return routerAddress;
 }
 
+async function deployItems(svgPartWriter) {
+    if (!fs.existsSync(ITEMS_PATH)) {
+        console.log("  Items folder not found, skipping items deployment...");
+        return null;
+    }
+
+    const files = fs.readdirSync(ITEMS_PATH)
+        .filter(f => f.endsWith('.svg'))
+        .sort((a, b) => parseInt(a.replace('.svg', '')) - parseInt(b.replace('.svg', '')));
+
+    if (files.length === 0) {
+        console.log("  No item SVGs found, skipping...");
+        return null;
+    }
+
+    console.log(`  Deploying items (${files.length} SVGs)...`);
+
+    const svgRendererAddresses = [];
+    const chunkSize = 16 * 1024;
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const filePath = path.join(ITEMS_PATH, file);
+        // Items don't need class prefixing since they're standalone
+        const svgData = processSvgFile(filePath, '');
+
+        const totalChunks = Math.ceil(svgData.length / chunkSize);
+        const addresses = [];
+
+        for (let j = 0; j < totalChunks; j++) {
+            const chunk = svgData.slice(j * chunkSize, (j + 1) * chunkSize);
+            const addr = await storeSvgData(svgPartWriter, chunk);
+            addresses.push(addr);
+        }
+
+        const SVGRenderer = await ethers.getContractFactory("SVGRenderer");
+        const renderer = await SVGRenderer.deploy(addresses);
+        await renderer.waitForDeployment();
+
+        if (network.name !== "localhost" && network.name !== "hardhat") {
+            await renderer.deploymentTransaction()?.wait(2);
+        }
+
+        svgRendererAddresses.push(await renderer.getAddress());
+        console.log(`    Item ${file} deployed (${totalChunks} chunks)`);
+    }
+
+    // Deploy router for items
+    const SVGRouter = await ethers.getContractFactory("SVGRouter");
+    const router = await SVGRouter.deploy();
+    await router.waitForDeployment();
+
+    if (network.name !== "localhost" && network.name !== "hardhat") {
+        await router.deploymentTransaction()?.wait(2);
+    }
+
+    await (await router.setRenderContractsBatch(svgRendererAddresses)).wait();
+
+    const routerAddress = await router.getAddress();
+    console.log(`    Items router: ${routerAddress}`);
+    return routerAddress;
+}
+
 async function deployArt() {
     console.log("\n--- Deploying SVG Art Contracts ---");
 
@@ -259,6 +325,12 @@ async function deployArt() {
         if (address) {
             artAddresses[folder] = address;
         }
+    }
+
+    // Deploy item SVGs
+    const itemsRouter = await deployItems(svgPartWriter);
+    if (itemsRouter) {
+        artAddresses.items = itemsRouter;
     }
 
     return artAddresses;
@@ -468,6 +540,13 @@ async function main() {
     await (await fregs.setSVGRenderer(svgRendererAddress)).wait();
     console.log("SVG Renderer set on Fregs!");
 
+    // Set Items SVG Renderer on FregsItems
+    if (artAddresses.items) {
+        console.log("Setting SVG Renderer on FregsItems...");
+        await (await fregsItems.setSVGRenderer(artAddresses.items)).wait();
+        console.log("SVG Renderer set on FregsItems!");
+    }
+
     // ============ Copy ABIs to Website ============
     console.log("\n--- Copying ABIs to Website ---");
 
@@ -574,6 +653,7 @@ async function main() {
     console.log("  Head:            ", artAddresses.head || "Not deployed");
     console.log("  Mouth:           ", artAddresses.mouth || "Not deployed");
     console.log("  Special:         ", artAddresses.special || "Not deployed");
+    console.log("  Items:           ", artAddresses.items || "Not deployed");
     console.log("\nConfiguration:");
     console.log("  Royalty Receiver:", ROYALTY_RECEIVER);
     console.log("  Royalty Fee:", ROYALTY_FEE / 100, "%");

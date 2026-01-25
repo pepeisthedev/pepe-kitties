@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bronzeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#cd9b5a"/>
+      <stop offset="50%" style="stop-color:#cd7f32"/>
+      <stop offset="100%" style="stop-color:#8b5a2b"/>
+    </linearGradient>
+    <linearGradient id="bronzeShine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:white;stop-opacity:0"/>
+      <stop offset="50%" style="stop-color:white;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:white;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="45" fill="#1a1a2e" stroke="#cd7f32" stroke-width="3"/>
+  <!-- Shield/skin shape -->
+  <path d="M50 15 L75 30 L75 55 Q75 80 50 90 Q25 80 25 55 L25 30 Z" fill="url(#bronzeGrad)"/>
+  <path d="M50 15 L75 30 L75 55 Q75 80 50 90 Q25 80 25 55 L25 30 Z" fill="url(#bronzeShine)"/>
+  <!-- III for bronze/third tier -->
+  <text x="50" y="60" font-family="serif" font-size="24" font-weight="bold" fill="#1a1a2e" text-anchor="middle">III</text>
+</svg>

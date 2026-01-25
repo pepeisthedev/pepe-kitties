@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="45" fill="#1a1a2e" stroke="#9b59b6" stroke-width="3"/>
+  <!-- Dice shape -->
+  <rect x="25" y="25" width="50" height="50" rx="8" fill="#9b59b6" transform="rotate(15 50 50)"/>
+  <rect x="25" y="25" width="50" height="50" rx="8" fill="#8e44ad" transform="rotate(15 50 50)" opacity="0.5"/>
+  <!-- Dice dots -->
+  <circle cx="38" cy="38" r="4" fill="white" transform="rotate(15 50 50)"/>
+  <circle cx="50" cy="50" r="4" fill="white" transform="rotate(15 50 50)"/>
+  <circle cx="62" cy="62" r="4" fill="white" transform="rotate(15 50 50)"/>
+  <circle cx="38" cy="62" r="4" fill="white" transform="rotate(15 50 50)"/>
+  <circle cx="62" cy="38" r="4" fill="white" transform="rotate(15 50 50)"/>
+  <!-- Refresh arrow -->
+  <path d="M70 25 Q85 35 75 50 L80 48 L75 50 L77 55" stroke="#ffd93d" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>

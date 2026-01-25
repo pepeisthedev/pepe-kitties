@@ -91,9 +91,9 @@ export default function TreasureChestSection(): React.JSX.Element {
                         <div key={chest.tokenId} className="flex flex-col items-center">
                             <div className="w-48 h-48 mb-4">
                                 <img
-                                    src="/chest.png"
+                                    src="/items/6.svg"
                                     alt="Treasure Chest"
-                                    className="w-full h-full object-contain rounded-2xl"
+                                    className="w-full h-full object-contain"
                                 />
                             </div>
                             <p className="font-bangers text-2xl text-lime-400 mb-3">

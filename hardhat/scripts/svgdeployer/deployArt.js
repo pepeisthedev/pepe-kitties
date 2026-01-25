@@ -4,6 +4,8 @@ const path = require("path");
 
 // Path to the frogz SVG folder (relative to this script)
 const FROGZ_PATH = path.join(__dirname, "../../../website/public/frogz");
+// Path to the items SVG folder
+const ITEMS_PATH = path.join(__dirname, "../../../website/public/items");
 
 /**
  * Retry a function with exponential backoff
@@ -372,6 +374,91 @@ async function deployBody(svgPartWriter) {
 }
 
 /**
+ * Deploy item SVGs and create a router for them
+ * Items are stored at indices matching their item type (1-6)
+ */
+async function deployItems(svgPartWriter) {
+    if (!fs.existsSync(ITEMS_PATH)) {
+        console.log("⚠️  Items folder not found, skipping...");
+        return null;
+    }
+
+    // Get all SVG files in the items folder
+    const files = fs.readdirSync(ITEMS_PATH)
+        .filter(f => f.endsWith('.svg'))
+        .sort((a, b) => {
+            const numA = parseInt(a.replace('.svg', ''));
+            const numB = parseInt(b.replace('.svg', ''));
+            return numA - numB;
+        });
+
+    if (files.length === 0) {
+        console.log("⚠️  No SVG files found in items folder, skipping...");
+        return null;
+    }
+
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`🎁 Deploying ITEM SVGs (${files.length} items)`);
+    console.log(`${'='.repeat(60)}`);
+
+    const svgRendererAddresses = [];
+    let totalContracts = 0;
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const filePath = path.join(ITEMS_PATH, file);
+
+        console.log(`\n📦 Deploying item ${file} (${i + 1}/${files.length})...`);
+
+        try {
+            const { address, chunkCount } = await deploySvg(filePath, svgPartWriter);
+            svgRendererAddresses.push(address);
+            totalContracts += chunkCount;
+            console.log(`✅ Item ${file} deployed at: ${address}`);
+        } catch (error) {
+            console.error(`❌ Failed to deploy item ${file}:`, error);
+            throw new Error(`Failed to deploy item ${file}. Cannot continue.`);
+        }
+    }
+
+    // Deploy SVGRouter for items
+    console.log(`\n🚀 Deploying SVGRouter for items...`);
+    const SVGRouterContract = await ethers.getContractFactory("SVGRouter");
+    const svgRouter = await SVGRouterContract.deploy();
+    await svgRouter.waitForDeployment();
+    totalContracts++;
+
+    if (network.name !== "localhost" && network.name !== "hardhat") {
+        const deploymentTx = svgRouter.deploymentTransaction();
+        if (deploymentTx) {
+            console.log("Waiting for SVGRouter deployment...");
+            await deploymentTx.wait(2);
+        }
+    }
+
+    // Add all item SVG addresses to the router
+    // Note: Item type 1 will be at index 0, type 2 at index 1, etc.
+    console.log(`📋 Adding ${svgRendererAddresses.length} items to router...`);
+    try {
+        const tx = await svgRouter.setRenderContractsBatch(svgRendererAddresses);
+        const receipt = await tx.wait();
+        console.log(`✅ All items added! Gas used: ${receipt.gasUsed}`);
+    } catch (error) {
+        console.error(`❌ Failed to configure items router:`, error);
+        throw error;
+    }
+
+    const routerAddress = await svgRouter.getAddress();
+    console.log(`🎯 Items Router deployed at: ${routerAddress}`);
+
+    return {
+        routerAddress,
+        itemCount: files.length,
+        contractCount: totalContracts
+    };
+}
+
+/**
  * Main deployment function
  */
 async function deployArt() {
@@ -437,7 +524,14 @@ async function deployArt() {
         }
     }
 
-    // 4. Print summary
+    // 4. Deploy item SVGs
+    const itemsResult = await deployItems(svgPartWriter);
+    if (itemsResult) {
+        routers['items'] = itemsResult.routerAddress;
+        totalContracts += itemsResult.contractCount;
+    }
+
+    // 5. Print summary
     console.log("\n" + "=".repeat(60));
     console.log("🎉 DEPLOYMENT COMPLETE!");
     console.log("=".repeat(60));
