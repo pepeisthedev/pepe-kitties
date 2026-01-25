@@ -74,7 +74,6 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
         ? (isAtTop ? 'bg-transparent' : 'bg-white/10 backdrop-blur-md')
         : 'backdrop-blur-md bg-black/30 border-b-4 border-lime-400'
 
-    const textColor = isLanding ? 'text-white' : 'text-lime-400'
     const navTextColor = isLanding ? 'text-white hover:text-white/70' : 'text-white hover:text-lime-400'
 
     return (
@@ -87,7 +86,7 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                 {/* Logo - click to go back to landing */}
                 <button
                     onClick={() => onSectionChange("landing")}
-                    className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                    className="flex items-center hover:opacity-80 transition-opacity"
                 >
                     <img
                         src="/fregs.svg"
@@ -96,20 +95,15 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                             isLanding ? '' : 'border-3 border-lime-400'
                         }`}
                     />
-                    <h1 className={`font-bangers text-xl md:text-4xl tracking-wider ${textColor} ${
-                        isLanding ? '' : 'text-comic-shadow'
-                    }`}>
-                        FREGS
-                    </h1>
                 </button>
 
                 {/* Desktop Navigation */}
-                <nav className="hidden md:flex items-center gap-4">
+                <nav className="hidden md:flex items-center gap-8">
                     {navItems.map((item) => (
                         <button
                             key={item.id}
                             onClick={() => onSectionChange(item.id)}
-                            className={`font-righteous transition-colors text-sm ${
+                            className={`font-righteous transition-colors text-lg cursor-pointer ${
                                 activeSection === item.id
                                     ? (isLanding ? "text-white font-bold" : "text-lime-400")
                                     : navTextColor
@@ -122,22 +116,19 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
 
                 {/* Mobile Menu Button + Wallet */}
                 <div className="flex items-center gap-2">
-                    {/* Wallet Button */}
-                    <Button
-                        onClick={handleWalletClick}
-                        className={`
-                            font-bangers text-sm md:text-lg px-3 md:px-6 py-2 rounded-full
-                            transition-all duration-300 transform hover:scale-105
-                            ${isLanding
-                                ? "bg-white/20 hover:bg-white/30 text-white border-2 border-white/50"
-                                : "bg-lime-500 hover:bg-lime-400 text-black border-2 border-lime-300"
-                            }
-                            shadow-lg hover:shadow-xl
-                        `}
-                    >
-                        <Wallet className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
-                        {isConnected ? formatAddress(address) : "Connect"}
-                    </Button>
+                    {/* Wallet Button - hidden on landing, hidden on mobile (shown in menu instead) */}
+                    {!isLanding && (
+                        <Button
+                            onClick={handleWalletClick}
+                            className="hidden md:flex font-bangers text-sm md:text-lg px-3 md:px-6 py-2 rounded-full
+                                transition-all duration-300 transform hover:scale-105
+                                bg-lime-500 hover:bg-lime-400 text-black border-2 border-lime-300
+                                shadow-lg hover:shadow-xl"
+                        >
+                            <Wallet className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
+                            {isConnected ? formatAddress(address) : "Connect"}
+                        </Button>
+                    )}
 
                     {/* Hamburger Menu Button */}
                     <button
@@ -153,16 +144,25 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                 </div>
             </div>
 
-            {/* Mobile Menu Dropdown */}
-            {mobileMenuOpen && (
-                <nav className={`md:hidden ${
-                    isLanding ? 'bg-black/80 backdrop-blur-md' : 'bg-black/90 border-t border-lime-400/30'
-                }`}>
-                    {navItems.map((item) => (
+            {/* Mobile Menu Dropdown with Animation */}
+            <div
+                className={`md:hidden overflow-hidden transition-all duration-300 ease-out ${
+                    mobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                } ${
+                    isLanding ? 'bg-white/10 backdrop-blur-md' : 'bg-black/90 border-t border-lime-400/30'
+                }`}
+            >
+                <nav>
+                    {navItems.map((item, index) => (
                         <button
                             key={item.id}
                             onClick={() => handleNavClick(item.id)}
-                            className={`w-full text-left px-6 py-4 font-righteous text-lg transition-colors border-b ${
+                            style={{
+                                animationDelay: mobileMenuOpen ? `${index * 75}ms` : '0ms',
+                            }}
+                            className={`w-full text-left px-6 py-4 font-righteous text-xl transition-colors border-b ${
+                                mobileMenuOpen ? 'animate-menu-item-bounce' : 'opacity-0 translate-x-[-30px]'
+                            } ${
                                 isLanding ? 'border-white/20' : 'border-lime-400/20'
                             } ${
                                 activeSection === item.id
@@ -173,8 +173,30 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                             {item.label}
                         </button>
                     ))}
+                    {/* Wallet Button in Mobile Menu - hidden on landing */}
+                    {!isLanding && (
+                        <button
+                            onClick={() => {
+                                handleWalletClick()
+                                setMobileMenuOpen(false)
+                            }}
+                            style={{
+                                animationDelay: mobileMenuOpen ? `${navItems.length * 75}ms` : '0ms',
+                            }}
+                            className={`w-full text-left px-6 py-4 font-righteous text-lg transition-colors flex items-center gap-3 ${
+                                mobileMenuOpen ? 'animate-menu-item-bounce' : 'opacity-0 translate-x-[-30px]'
+                            } ${
+                                isConnected
+                                    ? "text-lime-400 bg-lime-400/10"
+                                    : "text-white hover:text-lime-400 hover:bg-lime-400/5"
+                            }`}
+                        >
+                            <Wallet className="w-5 h-5" />
+                            {isConnected ? formatAddress(address) : "Connect Wallet"}
+                        </button>
+                    )}
                 </nav>
-            )}
+            </div>
         </header>
     )
 }

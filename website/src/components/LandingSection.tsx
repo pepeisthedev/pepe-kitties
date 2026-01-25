@@ -209,12 +209,12 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                 <div className="relative z-10 h-full flex items-end pb-24 md:pb-32">
                     <div className="max-w-[348px] md:max-w-[600px] mx-6 md:mx-16 lg:mx-24 text-left">
                         {/* Title */}
-                        <h1 className="text-black text-3xl md:text-[44px] font-bold tracking-tight mb-4 md:mb-8">
+                        <h1 className="text-white text-3xl md:text-[44px] font-bold tracking-tight mb-4 md:mb-8">
                             Fregs
                         </h1>
 
                         {/* Description */}
-                        <p className="text-black/90 text-xl md:text-2xl font-medium tracking-tight mb-6 md:mb-16">
+                        <p className="text-white/90 text-xl md:text-2xl font-medium tracking-tight mb-6 md:mb-16">
                             Born from forgotten swamps and half-remembered dreams, Freg wanders the blockchain in search of meaning. No one knows what he's seen, but he's definitely judging you.
                         </p>
 
@@ -223,7 +223,7 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                             onClick={onEnter}
                             className="px-8 py-4 md:px-12 md:py-6 rounded-full font-bangers text-xl md:text-2xl
                                 bg-lime-500 hover:bg-lime-400
-                                text-black
+                                text-white
                                 transition duration-200"
                         >
                             ENTER
