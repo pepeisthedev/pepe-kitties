@@ -59,7 +59,8 @@ export default function MyKittiesSection(): React.JSX.Element {
         setIsClaiming(true)
         try {
             const contract = await contracts.items.write()
-            const tx = await contract.claimItem(selectedKittyId)
+            // Manually specify gas to avoid MetaMask gas estimation issues on localhost
+            const tx = await contract.claimItem(selectedKittyId, { gasLimit: 1000000n })
             const receipt = await tx.wait()
 
             const claimedItem = parseItemClaimedEvent(receipt)

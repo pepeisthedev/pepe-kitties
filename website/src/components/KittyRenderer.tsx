@@ -29,6 +29,7 @@ export default function KittyRenderer({
 }: KittyRendererProps): React.JSX.Element {
   const [bodySvgUrl, setBodySvgUrl] = useState<string | null>(null)
   const [backgroundSvgUrl, setBackgroundSvgUrl] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   const sizeClasses = {
     sm: "w-full h-full",
@@ -42,7 +43,10 @@ export default function KittyRenderer({
 
   // Fetch body SVG and replace color
   useEffect(() => {
-    if (hasSpecialSkin) return
+    if (hasSpecialSkin) {
+      setBodySvgUrl(null)
+      return
+    }
 
     const loadBody = async () => {
       try {
@@ -92,8 +96,22 @@ export default function KittyRenderer({
     loadBackground()
   }, [bodyColor])
 
+  // Track loading state
+  useEffect(() => {
+    const bgReady = backgroundSvgUrl !== null
+    const bodyReady = hasSpecialSkin || bodySvgUrl !== null
+    setIsLoading(!bgReady || !bodyReady)
+  }, [backgroundSvgUrl, bodySvgUrl, hasSpecialSkin])
+
   return (
     <div className={`relative ${sizeClasses[size]} ${className}`}>
+      {/* Loading placeholder */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-200 animate-pulse rounded-lg">
+          <div className="w-8 h-8 border-3 border-lime-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
       {/* Background - always rendered first */}
       {backgroundSvgUrl && (
         <img

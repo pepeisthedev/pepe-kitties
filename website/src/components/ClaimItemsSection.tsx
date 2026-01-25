@@ -27,44 +27,32 @@ export default function ClaimItemsSection(): React.JSX.Element {
         let itemClaimedResult = null
         let treasureChestResult = null
 
-        console.log("Parsing receipt logs:", receipt.logs.length, "logs")
-
         for (const log of receipt.logs) {
             try {
                 const parsed = contract.interface.parseLog({
                     topics: log.topics as string[],
                     data: log.data
                 })
-                console.log("Parsed event:", parsed?.name, parsed?.args)
 
                 if (parsed?.name === "ItemClaimed") {
-                    // Event: ItemClaimed(uint256 indexed fregId, uint256 indexed itemTokenId, address indexed owner, uint256 itemType)
                     itemClaimedResult = {
                         fregId: Number(parsed.args.fregId ?? parsed.args[0]),
                         itemTokenId: Number(parsed.args.itemTokenId ?? parsed.args[1]),
                         itemType: Number(parsed.args.itemType ?? parsed.args[3])
                     }
-                    console.log("ItemClaimed parsed:", itemClaimedResult)
                 }
-                // Fallback: also check TreasureChestMinted
                 if (parsed?.name === "TreasureChestMinted") {
                     treasureChestResult = {
                         itemTokenId: Number(parsed.args.itemTokenId ?? parsed.args[0]),
                         itemType: ITEM_TYPES.TREASURE_CHEST
                     }
-                    console.log("TreasureChestMinted parsed:", treasureChestResult)
                 }
             } catch {
                 // Not a recognized event, continue
             }
         }
 
-        // Prefer ItemClaimed, fallback to TreasureChestMinted
-        if (itemClaimedResult) return itemClaimedResult
-        if (treasureChestResult) return treasureChestResult
-
-        console.log("No ItemClaimed or TreasureChestMinted event found")
-        return null
+        return itemClaimedResult || treasureChestResult || null
     }
 
     const handleClaim = async (kittyId: number) => {
@@ -73,11 +61,11 @@ export default function ClaimItemsSection(): React.JSX.Element {
         setClaimingId(kittyId)
         try {
             const contract = await contracts.items.write()
-            const tx = await contract.claimItem(kittyId)
+            // Manually specify gas to avoid MetaMask gas estimation issues on localhost
+            const tx = await contract.claimItem(kittyId, { gasLimit: 1000000n })
             const receipt = await tx.wait()
 
             const claimedItem = parseItemClaimedEvent(receipt)
-            console.log("Claimed item result:", claimedItem)
 
             const isBeadPunk = claimedItem?.itemType === ITEM_TYPES.BEAD_PUNK
             const itemName = claimedItem ? ITEM_TYPE_NAMES[claimedItem.itemType] : "Item"
@@ -96,7 +84,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
             refetchItems()
             refetchKitties()
         } catch (err: any) {
-            setModalData({ success: false, message: err.message || "Claim failed" })
+            setModalData({ success: false, message: err.shortMessage || err.message || "Claim failed" })
         } finally {
             setClaimingId(null)
             setShowModal(true)

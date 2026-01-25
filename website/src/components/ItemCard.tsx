@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useState } from "react"
 import { ITEM_TYPES, ITEM_TYPE_NAMES, ITEM_TYPE_DESCRIPTIONS } from "../config/contracts"
 
 // Map item types to their image paths
@@ -49,6 +49,7 @@ export default function ItemCard({
   showDescription = false,
   size = "md",
 }: ItemCardProps): React.JSX.Element {
+  const [isLoading, setIsLoading] = useState(true)
   const colorClass = ITEM_COLORS[itemType] || "border-white/30 bg-white/5"
   const selectedRingClass = ITEM_SELECTED_COLORS[itemType] || "ring-lime-400"
   const name = ITEM_TYPE_NAMES[itemType] || "Unknown Item"
@@ -72,13 +73,19 @@ export default function ItemCard({
       `}
     >
       {/* Item icon */}
-      <div className={`${sizeClass.icon} mx-auto mb-2`}>
+      <div className={`${sizeClass.icon} mx-auto mb-2 relative`}>
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-700/50 rounded animate-pulse">
+            <div className="w-4 h-4 border-2 border-lime-400 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
         <img
           src={ITEM_IMAGES[itemType] || `/items/${itemType}.svg`}
           alt={name}
-          className="w-full h-full object-contain"
+          className={`w-full h-full object-contain transition-opacity ${isLoading ? "opacity-0" : "opacity-100"}`}
+          onLoad={() => setIsLoading(false)}
           onError={(e) => {
-            // Fallback if image doesn't exist
+            setIsLoading(false)
             e.currentTarget.style.display = "none"
           }}
         />

@@ -18,27 +18,29 @@ export function useContracts() {
 
     const provider = new BrowserProvider(walletProvider as any)
 
+    const getSigner = async () => provider.getSigner()
+
     return {
       provider,
-      getSigner: async () => provider.getSigner(),
+      getSigner,
       fregs: {
         read: new Contract(FREGS_ADDRESS, FregsABI, provider),
         write: async () => {
-          const signer = await provider.getSigner()
+          const signer = await getSigner()
           return new Contract(FREGS_ADDRESS, FregsABI, signer)
         },
       },
       items: {
         read: new Contract(FREGS_ITEMS_ADDRESS, FregsItemsABI, provider),
         write: async () => {
-          const signer = await provider.getSigner()
+          const signer = await getSigner()
           return new Contract(FREGS_ITEMS_ADDRESS, FregsItemsABI, signer)
         },
       },
       mintPass: {
         read: new Contract(FREGS_MINTPASS_ADDRESS, FregsMintPassABI, provider),
         write: async () => {
-          const signer = await provider.getSigner()
+          const signer = await getSigner()
           return new Contract(FREGS_MINTPASS_ADDRESS, FregsMintPassABI, signer)
         },
       },
