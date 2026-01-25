@@ -222,9 +222,9 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                         <Button
                             onClick={onEnter}
                             className="px-8 py-4 md:px-12 md:py-6 rounded-full font-bangers text-xl md:text-2xl
-                                bg-lime-500 hover:bg-lime-400
                                 text-white
-                                transition duration-200"
+                                transition duration-200 hover:opacity-90"
+                            style={{ backgroundColor: '#7CB342' }}
                         >
                             ENTER
                         </Button>

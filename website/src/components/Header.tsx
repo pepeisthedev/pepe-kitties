@@ -82,7 +82,9 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                 isLanding && !isVisible ? '-translate-y-full' : 'translate-y-0'
             }`}
         >
-            <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className={`py-3 flex items-center justify-between ${
+                isLanding ? 'w-full px-6 md:px-16 lg:px-24' : 'max-w-7xl mx-auto px-4 w-full'
+            }`}>
                 {/* Logo - click to go back to landing */}
                 <button
                     onClick={() => onSectionChange("landing")}
@@ -91,19 +93,21 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                     <img
                         src="/fregs.svg"
                         alt="Fregs"
-                        className={`w-12 h-12 rounded-full shadow-lg hover:animate-pulse-rainbow ${
-                            isLanding ? '' : 'border-3 border-lime-400'
+                        className={`rounded-full shadow-lg hover:animate-pulse-rainbow ${
+                            isLanding ? 'w-20 h-20 md:w-24 md:h-24' : 'w-12 h-12 border-3 border-lime-400'
                         }`}
                     />
                 </button>
 
                 {/* Desktop Navigation */}
-                <nav className="hidden md:flex items-center gap-8">
+                <nav className={`hidden md:flex items-center ${isLanding ? 'gap-10' : 'gap-8'}`}>
                     {navItems.map((item) => (
                         <button
                             key={item.id}
                             onClick={() => onSectionChange(item.id)}
-                            className={`font-righteous transition-colors text-lg cursor-pointer ${
+                            className={`font-righteous transition-colors cursor-pointer ${
+                                isLanding ? 'text-xl' : 'text-lg'
+                            } ${
                                 activeSection === item.id
                                     ? (isLanding ? "text-white font-bold" : "text-lime-400")
                                     : navTextColor
