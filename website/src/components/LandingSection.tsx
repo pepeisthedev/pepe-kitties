@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react"
+import React, { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "./ui/button"
 
 interface LandingSectionProps {
@@ -16,8 +16,7 @@ const VIDEO_BASE_URL = "https://pub-59fac2662d16414c8202fc478b0c90b7.r2.dev/land
 
 // Background videos that loop sequentially
 const BACKGROUND_VIDEOS = [
-    `${VIDEO_BASE_URL}/background-landing2.MOV`,
-    `${VIDEO_BASE_URL}/background-landing3.MOV`,
+    `${VIDEO_BASE_URL}/background-landing4.mp4`
 ]
 
 // X (Twitter) Logo
@@ -157,19 +156,32 @@ function ImageCard({ src, href, className = "", clickable = true }: { src: strin
 export default function LandingSection({ onEnter }: LandingSectionProps): React.JSX.Element {
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
     const videoRef = useRef<HTMLVideoElement>(null)
+    const isSingleVideo = BACKGROUND_VIDEOS.length === 1
 
     const handleVideoEnded = useCallback(() => {
-        // Switch to next video in sequence
-        setCurrentVideoIndex((prev) => (prev + 1) % BACKGROUND_VIDEOS.length)
-    }, [])
-
-    // When video index changes, play the new video
-    React.useEffect(() => {
-        if (videoRef.current) {
-            videoRef.current.load()
-            videoRef.current.play()
+        if (isSingleVideo) {
+            // For single video, restart it manually
+            if (videoRef.current) {
+                videoRef.current.currentTime = 0
+                videoRef.current.play().catch(() => {
+                    // Ignore play errors
+                })
+            }
+        } else {
+            // Switch to next video in sequence
+            setCurrentVideoIndex((prev) => (prev + 1) % BACKGROUND_VIDEOS.length)
         }
-    }, [currentVideoIndex])
+    }, [isSingleVideo])
+
+    // When video index changes, play the new video (only for multiple videos)
+    useEffect(() => {
+        if (!isSingleVideo && videoRef.current) {
+            videoRef.current.load()
+            videoRef.current.play().catch(() => {
+                // Ignore play errors
+            })
+        }
+    }, [currentVideoIndex, isSingleVideo])
 
     const scrollToCards = () => {
         document.getElementById('cards-section')?.scrollIntoView({ behavior: 'smooth' })
@@ -179,13 +191,14 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
         <div className="relative w-full bg-black">
             {/* Hero Section - shorter on mobile to show more of wide video */}
             <div className="relative h-[100vh] md:h-screen w-full overflow-hidden">
-                {/* Background Video - loops between video 2 and 3 */}
+                {/* Background Video */}
                 <video
                     ref={videoRef}
                     autoPlay
+                    loop={isSingleVideo}
                     muted
                     playsInline
-                    onEnded={handleVideoEnded}
+                    onEnded={!isSingleVideo ? handleVideoEnded : undefined}
                     className="absolute inset-0 w-full h-full object-cover"
                 >
                     <source src={BACKGROUND_VIDEOS[currentVideoIndex]} type="video/mp4" />

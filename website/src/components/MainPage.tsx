@@ -12,13 +12,10 @@ export type SectionId = "landing" | "mint" | "my-kitties" | "use-items" | "treas
 export default function MainPage(): React.JSX.Element {
     const [activeSection, setActiveSection] = useState<SectionId>("landing")
 
-    // Landing page is fullscreen without header
-    if (activeSection === "landing") {
-        return <LandingSection onEnter={() => setActiveSection("mint")} />
-    }
-
     const renderSection = () => {
         switch (activeSection) {
+            case "landing":
+                return <LandingSection onEnter={() => setActiveSection("mint")} />
             case "mint":
                 return <MintSection />
             case "my-kitties":
@@ -34,11 +31,13 @@ export default function MainPage(): React.JSX.Element {
         }
     }
 
+    const isLanding = activeSection === "landing"
+
     return (
-        <div className="h-screen flex flex-col overflow-hidden">
+        <div className={isLanding ? "" : "h-screen flex flex-col overflow-hidden"}>
             <Header activeSection={activeSection} onSectionChange={setActiveSection} />
 
-            <main className="flex-1 overflow-hidden pt-20">
+            <main className={isLanding ? "" : "flex-1 overflow-hidden pt-20"}>
                 {renderSection()}
             </main>
         </div>
