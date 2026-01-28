@@ -19,6 +19,16 @@ export const ITEM_TYPES = {
   GOLD_SKIN: 5,
   TREASURE_CHEST: 6,
   BEAD_PUNK: 7,
+  SPECIAL_DICE: 100,
+} as const
+
+// Trait type constants (must match FregsItems.sol)
+export const TRAIT_TYPES = {
+  SPECIAL_BODY: 4,
+  SPECIAL_MOUTH: 5,
+  SPECIAL_BACKGROUND: 6,
+  SPECIAL_BELLY: 7,
+  SPECIAL_HEAD: 8,
 } as const
 
 // Item type names for display
@@ -30,6 +40,7 @@ export const ITEM_TYPE_NAMES: Record<number, string> = {
   [ITEM_TYPES.GOLD_SKIN]: "Gold Skin",
   [ITEM_TYPES.TREASURE_CHEST]: "Treasure Chest",
   [ITEM_TYPES.BEAD_PUNK]: "Bead Punk",
+  [ITEM_TYPES.SPECIAL_DICE]: "Special Dice",
 }
 
 // Item descriptions
@@ -41,4 +52,5 @@ export const ITEM_TYPE_DESCRIPTIONS: Record<number, string> = {
   [ITEM_TYPES.GOLD_SKIN]: "Apply a golden skin (+ free treasure chest!)",
   [ITEM_TYPES.TREASURE_CHEST]: "Burn to claim ETH rewards",
   [ITEM_TYPES.BEAD_PUNK]: "A rare Bead Punk NFT!",
+  [ITEM_TYPES.SPECIAL_DICE]: "Roll the dice for a random special trait!",
 }

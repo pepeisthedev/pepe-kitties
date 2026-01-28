@@ -11,6 +11,8 @@ export interface Item {
   tokenId: number
   itemType: number
   name: string
+  targetTraitType?: number
+  traitValue?: number
 }
 
 export function useOwnedItems() {
@@ -37,14 +39,38 @@ export function useOwnedItems() {
       const result = await contract.getOwnedItems(address)
       const [tokenIds, types] = result
 
-      const itemList: Item[] = tokenIds.map((id: bigint, i: number) => {
-        const itemType = Number(types[i])
-        return {
-          tokenId: Number(id),
-          itemType,
-          name: ITEM_TYPE_NAMES[itemType] || "Unknown",
-        }
-      })
+      // Fetch item info for each item to get dynamic names
+      const itemList: Item[] = await Promise.all(
+        tokenIds.map(async (id: bigint, i: number) => {
+          const itemType = Number(types[i])
+          let name = ITEM_TYPE_NAMES[itemType]
+          let targetTraitType: number | undefined
+          let traitValue: number | undefined
+
+          // For unknown item types, fetch info from contract
+          if (!name) {
+            try {
+              const [, itemName] = await contract.getItemInfo(id)
+              name = itemName || "Unknown Item"
+
+              // Also fetch config for dynamic items
+              const config = await contract.itemTypeConfigs(itemType)
+              targetTraitType = Number(config.targetTraitType)
+              traitValue = Number(config.traitValue)
+            } catch {
+              name = "Unknown Item"
+            }
+          }
+
+          return {
+            tokenId: Number(id),
+            itemType,
+            name,
+            targetTraitType,
+            traitValue,
+          }
+        })
+      )
 
       setItems(itemList)
     } catch (err) {

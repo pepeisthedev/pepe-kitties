@@ -13,6 +13,7 @@ contract SVGRouter {
     mapping(uint256 => address) public renderContracts;
     mapping(uint256 => string) public traitNames;
     address public owner;
+    uint256 public nextTypeId = 1;  // Track next available type ID
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
@@ -25,11 +26,36 @@ contract SVGRouter {
 
     function setRenderContract(uint256 typeId, address contractAddr) external onlyOwner {
         renderContracts[typeId] = contractAddr;
+        // Update nextTypeId if needed
+        if (typeId >= nextTypeId) {
+            nextTypeId = typeId + 1;
+        }
+    }
+
+    // Add a new render contract and return the assigned type ID
+    function addRenderContract(address contractAddr) external onlyOwner returns (uint256 typeId) {
+        typeId = nextTypeId;
+        renderContracts[typeId] = contractAddr;
+        nextTypeId++;
+        return typeId;
+    }
+
+    // Add a new render contract with a name and return the assigned type ID
+    function addRenderContractWithName(address contractAddr, string calldata name) external onlyOwner returns (uint256 typeId) {
+        typeId = nextTypeId;
+        renderContracts[typeId] = contractAddr;
+        traitNames[typeId] = name;
+        nextTypeId++;
+        return typeId;
     }
 
     function setRenderContractsBatch(address[] calldata contractAddrs) external onlyOwner {
         for (uint256 i = 0; i < contractAddrs.length; i++) {
             renderContracts[i + 1] = contractAddrs[i]; // Start at typeId 1
+        }
+        // Update nextTypeId to be after all set contracts
+        if (contractAddrs.length + 1 > nextTypeId) {
+            nextTypeId = contractAddrs.length + 1;
         }
     }
 

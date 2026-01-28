@@ -451,6 +451,68 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "uint256",
+        "name": "itemTypeId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "targetTraitType",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "traitValue",
+        "type": "uint256"
+      }
+    ],
+    "name": "ItemTypeAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "itemType",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "OwnerMinted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "address",
         "name": "previousOwner",
         "type": "address"
@@ -463,6 +525,37 @@
       }
     ],
     "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "traitType",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "traitValue",
+        "type": "uint256"
+      }
+    ],
+    "name": "SpecialDiceUsed",
     "type": "event"
   },
   {
@@ -494,6 +587,43 @@
       }
     ],
     "name": "SpecialSkinItemUsed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "traitType",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "traitValue",
+        "type": "uint256"
+      }
+    ],
+    "name": "SpecialTraitItemUsed",
     "type": "event"
   },
   {
@@ -715,6 +845,84 @@
   },
   {
     "inputs": [],
+    "name": "SPECIAL_DICE",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_BACKGROUND",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_BELLY",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_BODY",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_HEAD",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_MOUTH",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "TREASURE_CHEST",
     "outputs": [
       {
@@ -724,6 +932,55 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "description",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "targetTraitType",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "traitValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "isOwnerMintable",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "isClaimable",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "claimWeight",
+        "type": "uint256"
+      }
+    ],
+    "name": "addItemType",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "itemTypeId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1145,6 +1402,55 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "itemTypeConfigs",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "description",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "targetTraitType",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "traitValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "isOwnerMintable",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "isClaimable",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "claimWeight",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "name",
     "outputs": [
@@ -1152,6 +1458,19 @@
         "internalType": "string",
         "name": "",
         "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "nextItemTypeId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -1202,6 +1521,29 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_itemType",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "ownerMint",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1308,6 +1650,39 @@
     "name": "safeTransferFrom",
     "outputs": [],
     "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "maxBody",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxMouth",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxBackground",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxBelly",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxHead",
+        "type": "uint256"
+      }
+    ],
+    "name": "setAllSpecialTraitMaxVariants",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1442,6 +1817,24 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "traitType",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxVariant",
+        "type": "uint256"
+      }
+    ],
+    "name": "setSpecialTraitMaxVariants",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "transferValidator_",
         "type": "address"
@@ -1468,6 +1861,25 @@
   {
     "inputs": [],
     "name": "silverSkinWeight",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "specialTraitMaxVariants",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1634,6 +2046,54 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "itemTypeId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "description",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "targetTraitType",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "traitValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "isOwnerMintable",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "isClaimable",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "claimWeight",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateItemType",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "itemTokenId",
         "type": "uint256"
       },
@@ -1666,7 +2126,43 @@
         "type": "uint256"
       }
     ],
+    "name": "useDynamicTraitItem",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      }
+    ],
     "name": "useHeadReroll",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      }
+    ],
+    "name": "useSpecialDice",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

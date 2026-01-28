@@ -86,7 +86,59 @@
   },
   {
     "inputs": [],
-    "name": "TRAIT_SPECIAL_SKIN",
+    "name": "TRAIT_SPECIAL_BACKGROUND",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_BELLY",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_BODY",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_HEAD",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_MOUTH",
     "outputs": [
       {
         "internalType": "uint256",
@@ -210,7 +262,27 @@
       },
       {
         "internalType": "uint256",
-        "name": "_specialSkin",
+        "name": "_specialBody",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_specialMouth",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_specialBackground",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_specialBelly",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_specialHead",
         "type": "uint256"
       }
     ],
@@ -256,7 +328,27 @@
       },
       {
         "internalType": "address",
-        "name": "_specialSkin",
+        "name": "_specialBody",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_specialMouth",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_specialBackground",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_specialBelly",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_specialHead",
         "type": "address"
       }
     ],
@@ -351,14 +443,118 @@
         "type": "address"
       }
     ],
-    "name": "setSpecialSkinContract",
+    "name": "setSpecialBackgroundContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_contract",
+        "type": "address"
+      }
+    ],
+    "name": "setSpecialBellyContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_contract",
+        "type": "address"
+      }
+    ],
+    "name": "setSpecialBodyContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_contract",
+        "type": "address"
+      }
+    ],
+    "name": "setSpecialHeadContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_contract",
+        "type": "address"
+      }
+    ],
+    "name": "setSpecialMouthContract",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "specialSkinContract",
+    "name": "specialBackgroundContract",
+    "outputs": [
+      {
+        "internalType": "contract ISVGTraitRenderer",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "specialBellyContract",
+    "outputs": [
+      {
+        "internalType": "contract ISVGTraitRenderer",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "specialBodyContract",
+    "outputs": [
+      {
+        "internalType": "contract ISVGTraitRenderer",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "specialHeadContract",
+    "outputs": [
+      {
+        "internalType": "contract ISVGTraitRenderer",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "specialMouthContract",
     "outputs": [
       {
         "internalType": "contract ISVGTraitRenderer",

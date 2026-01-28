@@ -441,7 +441,7 @@ export default function MintSection(): React.JSX.Element {
                                     head={mintedKitty.head}
                                     mouth={mintedKitty.mouth}
                                     belly={mintedKitty.belly}
-                                    specialSkin={0}
+                                    specialBody={0}
                                     size="sm"
                                     className="w-full h-full"
                                 />

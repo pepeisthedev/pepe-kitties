@@ -8,14 +8,18 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 interface ISVGRenderer {
-    // Renders full SVG - handles specialSkin logic internally
-    // Background uses same color as bodyColor
+    // Renders full SVG - handles special trait logic internally
+    // Background uses same color as bodyColor (unless specialBackground is set)
     function render(
         string memory _bodyColor,
         uint256 _head,
         uint256 _mouth,
         uint256 _belly,
-        uint256 _specialSkin
+        uint256 _specialBody,
+        uint256 _specialMouth,
+        uint256 _specialBackground,
+        uint256 _specialBelly,
+        uint256 _specialHead
     ) external view returns (string memory);
 
     // Get trait name for metadata
@@ -40,13 +44,21 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     mapping(uint256 => uint256) public head;
     mapping(uint256 => uint256) public mouth;
     mapping(uint256 => uint256) public belly;
-    mapping(uint256 => uint256) public specialSkin; // 0=none, 1=bronze, 2=silver, 3=gold
+    mapping(uint256 => uint256) public specialBody;      // 0=none, 1=bronze, 2=silver, 3=gold (renamed from specialSkin)
+    mapping(uint256 => uint256) public specialMouth;     // 0=none, 1+=variant
+    mapping(uint256 => uint256) public specialBackground; // 0=none, 1+=variant
+    mapping(uint256 => uint256) public specialBelly;     // 0=none, 1+=variant
+    mapping(uint256 => uint256) public specialHead;      // 0=none, 1+=variant
 
     // Trait type constants for meta() calls
     uint256 public constant TRAIT_HEAD = 1;
     uint256 public constant TRAIT_MOUTH = 2;
     uint256 public constant TRAIT_BELLY = 3;
-    uint256 public constant TRAIT_SPECIAL_SKIN = 4;
+    uint256 public constant TRAIT_SPECIAL_BODY = 4;       // renamed from TRAIT_SPECIAL_SKIN
+    uint256 public constant TRAIT_SPECIAL_MOUTH = 5;
+    uint256 public constant TRAIT_SPECIAL_BACKGROUND = 6;
+    uint256 public constant TRAIT_SPECIAL_BELLY = 7;
+    uint256 public constant TRAIT_SPECIAL_HEAD = 8;
 
     // Trait count configuration (for randomness ranges)
     uint256 public headTraitCount = 3;
@@ -64,7 +76,8 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     );
 
     event HeadRerolled(uint256 indexed tokenId, uint256 oldHead, uint256 newHead);
-    event SpecialSkinApplied(uint256 indexed tokenId, uint256 specialSkin);
+    event SpecialBodyApplied(uint256 indexed tokenId, uint256 specialBody);
+    event SpecialTraitApplied(uint256 indexed tokenId, uint256 traitType, uint256 traitValue);
     event BodyColorChanged(uint256 indexed tokenId, string oldColor, string newColor);
 
     constructor(
@@ -86,44 +99,15 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             head[tokenId],
             mouth[tokenId],
             belly[tokenId],
-            specialSkin[tokenId]
+            specialBody[tokenId],
+            specialMouth[tokenId],
+            specialBackground[tokenId],
+            specialBelly[tokenId],
+            specialHead[tokenId]
         );
 
-        string memory attributes;
-
-        if (specialSkin[tokenId] > 0) {
-            // Has special skin - don't show body color or belly (they're replaced)
-            attributes = string(
-                abi.encodePacked(
-                    '{"trait_type": "Background","value": "',
-                    bodyColor[tokenId],
-                    '"},{"trait_type": "Special Skin","value": "',
-                    _getSpecialSkinName(specialSkin[tokenId]),
-                    '"},{"trait_type": "Head","value": "',
-                    svgRenderer.meta(TRAIT_HEAD, head[tokenId]),
-                    '"},{"trait_type": "Mouth","value": "',
-                    svgRenderer.meta(TRAIT_MOUTH, mouth[tokenId]),
-                    '"}'
-                )
-            );
-        } else {
-            // No special skin - show body color and belly
-            attributes = string(
-                abi.encodePacked(
-                    '{"trait_type": "Background","value": "',
-                    bodyColor[tokenId],
-                    '"},{"trait_type": "Body Color","value": "',
-                    bodyColor[tokenId],
-                    '"},{"trait_type": "Head","value": "',
-                    svgRenderer.meta(TRAIT_HEAD, head[tokenId]),
-                    '"},{"trait_type": "Mouth","value": "',
-                    svgRenderer.meta(TRAIT_MOUTH, mouth[tokenId]),
-                    '"},{"trait_type": "Belly","value": "',
-                    svgRenderer.meta(TRAIT_BELLY, belly[tokenId]),
-                    '"}'
-                )
-            );
-        }
+        // Build attributes based on which special traits are active
+        string memory attributes = _buildAttributes(tokenId);
 
         // Build JSON with embedded SVG (no base64 encoding)
         // SVG uses single quotes so it can be embedded in JSON double-quoted strings
@@ -140,10 +124,101 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         );
     }
 
-    function _getSpecialSkinName(uint256 _specialSkin) internal pure returns (string memory) {
-        if (_specialSkin == 1) return "Bronze";
-        if (_specialSkin == 2) return "Silver";
-        if (_specialSkin == 3) return "Gold";
+    function _buildAttributes(uint256 tokenId) internal view returns (string memory) {
+        // Start with background
+        string memory attrs;
+
+        if (specialBackground[tokenId] > 0) {
+            attrs = string(abi.encodePacked(
+                '{"trait_type": "Background","value": "',
+                svgRenderer.meta(TRAIT_SPECIAL_BACKGROUND, specialBackground[tokenId]),
+                '"}'
+            ));
+        } else {
+            attrs = string(abi.encodePacked(
+                '{"trait_type": "Background","value": "',
+                bodyColor[tokenId],
+                '"}'
+            ));
+        }
+
+        // Body or Special Body
+        if (specialBody[tokenId] > 0) {
+            attrs = string(abi.encodePacked(
+                attrs,
+                ',{"trait_type": "Special Body","value": "',
+                _getSpecialBodyName(specialBody[tokenId]),
+                '"}'
+            ));
+        } else {
+            attrs = string(abi.encodePacked(
+                attrs,
+                ',{"trait_type": "Body Color","value": "',
+                bodyColor[tokenId],
+                '"}'
+            ));
+        }
+
+        // Head or Special Head
+        if (specialHead[tokenId] > 0) {
+            attrs = string(abi.encodePacked(
+                attrs,
+                ',{"trait_type": "Special Head","value": "',
+                svgRenderer.meta(TRAIT_SPECIAL_HEAD, specialHead[tokenId]),
+                '"}'
+            ));
+        } else {
+            attrs = string(abi.encodePacked(
+                attrs,
+                ',{"trait_type": "Head","value": "',
+                svgRenderer.meta(TRAIT_HEAD, head[tokenId]),
+                '"}'
+            ));
+        }
+
+        // Mouth or Special Mouth
+        if (specialMouth[tokenId] > 0) {
+            attrs = string(abi.encodePacked(
+                attrs,
+                ',{"trait_type": "Special Mouth","value": "',
+                svgRenderer.meta(TRAIT_SPECIAL_MOUTH, specialMouth[tokenId]),
+                '"}'
+            ));
+        } else {
+            attrs = string(abi.encodePacked(
+                attrs,
+                ',{"trait_type": "Mouth","value": "',
+                svgRenderer.meta(TRAIT_MOUTH, mouth[tokenId]),
+                '"}'
+            ));
+        }
+
+        // Belly or Special Belly (only show if no special body)
+        if (specialBody[tokenId] == 0) {
+            if (specialBelly[tokenId] > 0) {
+                attrs = string(abi.encodePacked(
+                    attrs,
+                    ',{"trait_type": "Special Belly","value": "',
+                    svgRenderer.meta(TRAIT_SPECIAL_BELLY, specialBelly[tokenId]),
+                    '"}'
+                ));
+            } else {
+                attrs = string(abi.encodePacked(
+                    attrs,
+                    ',{"trait_type": "Belly","value": "',
+                    svgRenderer.meta(TRAIT_BELLY, belly[tokenId]),
+                    '"}'
+                ));
+            }
+        }
+
+        return attrs;
+    }
+
+    function _getSpecialBodyName(uint256 _specialBody) internal pure returns (string memory) {
+        if (_specialBody == 1) return "Bronze";
+        if (_specialBody == 2) return "Silver";
+        if (_specialBody == 3) return "Gold";
         return "None";
     }
 
@@ -162,7 +237,12 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         head[newTokenId] = _getRandom(headTraitCount) + 1;
         mouth[newTokenId] = _getRandom(mouthTraitCount) + 1;
         belly[newTokenId] = _getRandom(bellyTraitCount) + 1;
-        specialSkin[newTokenId] = 0; // No special skin by default
+        // All special traits default to 0 (none)
+        specialBody[newTokenId] = 0;
+        specialMouth[newTokenId] = 0;
+        specialBackground[newTokenId] = 0;
+        specialBelly[newTokenId] = 0;
+        specialHead[newTokenId] = 0;
 
         emit FregMinted(
             newTokenId,
@@ -190,7 +270,12 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         head[newTokenId] = _getRandomForAddress(headTraitCount, _sender) + 1;
         mouth[newTokenId] = _getRandomForAddress(mouthTraitCount, _sender) + 1;
         belly[newTokenId] = _getRandomForAddress(bellyTraitCount, _sender) + 1;
-        specialSkin[newTokenId] = 0; // No special skin by default
+        // All special traits default to 0 (none)
+        specialBody[newTokenId] = 0;
+        specialMouth[newTokenId] = 0;
+        specialBackground[newTokenId] = 0;
+        specialBelly[newTokenId] = 0;
+        specialHead[newTokenId] = 0;
 
         emit FregMinted(
             newTokenId,
@@ -256,15 +341,39 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         emit HeadRerolled(tokenId, oldHead, head[tokenId]);
     }
 
-    // Called by items contract to set special skin
-    function setSpecialSkin(uint256 tokenId, uint256 _specialSkin, address sender) external {
+    // Called by items contract to set special body (bronze/silver/gold)
+    function setSpecialBody(uint256 tokenId, uint256 _specialBody, address sender) external {
         require(msg.sender == itemsContract, "Only items contract");
         require(ownerOf(tokenId) == sender, "Not token owner");
-        require(_specialSkin >= 1 && _specialSkin <= 3, "Invalid special skin");
+        require(_specialBody >= 1 && _specialBody <= 3, "Invalid special body");
 
-        specialSkin[tokenId] = _specialSkin;
+        specialBody[tokenId] = _specialBody;
 
-        emit SpecialSkinApplied(tokenId, _specialSkin);
+        emit SpecialBodyApplied(tokenId, _specialBody);
+    }
+
+    // Generic setter for any special trait type - called by items contract
+    function setSpecialTrait(uint256 tokenId, uint256 traitType, uint256 traitValue, address sender) external {
+        require(msg.sender == itemsContract, "Only items contract");
+        require(ownerOf(tokenId) == sender, "Not token owner");
+        require(traitValue >= 1, "Invalid trait value");
+
+        if (traitType == TRAIT_SPECIAL_BODY) {
+            require(traitValue <= 3, "Invalid special body value");
+            specialBody[tokenId] = traitValue;
+        } else if (traitType == TRAIT_SPECIAL_MOUTH) {
+            specialMouth[tokenId] = traitValue;
+        } else if (traitType == TRAIT_SPECIAL_BACKGROUND) {
+            specialBackground[tokenId] = traitValue;
+        } else if (traitType == TRAIT_SPECIAL_BELLY) {
+            specialBelly[tokenId] = traitValue;
+        } else if (traitType == TRAIT_SPECIAL_HEAD) {
+            specialHead[tokenId] = traitValue;
+        } else {
+            revert("Invalid trait type");
+        }
+
+        emit SpecialTraitApplied(tokenId, traitType, traitValue);
     }
 
     // Called by items contract to change body color
@@ -331,7 +440,11 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             uint256[] memory heads,
             uint256[] memory mouths,
             uint256[] memory bellies,
-            uint256[] memory specialSkins
+            uint256[] memory specialBodies,
+            uint256[] memory specialMouths,
+            uint256[] memory specialBackgrounds,
+            uint256[] memory specialBellies,
+            uint256[] memory specialHeads
         )
     {
         uint256 tokenCount = balanceOf(owner);
@@ -339,6 +452,10 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             return (
                 new uint256[](0),
                 new string[](0),
+                new uint256[](0),
+                new uint256[](0),
+                new uint256[](0),
+                new uint256[](0),
                 new uint256[](0),
                 new uint256[](0),
                 new uint256[](0),
@@ -351,7 +468,11 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         heads = new uint256[](tokenCount);
         mouths = new uint256[](tokenCount);
         bellies = new uint256[](tokenCount);
-        specialSkins = new uint256[](tokenCount);
+        specialBodies = new uint256[](tokenCount);
+        specialMouths = new uint256[](tokenCount);
+        specialBackgrounds = new uint256[](tokenCount);
+        specialBellies = new uint256[](tokenCount);
+        specialHeads = new uint256[](tokenCount);
 
         uint256 index = 0;
         for (uint256 i = 0; i < _tokenIdCounter && index < tokenCount; i++) {
@@ -361,12 +482,16 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
                 heads[index] = head[i];
                 mouths[index] = mouth[i];
                 bellies[index] = belly[i];
-                specialSkins[index] = specialSkin[i];
+                specialBodies[index] = specialBody[i];
+                specialMouths[index] = specialMouth[i];
+                specialBackgrounds[index] = specialBackground[i];
+                specialBellies[index] = specialBelly[i];
+                specialHeads[index] = specialHead[i];
                 index++;
             }
         }
 
-        return (tokenIds, bodyColors, heads, mouths, bellies, specialSkins);
+        return (tokenIds, bodyColors, heads, mouths, bellies, specialBodies, specialMouths, specialBackgrounds, specialBellies, specialHeads);
     }
 
     // ============ Required Overrides ============

@@ -9,7 +9,7 @@ import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
 import KittyRenderer from "./KittyRenderer"
 import ItemCard from "./ItemCard"
-import { ITEM_TYPES, ITEM_TYPE_NAMES, ITEM_TYPE_DESCRIPTIONS } from "../config/contracts"
+import { ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES } from "../config/contracts"
 import { Wand2, Palette } from "lucide-react"
 
 // Convert HSL to Hex
@@ -42,6 +42,36 @@ const generatePalette = (hue: number): string[] => {
         { s: 25, l: 45 },
     ]
     return variations.map(v => hslToHex(hue, v.s, v.l))
+}
+
+// Check if item is a dynamic special trait item (not one of the built-in types)
+const isDynamicTraitItem = (item: Item): boolean => {
+    const builtInTypes = [
+        ITEM_TYPES.COLOR_CHANGE,
+        ITEM_TYPES.HEAD_REROLL,
+        ITEM_TYPES.BRONZE_SKIN,
+        ITEM_TYPES.SILVER_SKIN,
+        ITEM_TYPES.GOLD_SKIN,
+        ITEM_TYPES.TREASURE_CHEST,
+        ITEM_TYPES.BEAD_PUNK,
+        ITEM_TYPES.SPECIAL_DICE,
+    ]
+    return !builtInTypes.includes(item.itemType) && item.targetTraitType !== undefined
+}
+
+// Get description for an item (dynamic or static)
+const getItemDescription = (item: Item): string => {
+    if (ITEM_TYPE_DESCRIPTIONS[item.itemType]) {
+        return ITEM_TYPE_DESCRIPTIONS[item.itemType]
+    }
+    // For dynamic items, generate description based on trait type
+    if (item.targetTraitType === TRAIT_TYPES.SPECIAL_HEAD) {
+        return `Apply a special head accessory to your Freg`
+    }
+    if (item.targetTraitType === TRAIT_TYPES.SPECIAL_BODY) {
+        return `Apply a special body skin to your Freg`
+    }
+    return `Apply ${item.name} to your Freg`
 }
 
 export default function UseItemsSection(): React.JSX.Element {
@@ -81,7 +111,18 @@ export default function UseItemsSection(): React.JSX.Element {
                 return "Are you sure you want to apply the Silver Skin? This will replace the body and belly."
             case ITEM_TYPES.GOLD_SKIN:
                 return "Are you sure you want to apply the Gold Skin? This will replace the body and belly. You will also receive a Treasure Chest!"
+            case ITEM_TYPES.SPECIAL_DICE:
+                return "Are you sure you want to roll the Special Dice? This will randomly apply a special trait!"
             default:
+                // Dynamic trait items
+                if (isDynamicTraitItem(selectedItem)) {
+                    if (selectedItem.targetTraitType === TRAIT_TYPES.SPECIAL_HEAD) {
+                        return `Are you sure you want to apply ${selectedItem.name}? This will add a special head accessory.`
+                    }
+                    if (selectedItem.targetTraitType === TRAIT_TYPES.SPECIAL_BODY) {
+                        return `Are you sure you want to apply ${selectedItem.name}? This will replace the body and belly.`
+                    }
+                }
                 return `Are you sure you want to use ${selectedItem.name}?`
         }
     }
@@ -110,6 +151,47 @@ export default function UseItemsSection(): React.JSX.Element {
         return null
     }
 
+    // Parse SpecialTraitApplied or SpecialDiceUsed events to get the applied trait
+    const parseSpecialTraitEvent = (receipt: any): { traitType: number; traitValue: number } | null => {
+        const fregsContract = contracts!.fregs.read
+        const itemsContract = contracts!.items.read
+
+        for (const log of receipt.logs) {
+            // Try parsing as SpecialTraitApplied from Fregs contract
+            try {
+                const parsed = fregsContract.interface.parseLog({
+                    topics: log.topics as string[],
+                    data: log.data
+                })
+                if (parsed?.name === "SpecialTraitApplied") {
+                    return {
+                        traitType: Number(parsed.args.traitType),
+                        traitValue: Number(parsed.args.traitValue)
+                    }
+                }
+            } catch {
+                // Not this event, continue
+            }
+
+            // Try parsing as SpecialDiceUsed from Items contract
+            try {
+                const parsed = itemsContract.interface.parseLog({
+                    topics: log.topics as string[],
+                    data: log.data
+                })
+                if (parsed?.name === "SpecialDiceUsed") {
+                    return {
+                        traitType: Number(parsed.args.traitType),
+                        traitValue: Number(parsed.args.traitValue)
+                    }
+                }
+            } catch {
+                // Not this event, continue
+            }
+        }
+        return null
+    }
+
     const handleConfirmApply = async () => {
         if (!contracts || !selectedKitty || !selectedItem) return
 
@@ -126,6 +208,11 @@ export default function UseItemsSection(): React.JSX.Element {
                 tx = await contract.useColorChange(selectedItem.tokenId, selectedKitty.tokenId, newColor)
             } else if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) {
                 tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId)
+            } else if (selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE) {
+                tx = await contract.useSpecialDice(selectedItem.tokenId, selectedKitty.tokenId)
+            } else if (isDynamicTraitItem(selectedItem)) {
+                // Dynamic trait items (Crown, Diamond Skin, etc.)
+                tx = await contract.useDynamicTraitItem(selectedItem.tokenId, selectedKitty.tokenId)
             } else {
                 // Bronze, Silver, Gold skins
                 tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId)
@@ -144,11 +231,27 @@ export default function UseItemsSection(): React.JSX.Element {
                     updatedKitty.head = newHead
                 }
             } else if (selectedItem.itemType === ITEM_TYPES.BRONZE_SKIN) {
-                updatedKitty.specialSkin = 1
+                updatedKitty.specialBody = 1
             } else if (selectedItem.itemType === ITEM_TYPES.SILVER_SKIN) {
-                updatedKitty.specialSkin = 2
+                updatedKitty.specialBody = 2
             } else if (selectedItem.itemType === ITEM_TYPES.GOLD_SKIN) {
-                updatedKitty.specialSkin = 3
+                updatedKitty.specialBody = 3
+            } else if (selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE || isDynamicTraitItem(selectedItem)) {
+                // Parse the special trait event to update the correct trait
+                const traitResult = parseSpecialTraitEvent(receipt)
+                if (traitResult) {
+                    if (traitResult.traitType === TRAIT_TYPES.SPECIAL_BODY) {
+                        updatedKitty.specialBody = traitResult.traitValue
+                    } else if (traitResult.traitType === TRAIT_TYPES.SPECIAL_HEAD) {
+                        updatedKitty.specialHead = traitResult.traitValue
+                    } else if (traitResult.traitType === TRAIT_TYPES.SPECIAL_MOUTH) {
+                        updatedKitty.specialMouth = traitResult.traitValue
+                    } else if (traitResult.traitType === TRAIT_TYPES.SPECIAL_BACKGROUND) {
+                        updatedKitty.specialBackground = traitResult.traitValue
+                    } else if (traitResult.traitType === TRAIT_TYPES.SPECIAL_BELLY) {
+                        updatedKitty.specialBelly = traitResult.traitValue
+                    }
+                }
             }
 
             setResultKitty(updatedKitty)
@@ -254,6 +357,7 @@ export default function UseItemsSection(): React.JSX.Element {
                                             key={item.tokenId}
                                             tokenId={item.tokenId}
                                             itemType={item.itemType}
+                                            itemName={item.name}
                                             selected={selectedItem?.tokenId === item.tokenId}
                                             onClick={() => setSelectedItem(item)}
                                         />
@@ -278,12 +382,12 @@ export default function UseItemsSection(): React.JSX.Element {
                             </div>
                             <Wand2 className="w-12 h-12 text-yellow-400 animate-pulse" />
                             <div className="text-center">
-                                <ItemCard tokenId={selectedItem.tokenId} itemType={selectedItem.itemType} />
+                                <ItemCard tokenId={selectedItem.tokenId} itemType={selectedItem.itemType} itemName={selectedItem.name} />
                             </div>
                         </div>
 
                         <p className="font-righteous text-white/70 text-center mb-4">
-                            {ITEM_TYPE_DESCRIPTIONS[selectedItem.itemType]}
+                            {getItemDescription(selectedItem)}
                         </p>
 
                         {/* Color Picker for Color Change item */}
@@ -512,7 +616,8 @@ export default function UseItemsSection(): React.JSX.Element {
                                 head={resultKitty.head}
                                 mouth={resultKitty.mouth}
                                 belly={resultKitty.belly}
-                                specialSkin={resultKitty.specialSkin}
+                                specialBody={resultKitty.specialBody}
+                                specialHead={resultKitty.specialHead}
                                 size="sm"
                                 className="w-full h-full"
                             />

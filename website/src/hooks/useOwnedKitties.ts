@@ -9,7 +9,11 @@ export interface Kitty {
   head: number
   mouth: number
   belly: number
-  specialSkin: number
+  specialBody: number
+  specialMouth: number
+  specialBackground: number
+  specialBelly: number
+  specialHead: number
 }
 
 export function useOwnedKitties() {
@@ -34,7 +38,18 @@ export function useOwnedKitties() {
       const contract = new Contract(FREGS_ADDRESS, FregsABI, provider)
 
       const result = await contract.getOwnedFregs(address)
-      const [tokenIds, bodyColors, heads, mouths, bellies, specialSkins] = result
+      const [
+        tokenIds,
+        bodyColors,
+        heads,
+        mouths,
+        bellies,
+        specialBodies,
+        specialMouths,
+        specialBackgrounds,
+        specialBellies,
+        specialHeads,
+      ] = result
 
       const kittyList: Kitty[] = tokenIds.map((id: bigint, i: number) => ({
         tokenId: Number(id),
@@ -42,7 +57,11 @@ export function useOwnedKitties() {
         head: Number(heads[i]),
         mouth: Number(mouths[i]),
         belly: Number(bellies[i]),
-        specialSkin: Number(specialSkins[i]),
+        specialBody: Number(specialBodies[i]),
+        specialMouth: Number(specialMouths[i]),
+        specialBackground: Number(specialBackgrounds[i]),
+        specialBelly: Number(specialBellies[i]),
+        specialHead: Number(specialHeads[i]),
       }))
 
       setKitties(kittyList)

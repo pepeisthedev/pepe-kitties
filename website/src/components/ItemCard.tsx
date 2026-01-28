@@ -10,11 +10,16 @@ const ITEM_IMAGES: Record<number, string> = {
   [ITEM_TYPES.GOLD_SKIN]: "/items/5.svg",
   [ITEM_TYPES.TREASURE_CHEST]: "/items/6.svg",
   [ITEM_TYPES.BEAD_PUNK]: "/beadpunks.png",
+  [ITEM_TYPES.SPECIAL_DICE]: "/items/100.svg",
+  // Dynamic items - IDs assigned by addItemType() starting from nextItemTypeId
+  101: "/items/7.svg",  // Crown
+  102: "/items/8.svg",  // Diamond Skin
 }
 
 interface ItemCardProps {
   tokenId: number
   itemType: number
+  itemName?: string  // Override name from ITEM_TYPE_NAMES for dynamic items
   selected?: boolean
   onClick?: () => void
   showDescription?: boolean
@@ -29,6 +34,9 @@ const ITEM_COLORS: Record<number, string> = {
   [ITEM_TYPES.GOLD_SKIN]: "border-lime-400/50 bg-black/30",
   [ITEM_TYPES.TREASURE_CHEST]: "border-lime-400/50 bg-black/30",
   [ITEM_TYPES.BEAD_PUNK]: "border-purple-400/50 bg-black/30",
+  [ITEM_TYPES.SPECIAL_DICE]: "border-cyan-400/50 bg-black/30",
+  101: "border-yellow-400/50 bg-black/30",  // Crown
+  102: "border-cyan-400/50 bg-black/30",    // Diamond Skin
 }
 
 const ITEM_SELECTED_COLORS: Record<number, string> = {
@@ -39,20 +47,25 @@ const ITEM_SELECTED_COLORS: Record<number, string> = {
   [ITEM_TYPES.GOLD_SKIN]: "ring-lime-400",
   [ITEM_TYPES.TREASURE_CHEST]: "ring-lime-400",
   [ITEM_TYPES.BEAD_PUNK]: "ring-purple-400",
+  [ITEM_TYPES.SPECIAL_DICE]: "ring-cyan-400",
+  101: "ring-yellow-400",  // Crown
+  102: "ring-cyan-400",    // Diamond Skin
 }
 
 export default function ItemCard({
   tokenId,
   itemType,
+  itemName,
   selected = false,
   onClick,
   showDescription = false,
   size = "md",
 }: ItemCardProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
-  const colorClass = ITEM_COLORS[itemType] || "border-white/30 bg-white/5"
-  const selectedRingClass = ITEM_SELECTED_COLORS[itemType] || "ring-lime-400"
-  const name = ITEM_TYPE_NAMES[itemType] || "Unknown Item"
+  const [imgSrc, setImgSrc] = useState(ITEM_IMAGES[itemType] || `/items/${itemType}.svg`)
+  const colorClass = ITEM_COLORS[itemType] || "border-yellow-400/50 bg-black/30"
+  const selectedRingClass = ITEM_SELECTED_COLORS[itemType] || "ring-yellow-400"
+  const name = itemName || ITEM_TYPE_NAMES[itemType] || "Unknown Item"
   const description = ITEM_TYPE_DESCRIPTIONS[itemType] || ""
 
   const sizeClasses = {
@@ -80,13 +93,13 @@ export default function ItemCard({
           </div>
         )}
         <img
-          src={ITEM_IMAGES[itemType] || `/items/${itemType}.svg`}
+          src={imgSrc}
           alt={name}
           className={`w-full h-full object-contain transition-opacity ${isLoading ? "opacity-0" : "opacity-100"}`}
           onLoad={() => setIsLoading(false)}
-          onError={(e) => {
+          onError={() => {
             setIsLoading(false)
-            e.currentTarget.style.display = "none"
+            setImgSrc("/items/placeholder.svg")
           }}
         />
       </div>

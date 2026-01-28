@@ -204,9 +204,14 @@ export default function MyKittiesSection(): React.JSX.Element {
                                         <p className="font-bangers text-lg text-lime-400 text-center">
                                             #{kitty.tokenId}
                                         </p>
-                                        {kitty.specialSkin > 0 && (
+                                        {kitty.specialBody > 0 && (
                                             <p className="font-righteous text-xs text-yellow-400 text-center">
-                                                {kitty.specialSkin === 1 ? "Bronze" : kitty.specialSkin === 2 ? "Silver" : "Gold"} Skin
+                                                {kitty.specialBody === 1 ? "Bronze" : kitty.specialBody === 2 ? "Silver" : kitty.specialBody === 3 ? "Gold" : "Diamond"} Skin
+                                            </p>
+                                        )}
+                                        {kitty.specialHead > 0 && (
+                                            <p className="font-righteous text-xs text-purple-400 text-center">
+                                                Special Head
                                             </p>
                                         )}
                                         {hasClaimable && (

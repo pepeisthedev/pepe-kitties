@@ -5,7 +5,8 @@ interface KittyRendererProps {
   head?: number
   mouth?: number
   belly?: number
-  specialSkin?: number
+  specialBody?: number
+  specialHead?: number
   size?: "sm" | "md" | "lg"
   className?: string
   hideTraits?: boolean // Hide head, mouth, belly - for mint preview
@@ -22,7 +23,8 @@ export default function KittyRenderer({
   head = 1,
   mouth = 1,
   belly = 1,
-  specialSkin = 0,
+  specialBody = 0,
+  specialHead = 0,
   size = "md",
   className = "",
   hideTraits = false,
@@ -37,13 +39,14 @@ export default function KittyRenderer({
     lg: "w-64 h-64",
   }
 
-  // If special skin is set, render: background + special-skin + head + mouth (no body/belly)
+  // If special body is set, render: background + special-body + head + mouth (no body/belly)
   // Otherwise render: background + body + belly + head + mouth
-  const hasSpecialSkin = specialSkin > 0
+  const hasSpecialBody = specialBody > 0
+  const hasSpecialHead = specialHead > 0
 
   // Fetch body SVG and replace color
   useEffect(() => {
-    if (hasSpecialSkin) {
+    if (hasSpecialBody) {
       setBodySvgUrl(null)
       return
     }
@@ -69,7 +72,7 @@ export default function KittyRenderer({
     }
 
     loadBody()
-  }, [bodyColor, hasSpecialSkin])
+  }, [bodyColor, hasSpecialBody])
 
   // Fetch background SVG and replace color
   useEffect(() => {
@@ -99,9 +102,9 @@ export default function KittyRenderer({
   // Track loading state
   useEffect(() => {
     const bgReady = backgroundSvgUrl !== null
-    const bodyReady = hasSpecialSkin || bodySvgUrl !== null
+    const bodyReady = hasSpecialBody || bodySvgUrl !== null
     setIsLoading(!bgReady || !bodyReady)
-  }, [backgroundSvgUrl, bodySvgUrl, hasSpecialSkin])
+  }, [backgroundSvgUrl, bodySvgUrl, hasSpecialBody])
 
   return (
     <div className={`relative ${sizeClasses[size]} ${className}`}>
@@ -121,11 +124,11 @@ export default function KittyRenderer({
         />
       )}
 
-      {hasSpecialSkin ? (
-        // Special skin renders (replaces body + belly)
+      {hasSpecialBody ? (
+        // Special body renders (replaces body + belly)
         <img
-          src={`/frogz/special/${specialSkin}.svg`}
-          alt={`Special Skin ${specialSkin}`}
+          src={`/frogz/special/${specialBody}.svg`}
+          alt={`Special Body ${specialBody}`}
           className="absolute inset-0 w-full h-full object-contain"
         />
       ) : (
@@ -150,12 +153,20 @@ export default function KittyRenderer({
         </>
       )}
 
-      {/* Head - always shown (has eyes) */}
-      <img
-        src={`/frogz/head/${head}.svg`}
-        alt={`Head ${head}`}
-        className="absolute inset-0 w-full h-full object-contain"
-      />
+      {/* Head - use special head if present, otherwise normal head */}
+      {hasSpecialHead ? (
+        <img
+          src={`/frogz/specialHead/${specialHead}.svg`}
+          alt={`Special Head ${specialHead}`}
+          className="absolute inset-0 w-full h-full object-contain"
+        />
+      ) : (
+        <img
+          src={`/frogz/head/${head}.svg`}
+          alt={`Head ${head}`}
+          className="absolute inset-0 w-full h-full object-contain"
+        />
+      )}
 
       {/* Mouth - hidden in preview mode */}
       {!hideTraits && (

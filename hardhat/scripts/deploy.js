@@ -1,6 +1,11 @@
 const { ethers, network, run } = require("hardhat");
 const fs = require("fs");
 const path = require("path");
+const {
+    retryWithBackoff,
+    storeSvgData,
+    processSvgFile,
+} = require("./deployUtils");
 
 // ============ CONFIGURATION ============
 const VERIFY_CONTRACTS = true; // Set to false to skip contract verification
@@ -36,98 +41,6 @@ function copyABI(contractName, targetFileName, subPath = "") {
 }
 
 // ============ ART DEPLOYMENT HELPERS ============
-
-async function retryWithBackoff(fn, maxRetries = 3, retryDelay = 5000) {
-    let lastError;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            return await fn();
-        } catch (error) {
-            lastError = error;
-            if (attempt === maxRetries) throw error;
-            const delay = retryDelay * Math.pow(2, attempt - 1);
-            console.log(`  ⚠️  Attempt ${attempt} failed: ${error.message}`);
-            console.log(`  ⏳ Retrying in ${delay / 1000}s...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
-    throw lastError;
-}
-
-async function storeSvgData(svgPartWriter, data) {
-    const buffer = Buffer.from(data, "utf8");
-    const bytes = new Uint8Array(buffer);
-
-    return await retryWithBackoff(async () => {
-        const tx = await svgPartWriter.store(bytes);
-        const receipt = await tx.wait(network.name !== "localhost" && network.name !== "hardhat" ? 1 : undefined);
-
-        if (receipt.status !== 1) {
-            throw new Error("Transaction failed");
-        }
-
-        for (const log of receipt.logs) {
-            try {
-                const parsedLog = svgPartWriter.interface.parseLog(log);
-                if (parsedLog && parsedLog.name === 'DataStored') {
-                    return parsedLog.args.pointer;
-                }
-            } catch (e) {
-                continue;
-            }
-        }
-        throw new Error("Could not find storage address");
-    }, 3, 5000);
-}
-
-/**
- * Process SVG file for on-chain storage
- * - Strips XML declaration and SVG wrapper
- * - Replaces double quotes with single quotes
- * - Prefixes CSS class names to avoid collisions between layers
- * @param svgFilePath - Path to the SVG file
- * @param classPrefix - Unique prefix for CSS class names (e.g., 'body', 'head1')
- */
-function processSvgFile(svgFilePath, classPrefix = '') {
-    let svgData = fs.readFileSync(svgFilePath, "utf8");
-
-    // Replace double quotes with single quotes for JSON compatibility
-    svgData = svgData.replace(/"/g, "'");
-
-    // Strip XML declaration and SVG wrapper
-    const svgStartIndex = svgData.indexOf('<svg');
-    if (svgStartIndex > 0) {
-        svgData = svgData.substring(svgStartIndex);
-    }
-    const svgTagEndIndex = svgData.indexOf('>');
-    if (svgTagEndIndex !== -1) {
-        svgData = svgData.substring(svgTagEndIndex + 1);
-    }
-    const closingTagIndex = svgData.lastIndexOf('</svg>');
-    if (closingTagIndex !== -1) {
-        svgData = svgData.substring(0, closingTagIndex);
-    }
-
-    // Prefix CSS class names to avoid collisions between layers
-    if (classPrefix) {
-        // Replace .cls-X in style definitions with .{prefix}-cls-X
-        svgData = svgData.replace(/\.cls-(\d+)/g, `.${classPrefix}-cls-$1`);
-        // Replace class='cls-X' in elements with class='{prefix}-cls-X'
-        svgData = svgData.replace(/class='cls-(\d+)'/g, `class='${classPrefix}-cls-$1'`);
-        // Handle multiple classes: class='cls-1 cls-2' -> class='prefix-cls-1 prefix-cls-2'
-        svgData = svgData.replace(/class='([^']+)'/g, (match, classes) => {
-            const prefixed = classes.split(' ').map(c => {
-                if (c.startsWith('cls-')) {
-                    return `${classPrefix}-${c}`;
-                }
-                return c;
-            }).join(' ');
-            return `class='${prefixed}'`;
-        });
-    }
-
-    return svgData.trim();
-}
 
 async function deployBody(svgPartWriter) {
     const bodyPath = path.join(FROGZ_PATH, "body", "1.svg");
@@ -319,11 +232,28 @@ async function deployArt() {
     artAddresses.body = await deployBody(svgPartWriter);
 
     // Deploy other trait folders (skip background and body)
-    const traitFolders = ['belly', 'head', 'mouth', 'special'];
+    // Renamed 'special' to 'specialBody' for clarity
+    const traitFolders = ['belly', 'head', 'mouth'];
     for (const folder of traitFolders) {
         const address = await deployTraitFolder(folder, svgPartWriter);
         if (address) {
             artAddresses[folder] = address;
+        }
+    }
+
+    // Deploy special trait folders (body, mouth, background, belly, head)
+    const specialTraitFolders = [
+        { folder: 'special', key: 'specialBody' },           // renamed from 'special'
+        { folder: 'specialMouth', key: 'specialMouth' },
+        { folder: 'specialBackground', key: 'specialBackground' },
+        { folder: 'specialBelly', key: 'specialBelly' },
+        { folder: 'specialHead', key: 'specialHead' }
+    ];
+
+    for (const { folder, key } of specialTraitFolders) {
+        const address = await deployTraitFolder(folder, svgPartWriter);
+        if (address) {
+            artAddresses[key] = address;
         }
     }
 
@@ -531,7 +461,11 @@ async function main() {
         artAddresses.belly || ethers.ZeroAddress,
         artAddresses.head || ethers.ZeroAddress,
         artAddresses.mouth || ethers.ZeroAddress,
-        artAddresses.special || ethers.ZeroAddress
+        artAddresses.specialBody || ethers.ZeroAddress,
+        artAddresses.specialMouth || ethers.ZeroAddress,
+        artAddresses.specialBackground || ethers.ZeroAddress,
+        artAddresses.specialBelly || ethers.ZeroAddress,
+        artAddresses.specialHead || ethers.ZeroAddress
     )).wait();
     console.log("Art contracts configured!");
 
@@ -648,12 +582,16 @@ async function main() {
         console.log("  BeadPunks:       ", beadPunksAddress, isTestnet ? "(Mock)" : "(Mainnet)");
     }
     console.log("\nArt Contracts:");
-    console.log("  Body:            ", artAddresses.body || "Not deployed");
-    console.log("  Belly:           ", artAddresses.belly || "Not deployed");
-    console.log("  Head:            ", artAddresses.head || "Not deployed");
-    console.log("  Mouth:           ", artAddresses.mouth || "Not deployed");
-    console.log("  Special:         ", artAddresses.special || "Not deployed");
-    console.log("  Items:           ", artAddresses.items || "Not deployed");
+    console.log("  Body:              ", artAddresses.body || "Not deployed");
+    console.log("  Belly:             ", artAddresses.belly || "Not deployed");
+    console.log("  Head:              ", artAddresses.head || "Not deployed");
+    console.log("  Mouth:             ", artAddresses.mouth || "Not deployed");
+    console.log("  Special Body:      ", artAddresses.specialBody || "Not deployed");
+    console.log("  Special Mouth:     ", artAddresses.specialMouth || "Not deployed");
+    console.log("  Special Background:", artAddresses.specialBackground || "Not deployed");
+    console.log("  Special Belly:     ", artAddresses.specialBelly || "Not deployed");
+    console.log("  Special Head:      ", artAddresses.specialHead || "Not deployed");
+    console.log("  Items:             ", artAddresses.items || "Not deployed");
     console.log("\nConfiguration:");
     console.log("  Royalty Receiver:", ROYALTY_RECEIVER);
     console.log("  Royalty Fee:", ROYALTY_FEE / 100, "%");

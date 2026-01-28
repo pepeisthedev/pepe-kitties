@@ -453,11 +453,36 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "specialSkin",
+        "name": "specialBody",
         "type": "uint256"
       }
     ],
-    "name": "SpecialSkinApplied",
+    "name": "SpecialBodyApplied",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "traitType",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "traitValue",
+        "type": "uint256"
+      }
+    ],
+    "name": "SpecialTraitApplied",
     "type": "event"
   },
   {
@@ -583,7 +608,59 @@
   },
   {
     "inputs": [],
-    "name": "TRAIT_SPECIAL_SKIN",
+    "name": "TRAIT_SPECIAL_BACKGROUND",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_BELLY",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_BODY",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_HEAD",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_SPECIAL_MOUTH",
     "outputs": [
       {
         "internalType": "uint256",
@@ -769,7 +846,27 @@
       },
       {
         "internalType": "uint256[]",
-        "name": "specialSkins",
+        "name": "specialBodies",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "specialMouths",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "specialBackgrounds",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "specialBellies",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "specialHeads",
         "type": "uint256[]"
       }
     ],
@@ -1251,7 +1348,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "_specialSkin",
+        "name": "_specialBody",
         "type": "uint256"
       },
       {
@@ -1260,7 +1357,35 @@
         "type": "address"
       }
     ],
-    "name": "setSpecialSkin",
+    "name": "setSpecialBody",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "traitType",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "traitValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
+    ],
+    "name": "setSpecialTrait",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1299,7 +1424,83 @@
         "type": "uint256"
       }
     ],
-    "name": "specialSkin",
+    "name": "specialBackground",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "specialBelly",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "specialBody",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "specialHead",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "specialMouth",
     "outputs": [
       {
         "internalType": "uint256",
