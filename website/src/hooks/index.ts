@@ -10,3 +10,5 @@ export type { Item } from "./useOwnedItems"
 export { useUnclaimedKitties } from "./useUnclaimedKitties"
 
 export { useContracts } from "./useContracts"
+
+export { useIsOwner } from "./useIsOwner"

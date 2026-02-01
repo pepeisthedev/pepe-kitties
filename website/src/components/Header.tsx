@@ -3,6 +3,7 @@ import { useAppKitAccount, useAppKit } from "@reown/appkit/react"
 import { Button } from "./ui/button"
 import { Wallet, Menu, X } from "lucide-react"
 import type { SectionId } from "./MainPage"
+import { useIsOwner } from "../hooks"
 
 interface HeaderProps {
     activeSection: SectionId
@@ -20,12 +21,18 @@ const navItems: { id: SectionId; label: string }[] = [
 export default function Header({ activeSection, onSectionChange }: HeaderProps): React.JSX.Element {
     const { address, isConnected } = useAppKitAccount()
     const { open } = useAppKit()
+    const { isOwner } = useIsOwner()
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
     const [isVisible, setIsVisible] = useState(true)
     const [lastScrollY, setLastScrollY] = useState(0)
     const [isAtTop, setIsAtTop] = useState(true)
 
     const isLanding = activeSection === "landing"
+
+    // Build nav items dynamically based on owner status
+    const dynamicNavItems = isOwner
+        ? [...navItems, { id: "admin" as SectionId, label: "Admin" }]
+        : navItems
 
     // Scroll behavior for landing page
     useEffect(() => {
@@ -101,7 +108,7 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
 
                 {/* Desktop Navigation */}
                 <nav className={`hidden md:flex items-center ${isLanding ? 'gap-10' : 'gap-8'}`}>
-                    {navItems.map((item) => (
+                    {dynamicNavItems.map((item) => (
                         <button
                             key={item.id}
                             onClick={() => onSectionChange(item.id)}
@@ -109,8 +116,8 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                                 isLanding ? 'text-xl' : 'text-lg'
                             } ${
                                 activeSection === item.id
-                                    ? (isLanding ? "text-white font-bold" : "text-lime-400")
-                                    : navTextColor
+                                    ? (isLanding ? "text-white font-bold" : (item.id === "admin" ? "text-orange-400" : "text-lime-400"))
+                                    : (item.id === "admin" ? "text-orange-400 hover:text-orange-300" : navTextColor)
                             }`}
                         >
                             {item.label}
@@ -157,7 +164,7 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                 }`}
             >
                 <nav>
-                    {navItems.map((item, index) => (
+                    {dynamicNavItems.map((item, index) => (
                         <button
                             key={item.id}
                             onClick={() => handleNavClick(item.id)}
@@ -170,8 +177,8 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                                 isLanding ? 'border-white/20' : 'border-lime-400/20'
                             } ${
                                 activeSection === item.id
-                                    ? (isLanding ? "text-white bg-white/10" : "text-lime-400 bg-lime-400/10")
-                                    : (isLanding ? "text-white hover:text-white/70 hover:bg-white/5" : "text-white hover:text-lime-400 hover:bg-lime-400/5")
+                                    ? (isLanding ? "text-white bg-white/10" : (item.id === "admin" ? "text-orange-400 bg-orange-400/10" : "text-lime-400 bg-lime-400/10"))
+                                    : (isLanding ? "text-white hover:text-white/70 hover:bg-white/5" : (item.id === "admin" ? "text-orange-400 hover:text-orange-300 hover:bg-orange-400/5" : "text-white hover:text-lime-400 hover:bg-lime-400/5"))
                             }`}
                         >
                             {item.label}
@@ -185,7 +192,7 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                                 setMobileMenuOpen(false)
                             }}
                             style={{
-                                animationDelay: mobileMenuOpen ? `${navItems.length * 75}ms` : '0ms',
+                                animationDelay: mobileMenuOpen ? `${dynamicNavItems.length * 75}ms` : '0ms',
                             }}
                             className={`w-full text-left px-6 py-4 font-righteous text-lg transition-colors flex items-center gap-3 ${
                                 mobileMenuOpen ? 'animate-menu-item-bounce' : 'opacity-0 translate-x-[-30px]'
