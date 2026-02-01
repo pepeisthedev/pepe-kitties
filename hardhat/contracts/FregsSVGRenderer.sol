@@ -3,11 +3,13 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-// Interface for trait sub-contracts
+// Interface for trait sub-contracts (SVGRouter)
 interface ISVGTraitRenderer {
     function render(uint256 traitId) external view returns (string memory);
     function renderWithColor(string memory color) external view returns (string memory);
     function meta(uint256 traitId) external view returns (string memory);
+    function getTraitCount() external view returns (uint256);
+    function isValidTrait(uint256 traitId) external view returns (bool);
 }
 
 contract FregsSVGRenderer is Ownable {
@@ -261,5 +263,60 @@ contract FregsSVGRenderer is Ownable {
         specialBackgroundContract = ISVGTraitRenderer(_specialBackground);
         specialBellyContract = ISVGTraitRenderer(_specialBelly);
         specialHeadContract = ISVGTraitRenderer(_specialHead);
+    }
+
+    // ============ Dynamic Trait Count Functions ============
+
+    /**
+     * @notice Get the number of registered traits for a trait type
+     * @param _traitType The type of trait (TRAIT_HEAD, TRAIT_SPECIAL_BODY, etc.)
+     * @return count The number of registered traits (0 if contract not set)
+     */
+    function getTraitCount(uint256 _traitType) external view returns (uint256) {
+        if (_traitType == TRAIT_HEAD && address(headContract) != address(0)) {
+            return headContract.getTraitCount();
+        } else if (_traitType == TRAIT_MOUTH && address(mouthContract) != address(0)) {
+            return mouthContract.getTraitCount();
+        } else if (_traitType == TRAIT_BELLY && address(bellyContract) != address(0)) {
+            return bellyContract.getTraitCount();
+        } else if (_traitType == TRAIT_SPECIAL_BODY && address(specialBodyContract) != address(0)) {
+            return specialBodyContract.getTraitCount();
+        } else if (_traitType == TRAIT_SPECIAL_MOUTH && address(specialMouthContract) != address(0)) {
+            return specialMouthContract.getTraitCount();
+        } else if (_traitType == TRAIT_SPECIAL_BACKGROUND && address(specialBackgroundContract) != address(0)) {
+            return specialBackgroundContract.getTraitCount();
+        } else if (_traitType == TRAIT_SPECIAL_BELLY && address(specialBellyContract) != address(0)) {
+            return specialBellyContract.getTraitCount();
+        } else if (_traitType == TRAIT_SPECIAL_HEAD && address(specialHeadContract) != address(0)) {
+            return specialHeadContract.getTraitCount();
+        }
+        return 0;
+    }
+
+    /**
+     * @notice Check if a trait ID is valid for a given trait type
+     * @param _traitType The type of trait
+     * @param _traitId The trait ID to check
+     * @return valid True if the trait exists and has a renderer
+     */
+    function isValidTrait(uint256 _traitType, uint256 _traitId) external view returns (bool) {
+        if (_traitType == TRAIT_HEAD && address(headContract) != address(0)) {
+            return headContract.isValidTrait(_traitId);
+        } else if (_traitType == TRAIT_MOUTH && address(mouthContract) != address(0)) {
+            return mouthContract.isValidTrait(_traitId);
+        } else if (_traitType == TRAIT_BELLY && address(bellyContract) != address(0)) {
+            return bellyContract.isValidTrait(_traitId);
+        } else if (_traitType == TRAIT_SPECIAL_BODY && address(specialBodyContract) != address(0)) {
+            return specialBodyContract.isValidTrait(_traitId);
+        } else if (_traitType == TRAIT_SPECIAL_MOUTH && address(specialMouthContract) != address(0)) {
+            return specialMouthContract.isValidTrait(_traitId);
+        } else if (_traitType == TRAIT_SPECIAL_BACKGROUND && address(specialBackgroundContract) != address(0)) {
+            return specialBackgroundContract.isValidTrait(_traitId);
+        } else if (_traitType == TRAIT_SPECIAL_BELLY && address(specialBellyContract) != address(0)) {
+            return specialBellyContract.isValidTrait(_traitId);
+        } else if (_traitType == TRAIT_SPECIAL_HEAD && address(specialHeadContract) != address(0)) {
+            return specialHeadContract.isValidTrait(_traitId);
+        }
+        return false;
     }
 }

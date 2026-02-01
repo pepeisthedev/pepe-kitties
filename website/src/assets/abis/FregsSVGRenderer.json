@@ -176,6 +176,25 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_traitType",
+        "type": "uint256"
+      }
+    ],
+    "name": "getTraitCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "headContract",
     "outputs": [
@@ -183,6 +202,30 @@
         "internalType": "contract ISVGTraitRenderer",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_traitType",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_traitId",
+        "type": "uint256"
+      }
+    ],
+    "name": "isValidTrait",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",

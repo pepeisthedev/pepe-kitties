@@ -23,6 +23,36 @@ const FROGZ_PATH = path.join(__dirname, "../../website/public/frogz");
 // Path to the items SVG folder
 const ITEMS_PATH = path.join(__dirname, "../../website/public/items");
 
+// ============ TRAIT NAMES ============
+// Names for each trait variant (index matches SVG file number)
+// Customize these to match your actual trait designs
+const TRAIT_NAMES = {
+    head: [
+        "None",           // 1.svg - base head with eyes
+        "3D Glasses",     // 2.svg
+        "Helmet",         // 3.svg
+    ],
+    mouth: [
+        "Cigarette",         // 1.svg
+    ],
+    belly: [
+        "ETH",          // 1.svg
+        "Thug life",        // 2.svg
+    ],
+    special: [
+        "Bronze",         // 1.svg - bronze body skin
+        "Silver",         // 2.svg - silver body skin (if exists)
+        "Gold",           // 3.svg - gold body skin (if exists)
+        "Diamond",        // 4.svg - diamond body skin
+    ],
+    specialHead: [
+        "Crown",          // 1.svg
+    ],
+    specialMouth: [],
+    specialBackground: [],
+    specialBelly: [],
+};
+
 // Copy ABI from artifacts to website
 function copyABI(contractName, targetFileName, subPath = "") {
     try {
@@ -85,7 +115,7 @@ async function deployBody(svgPartWriter) {
     return address;
 }
 
-async function deployTraitFolder(folderName, svgPartWriter) {
+async function deployTraitFolder(folderName, svgPartWriter, traitNames = []) {
     const folderPath = path.join(FROGZ_PATH, folderName);
     if (!fs.existsSync(folderPath)) return null;
 
@@ -126,7 +156,8 @@ async function deployTraitFolder(folderName, svgPartWriter) {
         }
 
         svgRendererAddresses.push(await renderer.getAddress());
-        console.log(`    ${file} deployed (${totalChunks} chunks)`);
+        const traitName = traitNames[i] || `Type ${i + 1}`;
+        console.log(`    ${file} deployed (${totalChunks} chunks) - "${traitName}"`);
     }
 
     // Deploy router
@@ -139,6 +170,14 @@ async function deployTraitFolder(folderName, svgPartWriter) {
     }
 
     await (await router.setRenderContractsBatch(svgRendererAddresses)).wait();
+
+    // Set trait names if provided
+    if (traitNames.length > 0) {
+        // Only set names for the number of files we actually deployed
+        const namesToSet = traitNames.slice(0, files.length);
+        await (await router.setTraitNamesBatch(namesToSet)).wait();
+        console.log(`    Set ${namesToSet.length} trait names`);
+    }
 
     const routerAddress = await router.getAddress();
     console.log(`    ${folderName} router: ${routerAddress}`);
@@ -232,10 +271,10 @@ async function deployArt() {
     artAddresses.body = await deployBody(svgPartWriter);
 
     // Deploy other trait folders (skip background and body)
-    // Renamed 'special' to 'specialBody' for clarity
     const traitFolders = ['belly', 'head', 'mouth'];
     for (const folder of traitFolders) {
-        const address = await deployTraitFolder(folder, svgPartWriter);
+        const names = TRAIT_NAMES[folder] || [];
+        const address = await deployTraitFolder(folder, svgPartWriter, names);
         if (address) {
             artAddresses[folder] = address;
         }
@@ -251,7 +290,8 @@ async function deployArt() {
     ];
 
     for (const { folder, key } of specialTraitFolders) {
-        const address = await deployTraitFolder(folder, svgPartWriter);
+        const names = TRAIT_NAMES[folder] || [];
+        const address = await deployTraitFolder(folder, svgPartWriter, names);
         if (address) {
             artAddresses[key] = address;
         }
@@ -611,6 +651,7 @@ async function main() {
     }
     console.log("\n" + "=".repeat(60));
 
+    console.log(`\nVITE_FREGS_ITEMS_ADDRESS=${fregsItemsAddress} VITE_SVG_RENDERER_ADDRESS=${svgRendererAddress} npx hardhat run scripts/deploySpecialItems.js --network localhost`);
     // Output for .env file
     console.log("\nFor .env file:");
     console.log(`VITE_FREGS_ADDRESS=${fregsAddress}`);

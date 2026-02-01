@@ -24,6 +24,12 @@ interface ISVGRenderer {
 
     // Get trait name for metadata
     function meta(uint256 _traitType, uint256 _traitId) external view returns (string memory);
+
+    // Get the number of registered traits for a trait type
+    function getTraitCount(uint256 _traitType) external view returns (uint256);
+
+    // Check if a trait ID is valid for a given trait type
+    function isValidTrait(uint256 _traitType, uint256 _traitId) external view returns (bool);
 }
 
 contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
@@ -60,10 +66,8 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     uint256 public constant TRAIT_SPECIAL_BELLY = 7;
     uint256 public constant TRAIT_SPECIAL_HEAD = 8;
 
-    // Trait count configuration (for randomness ranges)
-    uint256 public headTraitCount = 3;
-    uint256 public mouthTraitCount = 1;
-    uint256 public bellyTraitCount = 2;
+    // Trait counts are now queried dynamically from svgRenderer.getTraitCount()
+    // No need for hardcoded values - they're determined by what's deployed
 
     // Events
     event FregMinted(
@@ -115,7 +119,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             abi.encodePacked(
                 'data:application/json,{"name":"Freg #',
                 Strings.toString(tokenId),
-                '","description":"Fregs - Customizable NFT Frogs on Base","image":"data:image/svg+xml,',
+                '","description":"Fregs","image":"data:image/svg+xml,',
                 svg,
                 '","attributes":[',
                 attributes,
@@ -146,14 +150,14 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         if (specialBody[tokenId] > 0) {
             attrs = string(abi.encodePacked(
                 attrs,
-                ',{"trait_type": "Special Body","value": "',
-                _getSpecialBodyName(specialBody[tokenId]),
+                ',{"trait_type": "Body","value": "',
+                svgRenderer.meta(TRAIT_SPECIAL_BODY, specialBody[tokenId]),
                 '"}'
             ));
         } else {
             attrs = string(abi.encodePacked(
                 attrs,
-                ',{"trait_type": "Body Color","value": "',
+                ',{"trait_type": "Body","value": "',
                 bodyColor[tokenId],
                 '"}'
             ));
@@ -163,7 +167,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         if (specialHead[tokenId] > 0) {
             attrs = string(abi.encodePacked(
                 attrs,
-                ',{"trait_type": "Special Head","value": "',
+                ',{"trait_type": "Head","value": "',
                 svgRenderer.meta(TRAIT_SPECIAL_HEAD, specialHead[tokenId]),
                 '"}'
             ));
@@ -180,7 +184,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         if (specialMouth[tokenId] > 0) {
             attrs = string(abi.encodePacked(
                 attrs,
-                ',{"trait_type": "Special Mouth","value": "',
+                ',{"trait_type": "Mouth","value": "',
                 svgRenderer.meta(TRAIT_SPECIAL_MOUTH, specialMouth[tokenId]),
                 '"}'
             ));
@@ -198,7 +202,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             if (specialBelly[tokenId] > 0) {
                 attrs = string(abi.encodePacked(
                     attrs,
-                    ',{"trait_type": "Special Belly","value": "',
+                    ',{"trait_type": "Belly","value": "',
                     svgRenderer.meta(TRAIT_SPECIAL_BELLY, specialBelly[tokenId]),
                     '"}'
                 ));
@@ -215,13 +219,6 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         return attrs;
     }
 
-    function _getSpecialBodyName(uint256 _specialBody) internal pure returns (string memory) {
-        if (_specialBody == 1) return "Bronze";
-        if (_specialBody == 2) return "Silver";
-        if (_specialBody == 3) return "Gold";
-        return "None";
-    }
-
     function mint(string memory _color) public payable nonReentrant {
         require(msg.value >= mintPrice, "Insufficient funds");
         require(_tokenIdCounter < supply, "Max supply reached");
@@ -234,9 +231,10 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         bodyColor[newTokenId] = _color;
 
         // Assign random traits (1-indexed, 0 means no trait)
-        head[newTokenId] = _getRandom(headTraitCount) + 1;
-        mouth[newTokenId] = _getRandom(mouthTraitCount) + 1;
-        belly[newTokenId] = _getRandom(bellyTraitCount) + 1;
+        // Trait counts are queried dynamically from the renderer
+        head[newTokenId] = _getRandom(svgRenderer.getTraitCount(TRAIT_HEAD)) + 1;
+        mouth[newTokenId] = _getRandom(svgRenderer.getTraitCount(TRAIT_MOUTH)) + 1;
+        belly[newTokenId] = _getRandom(svgRenderer.getTraitCount(TRAIT_BELLY)) + 1;
         // All special traits default to 0 (none)
         specialBody[newTokenId] = 0;
         specialMouth[newTokenId] = 0;
@@ -267,9 +265,10 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         bodyColor[newTokenId] = _color;
 
         // Assign random traits (1-indexed, 0 means no trait)
-        head[newTokenId] = _getRandomForAddress(headTraitCount, _sender) + 1;
-        mouth[newTokenId] = _getRandomForAddress(mouthTraitCount, _sender) + 1;
-        belly[newTokenId] = _getRandomForAddress(bellyTraitCount, _sender) + 1;
+        // Trait counts are queried dynamically from the renderer
+        head[newTokenId] = _getRandomForAddress(svgRenderer.getTraitCount(TRAIT_HEAD), _sender) + 1;
+        mouth[newTokenId] = _getRandomForAddress(svgRenderer.getTraitCount(TRAIT_MOUTH), _sender) + 1;
+        belly[newTokenId] = _getRandomForAddress(svgRenderer.getTraitCount(TRAIT_BELLY), _sender) + 1;
         // All special traits default to 0 (none)
         specialBody[newTokenId] = 0;
         specialMouth[newTokenId] = 0;
@@ -336,7 +335,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
                     tokenId
                 )
             )
-        ) % headTraitCount) + 1;
+        ) % svgRenderer.getTraitCount(TRAIT_HEAD)) + 1;
 
         emit HeadRerolled(tokenId, oldHead, head[tokenId]);
     }
@@ -345,7 +344,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     function setSpecialBody(uint256 tokenId, uint256 _specialBody, address sender) external {
         require(msg.sender == itemsContract, "Only items contract");
         require(ownerOf(tokenId) == sender, "Not token owner");
-        require(_specialBody >= 1 && _specialBody <= 3, "Invalid special body");
+        require(_specialBody >= 1 && svgRenderer.isValidTrait(TRAIT_SPECIAL_BODY, _specialBody), "Invalid special body");
 
         specialBody[tokenId] = _specialBody;
 
@@ -358,8 +357,10 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         require(ownerOf(tokenId) == sender, "Not token owner");
         require(traitValue >= 1, "Invalid trait value");
 
+        // Validate trait exists in renderer (dynamic check)
+        require(svgRenderer.isValidTrait(traitType, traitValue), "Invalid trait");
+
         if (traitType == TRAIT_SPECIAL_BODY) {
-            require(traitValue <= 3, "Invalid special body value");
             specialBody[tokenId] = traitValue;
         } else if (traitType == TRAIT_SPECIAL_MOUTH) {
             specialMouth[tokenId] = traitValue;
@@ -409,17 +410,8 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         supply = _supply;
     }
 
-    function setHeadTraitCount(uint256 _count) public onlyOwner {
-        headTraitCount = _count;
-    }
-
-    function setMouthTraitCount(uint256 _count) public onlyOwner {
-        mouthTraitCount = _count;
-    }
-
-    function setBellyTraitCount(uint256 _count) public onlyOwner {
-        bellyTraitCount = _count;
-    }
+    // Trait counts are now determined dynamically from svgRenderer.getTraitCount()
+    // No setters needed - just deploy new traits to the SVGRouter
 
     function withdraw(uint256 _amount) external onlyOwner {
         payable(owner()).transfer(_amount);

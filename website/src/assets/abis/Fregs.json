@@ -741,19 +741,6 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "bellyTraitCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -924,19 +911,6 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "headTraitCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "address",
@@ -1021,19 +995,6 @@
       }
     ],
     "name": "mouth",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "mouthTraitCount",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1229,19 +1190,6 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_count",
-        "type": "uint256"
-      }
-    ],
-    "name": "setBellyTraitCount",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
       },
@@ -1257,19 +1205,6 @@
       }
     ],
     "name": "setBodyColor",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_count",
-        "type": "uint256"
-      }
-    ],
-    "name": "setHeadTraitCount",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1309,19 +1244,6 @@
       }
     ],
     "name": "setMintPrice",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_count",
-        "type": "uint256"
-      }
-    ],
-    "name": "setMouthTraitCount",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

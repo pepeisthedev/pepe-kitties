@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { ITEM_TYPES, ITEM_TYPE_NAMES, ITEM_TYPE_DESCRIPTIONS } from "../config/contracts"
 
 // Map item types to their image paths
@@ -67,6 +67,12 @@ export default function ItemCard({
   const selectedRingClass = ITEM_SELECTED_COLORS[itemType] || "ring-yellow-400"
   const name = itemName || ITEM_TYPE_NAMES[itemType] || "Unknown Item"
   const description = ITEM_TYPE_DESCRIPTIONS[itemType] || ""
+
+  // Update imgSrc when itemType changes
+  useEffect(() => {
+    setImgSrc(ITEM_IMAGES[itemType] || `/items/${itemType}.svg`)
+    setIsLoading(true)
+  }, [itemType])
 
   const sizeClasses = {
     sm: { icon: "w-12 h-12", padding: "p-2", name: "text-xs", id: "text-[10px]" },

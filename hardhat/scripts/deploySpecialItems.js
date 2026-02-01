@@ -220,6 +220,9 @@ async function main() {
         console.log("⚠️  SVG_RENDERER_ADDRESS not set, skipping renderer update");
     }
 
+    // Trait validation is now dynamic - no need to update max values
+    // The contract queries svgRenderer.isValidTrait() to check if a trait exists
+
     // ============ SUMMARY ============
     console.log("\n" + "=".repeat(60));
     console.log("DEPLOYMENT SUMMARY");

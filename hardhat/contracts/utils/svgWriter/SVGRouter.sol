@@ -90,4 +90,14 @@ contract SVGRouter {
         }
         return string(abi.encodePacked("Type ", typeId.toString()));
     }
+
+    // Returns the number of registered traits (max valid typeId)
+    function getTraitCount() public view returns (uint256) {
+        return nextTypeId - 1;
+    }
+
+    // Check if a trait ID is valid (has a renderer)
+    function isValidTrait(uint256 typeId) public view returns (bool) {
+        return renderContracts[typeId] != address(0);
+    }
 }
