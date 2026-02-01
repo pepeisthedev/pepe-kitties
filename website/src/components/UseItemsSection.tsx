@@ -65,10 +65,10 @@ const getItemDescription = (item: Item): string => {
         return ITEM_TYPE_DESCRIPTIONS[item.itemType]
     }
     // For dynamic items, generate description based on trait type
-    if (item.targetTraitType === TRAIT_TYPES.SPECIAL_HEAD) {
+    if (item.targetTraitType === TRAIT_TYPES.HEAD) {
         return `Apply a special head accessory to your Freg`
     }
-    if (item.targetTraitType === TRAIT_TYPES.SPECIAL_BODY) {
+    if (item.targetTraitType === TRAIT_TYPES.BODY) {
         return `Apply a special body skin to your Freg`
     }
     return `Apply ${item.name} to your Freg`
@@ -116,11 +116,11 @@ export default function UseItemsSection(): React.JSX.Element {
             default:
                 // Dynamic trait items
                 if (isDynamicTraitItem(selectedItem)) {
-                    if (selectedItem.targetTraitType === TRAIT_TYPES.SPECIAL_HEAD) {
-                        return `Are you sure you want to apply ${selectedItem.name}? This will add a special head accessory.`
+                    if (selectedItem.targetTraitType === TRAIT_TYPES.HEAD) {
+                        return `Are you sure you want to apply ${selectedItem.name}? This will change the head.`
                     }
-                    if (selectedItem.targetTraitType === TRAIT_TYPES.SPECIAL_BODY) {
-                        return `Are you sure you want to apply ${selectedItem.name}? This will replace the body and belly.`
+                    if (selectedItem.targetTraitType === TRAIT_TYPES.BODY) {
+                        return `Are you sure you want to apply ${selectedItem.name}? This will apply a special body skin.`
                     }
                 }
                 return `Are you sure you want to use ${selectedItem.name}?`
@@ -151,19 +151,19 @@ export default function UseItemsSection(): React.JSX.Element {
         return null
     }
 
-    // Parse SpecialTraitApplied or SpecialDiceUsed events to get the applied trait
-    const parseSpecialTraitEvent = (receipt: any): { traitType: number; traitValue: number } | null => {
+    // Parse TraitSet or SpecialDiceUsed events to get the applied trait
+    const parseTraitEvent = (receipt: any): { traitType: number; traitValue: number } | null => {
         const fregsContract = contracts!.fregs.read
         const itemsContract = contracts!.items.read
 
         for (const log of receipt.logs) {
-            // Try parsing as SpecialTraitApplied from Fregs contract
+            // Try parsing as TraitSet from Fregs contract (new simplified event)
             try {
                 const parsed = fregsContract.interface.parseLog({
                     topics: log.topics as string[],
                     data: log.data
                 })
-                if (parsed?.name === "SpecialTraitApplied") {
+                if (parsed?.name === "TraitSet") {
                     return {
                         traitType: Number(parsed.args.traitType),
                         traitValue: Number(parsed.args.traitValue)
@@ -231,25 +231,25 @@ export default function UseItemsSection(): React.JSX.Element {
                     updatedKitty.head = newHead
                 }
             } else if (selectedItem.itemType === ITEM_TYPES.BRONZE_SKIN) {
-                updatedKitty.specialBody = 1
+                updatedKitty.body = 1
             } else if (selectedItem.itemType === ITEM_TYPES.SILVER_SKIN) {
-                updatedKitty.specialBody = 2
+                updatedKitty.body = 2
             } else if (selectedItem.itemType === ITEM_TYPES.GOLD_SKIN) {
-                updatedKitty.specialBody = 3
+                updatedKitty.body = 3
             } else if (selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE || isDynamicTraitItem(selectedItem)) {
-                // Parse the special trait event to update the correct trait
-                const traitResult = parseSpecialTraitEvent(receipt)
+                // Parse the trait event to update the correct trait
+                const traitResult = parseTraitEvent(receipt)
                 if (traitResult) {
-                    if (traitResult.traitType === TRAIT_TYPES.SPECIAL_BODY) {
-                        updatedKitty.specialBody = traitResult.traitValue
-                    } else if (traitResult.traitType === TRAIT_TYPES.SPECIAL_HEAD) {
-                        updatedKitty.specialHead = traitResult.traitValue
-                    } else if (traitResult.traitType === TRAIT_TYPES.SPECIAL_MOUTH) {
-                        updatedKitty.specialMouth = traitResult.traitValue
-                    } else if (traitResult.traitType === TRAIT_TYPES.SPECIAL_BACKGROUND) {
-                        updatedKitty.specialBackground = traitResult.traitValue
-                    } else if (traitResult.traitType === TRAIT_TYPES.SPECIAL_BELLY) {
-                        updatedKitty.specialBelly = traitResult.traitValue
+                    if (traitResult.traitType === TRAIT_TYPES.BACKGROUND) {
+                        updatedKitty.background = traitResult.traitValue
+                    } else if (traitResult.traitType === TRAIT_TYPES.BODY) {
+                        updatedKitty.body = traitResult.traitValue
+                    } else if (traitResult.traitType === TRAIT_TYPES.HEAD) {
+                        updatedKitty.head = traitResult.traitValue
+                    } else if (traitResult.traitType === TRAIT_TYPES.MOUTH) {
+                        updatedKitty.mouth = traitResult.traitValue
+                    } else if (traitResult.traitType === TRAIT_TYPES.BELLY) {
+                        updatedKitty.belly = traitResult.traitValue
                     }
                 }
             }
@@ -613,11 +613,11 @@ export default function UseItemsSection(): React.JSX.Element {
                         <div className="overflow-hidden rounded-xl bg-white" style={{ aspectRatio: '617.49 / 644.18', width: '256px' }}>
                             <KittyRenderer
                                 bodyColor={resultKitty.bodyColor}
+                                background={resultKitty.background}
+                                body={resultKitty.body}
                                 head={resultKitty.head}
                                 mouth={resultKitty.mouth}
                                 belly={resultKitty.belly}
-                                specialBody={resultKitty.specialBody}
-                                specialHead={resultKitty.specialHead}
                                 size="sm"
                                 className="w-full h-full"
                             />

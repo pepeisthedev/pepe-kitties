@@ -13,26 +13,24 @@ interface ISVGTraitRenderer {
 }
 
 contract FregsSVGRenderer is Ownable {
-    // Trait type constants (must match Fregs.sol)
-    uint256 public constant TRAIT_HEAD = 1;
-    uint256 public constant TRAIT_MOUTH = 2;
-    uint256 public constant TRAIT_BELLY = 3;
-    uint256 public constant TRAIT_SPECIAL_BODY = 4;
-    uint256 public constant TRAIT_SPECIAL_MOUTH = 5;
-    uint256 public constant TRAIT_SPECIAL_BACKGROUND = 6;
-    uint256 public constant TRAIT_SPECIAL_BELLY = 7;
-    uint256 public constant TRAIT_SPECIAL_HEAD = 8;
+    // Trait type constants (must match Fregs.sol) - reduced from 8 to 5
+    uint256 public constant TRAIT_BACKGROUND = 0;
+    uint256 public constant TRAIT_BODY = 1;
+    uint256 public constant TRAIT_HEAD = 2;
+    uint256 public constant TRAIT_MOUTH = 3;
+    uint256 public constant TRAIT_BELLY = 4;
 
-    // Sub-contracts for each trait type
-    ISVGTraitRenderer public bodyContract;
-    ISVGTraitRenderer public bellyContract;
-    ISVGTraitRenderer public headContract;
-    ISVGTraitRenderer public mouthContract;
-    ISVGTraitRenderer public specialBodyContract;      // renamed from specialSkinContract
-    ISVGTraitRenderer public specialMouthContract;
-    ISVGTraitRenderer public specialBackgroundContract;
-    ISVGTraitRenderer public specialBellyContract;
-    ISVGTraitRenderer public specialHeadContract;
+    // Unified sub-contracts (reduced from 9 to 5)
+    // Each handles both base traits and item traits in one router
+    ISVGTraitRenderer public backgroundContract;  // ID 0 = color rect, ID 1+ = special backgrounds
+    ISVGTraitRenderer public bodyContract;        // ID 0 = color body, ID 1+ = special skins
+    ISVGTraitRenderer public headContract;        // All heads (base + item) in one router
+    ISVGTraitRenderer public mouthContract;       // All mouths in one router
+    ISVGTraitRenderer public bellyContract;       // All bellies in one router
+
+    // Base trait counts - tracks how many base traits exist per type (for mint randomization)
+    // Item traits get IDs above the base count
+    mapping(uint256 => uint256) public baseTraitCount;
 
     // SVG dimensions and styling (viewBox matches background/1.svg dimensions)
     string public svgHeader = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 617.49 644.18'>";
@@ -45,67 +43,41 @@ contract FregsSVGRenderer is Ownable {
     /**
      * @notice Renders the complete SVG for a Freg
      * @dev Renders layers in order: background, body, belly, head, mouth
-     *      Each layer can be overridden by a corresponding special trait:
-     *      - specialBackground > 0: use special background instead of colored rect
-     *      - specialBody > 0: use special body (bronze/silver/gold) instead of body+belly
-     *      - specialBelly > 0: use special belly instead of normal belly (only if no specialBody)
-     *      - specialHead > 0: use special head instead of normal head
-     *      - specialMouth > 0: use special mouth instead of normal mouth
-     *      A Freg can have multiple special traits simultaneously
+     *      - background: 0 = use bodyColor rect, >0 = special background
+     *      - body: 0 = use bodyColor body, >0 = special skin (bronze=1, silver=2, gold=3, diamond=4)
+     *      - head/mouth/belly: always render from their contracts (base or item traits)
+     *      Belly always renders (removed special body hiding)
      */
     function render(
         string memory _bodyColor,
+        uint256 _background,
+        uint256 _body,
         uint256 _head,
         uint256 _mouth,
-        uint256 _belly,
-        uint256 _specialBody,
-        uint256 _specialMouth,
-        uint256 _specialBackground,
-        uint256 _specialBelly,
-        uint256 _specialHead
+        uint256 _belly
     ) external view returns (string memory) {
-        // Background layer - use special background or colored rect
+        // Background layer - 0 = color rect, >0 = special background
         string memory backgroundLayer;
-        if (_specialBackground > 0) {
-            backgroundLayer = _renderSpecialBackground(_specialBackground);
+        if (_background > 0) {
+            backgroundLayer = backgroundContract.render(_background);
         } else {
-            backgroundLayer = _renderBackground(_bodyColor);
+            backgroundLayer = _renderColorBackground(_bodyColor);
         }
 
-        // Body and belly layers
+        // Body layer - 0 = color body, >0 = special skin
         string memory bodyLayer;
-        string memory bellyLayer;
-
-        if (_specialBody > 0) {
-            // Has special body - use special body instead of body+belly
-            bodyLayer = _renderSpecialBody(_specialBody);
-            bellyLayer = ""; // No belly with special body
+        if (_body > 0) {
+            bodyLayer = bodyContract.render(_body);
         } else {
-            // Normal body with color
-            bodyLayer = _renderBody(_bodyColor);
-            // Use special belly or normal belly
-            if (_specialBelly > 0) {
-                bellyLayer = _renderSpecialBelly(_specialBelly);
-            } else {
-                bellyLayer = _renderBelly(_belly);
-            }
+            bodyLayer = bodyContract.renderWithColor(_bodyColor);
         }
 
-        // Head layer - use special head or normal head
-        string memory headLayer;
-        if (_specialHead > 0) {
-            headLayer = _renderSpecialHead(_specialHead);
-        } else {
-            headLayer = _renderHead(_head);
-        }
+        // Belly always renders (removed special body check)
+        string memory bellyLayer = bellyContract.render(_belly);
 
-        // Mouth layer - use special mouth or normal mouth
-        string memory mouthLayer;
-        if (_specialMouth > 0) {
-            mouthLayer = _renderSpecialMouth(_specialMouth);
-        } else {
-            mouthLayer = _renderMouth(_mouth);
-        }
+        // Head and mouth always from their contracts
+        string memory headLayer = headContract.render(_head);
+        string memory mouthLayer = mouthContract.render(_mouth);
 
         return string(
             abi.encodePacked(
@@ -124,33 +96,27 @@ contract FregsSVGRenderer is Ownable {
 
     /**
      * @notice Get the name of a trait for metadata
-     * @param _traitType The type of trait (TRAIT_HEAD, TRAIT_MOUTH, etc.)
+     * @param _traitType The type of trait (TRAIT_BACKGROUND, TRAIT_BODY, etc.)
      * @param _traitId The specific trait ID
      */
     function meta(uint256 _traitType, uint256 _traitId) external view returns (string memory) {
-        if (_traitType == TRAIT_HEAD) {
+        if (_traitType == TRAIT_BACKGROUND) {
+            return backgroundContract.meta(_traitId);
+        } else if (_traitType == TRAIT_BODY) {
+            return bodyContract.meta(_traitId);
+        } else if (_traitType == TRAIT_HEAD) {
             return headContract.meta(_traitId);
         } else if (_traitType == TRAIT_MOUTH) {
             return mouthContract.meta(_traitId);
         } else if (_traitType == TRAIT_BELLY) {
             return bellyContract.meta(_traitId);
-        } else if (_traitType == TRAIT_SPECIAL_BODY) {
-            return specialBodyContract.meta(_traitId);
-        } else if (_traitType == TRAIT_SPECIAL_MOUTH) {
-            return specialMouthContract.meta(_traitId);
-        } else if (_traitType == TRAIT_SPECIAL_BACKGROUND) {
-            return specialBackgroundContract.meta(_traitId);
-        } else if (_traitType == TRAIT_SPECIAL_BELLY) {
-            return specialBellyContract.meta(_traitId);
-        } else if (_traitType == TRAIT_SPECIAL_HEAD) {
-            return specialHeadContract.meta(_traitId);
         }
         revert("Invalid trait type");
     }
 
     // ============ Internal Render Helpers ============
 
-    function _renderBackground(string memory _color) internal pure returns (string memory) {
+    function _renderColorBackground(string memory _color) internal pure returns (string memory) {
         return string(
             abi.encodePacked(
                 "<rect width='100%' height='100%' fill='",
@@ -160,50 +126,14 @@ contract FregsSVGRenderer is Ownable {
         );
     }
 
-    function _renderBody(string memory _color) internal view returns (string memory) {
-        return bodyContract.renderWithColor(_color);
-    }
-
-    function _renderBelly(uint256 _bellyId) internal view returns (string memory) {
-        return bellyContract.render(_bellyId);
-    }
-
-    function _renderHead(uint256 _headId) internal view returns (string memory) {
-        return headContract.render(_headId);
-    }
-
-    function _renderMouth(uint256 _mouthId) internal view returns (string memory) {
-        return mouthContract.render(_mouthId);
-    }
-
-    function _renderSpecialBody(uint256 _bodyId) internal view returns (string memory) {
-        return specialBodyContract.render(_bodyId);
-    }
-
-    function _renderSpecialMouth(uint256 _mouthId) internal view returns (string memory) {
-        return specialMouthContract.render(_mouthId);
-    }
-
-    function _renderSpecialBackground(uint256 _bgId) internal view returns (string memory) {
-        return specialBackgroundContract.render(_bgId);
-    }
-
-    function _renderSpecialBelly(uint256 _bellyId) internal view returns (string memory) {
-        return specialBellyContract.render(_bellyId);
-    }
-
-    function _renderSpecialHead(uint256 _headId) internal view returns (string memory) {
-        return specialHeadContract.render(_headId);
-    }
-
     // ============ Owner Functions ============
+
+    function setBackgroundContract(address _contract) external onlyOwner {
+        backgroundContract = ISVGTraitRenderer(_contract);
+    }
 
     function setBodyContract(address _contract) external onlyOwner {
         bodyContract = ISVGTraitRenderer(_contract);
-    }
-
-    function setBellyContract(address _contract) external onlyOwner {
-        bellyContract = ISVGTraitRenderer(_contract);
     }
 
     function setHeadContract(address _contract) external onlyOwner {
@@ -214,24 +144,8 @@ contract FregsSVGRenderer is Ownable {
         mouthContract = ISVGTraitRenderer(_contract);
     }
 
-    function setSpecialBodyContract(address _contract) external onlyOwner {
-        specialBodyContract = ISVGTraitRenderer(_contract);
-    }
-
-    function setSpecialMouthContract(address _contract) external onlyOwner {
-        specialMouthContract = ISVGTraitRenderer(_contract);
-    }
-
-    function setSpecialBackgroundContract(address _contract) external onlyOwner {
-        specialBackgroundContract = ISVGTraitRenderer(_contract);
-    }
-
-    function setSpecialBellyContract(address _contract) external onlyOwner {
-        specialBellyContract = ISVGTraitRenderer(_contract);
-    }
-
-    function setSpecialHeadContract(address _contract) external onlyOwner {
-        specialHeadContract = ISVGTraitRenderer(_contract);
+    function setBellyContract(address _contract) external onlyOwner {
+        bellyContract = ISVGTraitRenderer(_contract);
     }
 
     function setSVGHeader(string memory _header) external onlyOwner {
@@ -244,51 +158,62 @@ contract FregsSVGRenderer is Ownable {
 
     // Set all contracts at once
     function setAllContracts(
+        address _background,
         address _body,
-        address _belly,
         address _head,
         address _mouth,
-        address _specialBody,
-        address _specialMouth,
-        address _specialBackground,
-        address _specialBelly,
-        address _specialHead
+        address _belly
     ) external onlyOwner {
+        backgroundContract = ISVGTraitRenderer(_background);
         bodyContract = ISVGTraitRenderer(_body);
-        bellyContract = ISVGTraitRenderer(_belly);
         headContract = ISVGTraitRenderer(_head);
         mouthContract = ISVGTraitRenderer(_mouth);
-        specialBodyContract = ISVGTraitRenderer(_specialBody);
-        specialMouthContract = ISVGTraitRenderer(_specialMouth);
-        specialBackgroundContract = ISVGTraitRenderer(_specialBackground);
-        specialBellyContract = ISVGTraitRenderer(_specialBelly);
-        specialHeadContract = ISVGTraitRenderer(_specialHead);
+        bellyContract = ISVGTraitRenderer(_belly);
+    }
+
+    // Set base trait count for a trait type (used for mint randomization)
+    function setBaseTraitCount(uint256 _traitType, uint256 _count) external onlyOwner {
+        baseTraitCount[_traitType] = _count;
+    }
+
+    // Set all base trait counts at once
+    function setAllBaseTraitCounts(
+        uint256 _head,
+        uint256 _mouth,
+        uint256 _belly
+    ) external onlyOwner {
+        baseTraitCount[TRAIT_HEAD] = _head;
+        baseTraitCount[TRAIT_MOUTH] = _mouth;
+        baseTraitCount[TRAIT_BELLY] = _belly;
     }
 
     // ============ Dynamic Trait Count Functions ============
 
     /**
-     * @notice Get the number of registered traits for a trait type
-     * @param _traitType The type of trait (TRAIT_HEAD, TRAIT_SPECIAL_BODY, etc.)
-     * @return count The number of registered traits (0 if contract not set)
+     * @notice Get the number of base traits for a trait type (for mint randomization)
+     * @param _traitType The type of trait (TRAIT_HEAD, TRAIT_MOUTH, TRAIT_BELLY)
+     * @return count The number of base traits (item traits are above this count)
      */
-    function getTraitCount(uint256 _traitType) external view returns (uint256) {
-        if (_traitType == TRAIT_HEAD && address(headContract) != address(0)) {
+    function getBaseTraitCount(uint256 _traitType) external view returns (uint256) {
+        return baseTraitCount[_traitType];
+    }
+
+    /**
+     * @notice Get the total number of registered traits for a trait type
+     * @param _traitType The type of trait
+     * @return count The total number of traits (base + items)
+     */
+    function getTotalTraitCount(uint256 _traitType) external view returns (uint256) {
+        if (_traitType == TRAIT_BACKGROUND && address(backgroundContract) != address(0)) {
+            return backgroundContract.getTraitCount();
+        } else if (_traitType == TRAIT_BODY && address(bodyContract) != address(0)) {
+            return bodyContract.getTraitCount();
+        } else if (_traitType == TRAIT_HEAD && address(headContract) != address(0)) {
             return headContract.getTraitCount();
         } else if (_traitType == TRAIT_MOUTH && address(mouthContract) != address(0)) {
             return mouthContract.getTraitCount();
         } else if (_traitType == TRAIT_BELLY && address(bellyContract) != address(0)) {
             return bellyContract.getTraitCount();
-        } else if (_traitType == TRAIT_SPECIAL_BODY && address(specialBodyContract) != address(0)) {
-            return specialBodyContract.getTraitCount();
-        } else if (_traitType == TRAIT_SPECIAL_MOUTH && address(specialMouthContract) != address(0)) {
-            return specialMouthContract.getTraitCount();
-        } else if (_traitType == TRAIT_SPECIAL_BACKGROUND && address(specialBackgroundContract) != address(0)) {
-            return specialBackgroundContract.getTraitCount();
-        } else if (_traitType == TRAIT_SPECIAL_BELLY && address(specialBellyContract) != address(0)) {
-            return specialBellyContract.getTraitCount();
-        } else if (_traitType == TRAIT_SPECIAL_HEAD && address(specialHeadContract) != address(0)) {
-            return specialHeadContract.getTraitCount();
         }
         return 0;
     }
@@ -300,22 +225,16 @@ contract FregsSVGRenderer is Ownable {
      * @return valid True if the trait exists and has a renderer
      */
     function isValidTrait(uint256 _traitType, uint256 _traitId) external view returns (bool) {
-        if (_traitType == TRAIT_HEAD && address(headContract) != address(0)) {
+        if (_traitType == TRAIT_BACKGROUND && address(backgroundContract) != address(0)) {
+            return backgroundContract.isValidTrait(_traitId);
+        } else if (_traitType == TRAIT_BODY && address(bodyContract) != address(0)) {
+            return bodyContract.isValidTrait(_traitId);
+        } else if (_traitType == TRAIT_HEAD && address(headContract) != address(0)) {
             return headContract.isValidTrait(_traitId);
         } else if (_traitType == TRAIT_MOUTH && address(mouthContract) != address(0)) {
             return mouthContract.isValidTrait(_traitId);
         } else if (_traitType == TRAIT_BELLY && address(bellyContract) != address(0)) {
             return bellyContract.isValidTrait(_traitId);
-        } else if (_traitType == TRAIT_SPECIAL_BODY && address(specialBodyContract) != address(0)) {
-            return specialBodyContract.isValidTrait(_traitId);
-        } else if (_traitType == TRAIT_SPECIAL_MOUTH && address(specialMouthContract) != address(0)) {
-            return specialMouthContract.isValidTrait(_traitId);
-        } else if (_traitType == TRAIT_SPECIAL_BACKGROUND && address(specialBackgroundContract) != address(0)) {
-            return specialBackgroundContract.isValidTrait(_traitId);
-        } else if (_traitType == TRAIT_SPECIAL_BELLY && address(specialBellyContract) != address(0)) {
-            return specialBellyContract.isValidTrait(_traitId);
-        } else if (_traitType == TRAIT_SPECIAL_HEAD && address(specialHeadContract) != address(0)) {
-            return specialHeadContract.isValidTrait(_traitId);
         }
         return false;
     }

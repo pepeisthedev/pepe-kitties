@@ -6,14 +6,11 @@ import { FREGS_ADDRESS, FregsABI } from "../config/contracts"
 export interface Kitty {
   tokenId: number
   bodyColor: string
+  background: number  // 0 = use bodyColor, 1+ = special background
+  body: number        // 0 = use bodyColor, 1+ = special skin
   head: number
   mouth: number
   belly: number
-  specialBody: number
-  specialMouth: number
-  specialBackground: number
-  specialBelly: number
-  specialHead: number
 }
 
 export function useOwnedKitties() {
@@ -41,27 +38,21 @@ export function useOwnedKitties() {
       const [
         tokenIds,
         bodyColors,
+        backgrounds,
+        bodies,
         heads,
         mouths,
         bellies,
-        specialBodies,
-        specialMouths,
-        specialBackgrounds,
-        specialBellies,
-        specialHeads,
       ] = result
 
       const kittyList: Kitty[] = tokenIds.map((id: bigint, i: number) => ({
         tokenId: Number(id),
         bodyColor: bodyColors[i],
+        background: Number(backgrounds[i]),
+        body: Number(bodies[i]),
         head: Number(heads[i]),
         mouth: Number(mouths[i]),
         belly: Number(bellies[i]),
-        specialBody: Number(specialBodies[i]),
-        specialMouth: Number(specialMouths[i]),
-        specialBackground: Number(specialBackgrounds[i]),
-        specialBelly: Number(specialBellies[i]),
-        specialHead: Number(specialHeads[i]),
       }))
 
       setKitties(kittyList)

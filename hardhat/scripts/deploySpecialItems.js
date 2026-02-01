@@ -4,6 +4,8 @@ const path = require("path");
 const {
     deploySingleSvg,
     getOrDeploySvgPartWriter,
+    processSvgFile,
+    storeSvgData,
 } = require("./deployUtils");
 
 // ============ CONFIGURATION ============
@@ -84,45 +86,63 @@ async function main() {
     const diamondTraitRendererAddr = await deploySingleSvg(svgPartWriter, diamondTraitPath, 'diamondTrait');
     console.log("Diamond trait renderer deployed:", diamondTraitRendererAddr);
 
-    // Note: For production, add diamond to the EXISTING specialBody router
-    // Here we demo by updating an existing router or creating a new one
-    console.log("\n--- Updating Special Body Router ---");
+    // Note: For production, add diamond to the EXISTING UnifiedBodyRenderer
+    console.log("\n--- Updating UnifiedBodyRenderer ---");
 
-    // If SVG_RENDERER_ADDRESS is set, we can update the existing specialBody router
+    // If SVG_RENDERER_ADDRESS is set, we can update the existing body renderer
     if (SVG_RENDERER_ADDRESS) {
         const svgRenderer = await ethers.getContractAt("FregsSVGRenderer", SVG_RENDERER_ADDRESS);
-        const specialBodyRouterAddr = await svgRenderer.specialBodyContract();
+        const bodyContractAddr = await svgRenderer.bodyContract();
 
-        if (specialBodyRouterAddr && specialBodyRouterAddr !== ethers.ZeroAddress) {
-            const existingRouter = await ethers.getContractAt("SVGRouter", specialBodyRouterAddr);
-            // Add diamond at variant 4
-            await (await existingRouter.setRenderContract(4, diamondTraitRendererAddr)).wait();
-            await (await existingRouter.setTraitName(4, "Diamond")).wait();
-            console.log("Diamond added to existing Special Body Router at variant 4");
+        if (bodyContractAddr && bodyContractAddr !== ethers.ZeroAddress) {
+            // UnifiedBodyRenderer uses setSkin(skinId, pointers[], name)
+            // We need to store the diamond SVG and get its pointer
+            const diamondPointers = [];
+
+            // Read diamond SVG data and store it
+            const diamondPath = path.join(FROGZ_PATH, "special", "4.svg");
+            const chunkSize = 16 * 1024;
+
+            if (fs.existsSync(diamondPath)) {
+                const diamondData = processSvgFile(diamondPath, 'special4');
+                const totalChunks = Math.ceil(diamondData.length / chunkSize);
+
+                for (let j = 0; j < totalChunks; j++) {
+                    const chunk = diamondData.slice(j * chunkSize, (j + 1) * chunkSize);
+                    const addr = await storeSvgData(svgPartWriter, chunk);
+                    diamondPointers.push(addr);
+                }
+
+                const bodyRenderer = await ethers.getContractAt("UnifiedBodyRenderer", bodyContractAddr);
+                await (await bodyRenderer.setSkin(4, diamondPointers, "Diamond")).wait();
+                console.log("Diamond skin added to UnifiedBodyRenderer at ID 4");
+            } else {
+                console.log("⚠️  Diamond SVG not found, skipping body update");
+            }
         } else {
-            console.log("⚠️  No existing specialBody router found, creating new one...");
-            const newRouter = await SVGRouter.deploy();
-            await newRouter.waitForDeployment();
-            const newRouterAddr = await newRouter.getAddress();
-
-            await (await newRouter.setRenderContract(4, diamondTraitRendererAddr)).wait();
-            await (await newRouter.setTraitName(4, "Diamond")).wait();
-            console.log("New Special Body Router deployed:", newRouterAddr);
+            console.log("⚠️  No existing body contract found");
         }
     }
 
     // ============ REGISTER ITEM TYPES IN FREGSITEMS ============
     console.log("\n--- Registering Item Types ---");
 
+    // Simplified trait constants (must match Fregs.sol):
+    // TRAIT_BACKGROUND = 0
+    // TRAIT_BODY = 1
+    // TRAIT_HEAD = 2
+    // TRAIT_MOUTH = 3
+    // TRAIT_BELLY = 4
+
     // Add Crown item type
-    // targetTraitType = 8 (TRAIT_SPECIAL_HEAD)
-    // traitValue = 1 (Crown variant)
+    // targetTraitType = 2 (TRAIT_HEAD)
+    // traitValue = ID above baseTraitCount (e.g., if 3 base heads, crown = 4)
     console.log("Adding Crown item type...");
     const crownItemTx = await fregsItems.addItemType(
         "Crown",                           // name
         "A royal crown for your Freg",     // description
-        8,                                 // targetTraitType (TRAIT_SPECIAL_HEAD)
-        1,                                 // traitValue (variant ID)
+        2,                                 // targetTraitType (TRAIT_HEAD)
+        4,                                 // traitValue (ID above base head count)
         true,                              // isOwnerMintable
         false,                             // isClaimable
         0                                  // claimWeight
@@ -145,14 +165,14 @@ async function main() {
     console.log(`Crown item type registered with ID: ${crownItemTypeId}`);
 
     // Add Diamond item type
-    // targetTraitType = 4 (TRAIT_SPECIAL_BODY)
+    // targetTraitType = 1 (TRAIT_BODY)
     // traitValue = 4 (Diamond variant)
     console.log("Adding Diamond item type...");
     const diamondItemTx = await fregsItems.addItemType(
         "Diamond Skin",                    // name
         "A dazzling diamond skin for your Freg", // description
-        4,                                 // targetTraitType (TRAIT_SPECIAL_BODY)
-        4,                                 // traitValue (variant ID)
+        1,                                 // targetTraitType (TRAIT_BODY)
+        4,                                 // traitValue (Diamond = 4)
         true,                              // isOwnerMintable
         false,                             // isClaimable
         0                                  // claimWeight
@@ -176,17 +196,17 @@ async function main() {
     // ============ CONFIGURE SPECIAL DICE ============
     console.log("\n--- Configuring Special Dice ---");
 
-    // Set max variants for special traits (for dice rolls)
-    // TRAIT_SPECIAL_BODY (4) = 4 variants (bronze, silver, gold, diamond)
-    // TRAIT_SPECIAL_HEAD (8) = 1 variant (crown)
-    await (await fregsItems.setAllSpecialTraitMaxVariants(
-        4,  // maxBody (bronze, silver, gold, diamond)
-        0,  // maxMouth (none yet)
+    // Set max variants for trait types (for dice rolls)
+    // Simplified trait constants:
+    // TRAIT_BACKGROUND = 0, TRAIT_BODY = 1, TRAIT_HEAD = 2, TRAIT_MOUTH = 3, TRAIT_BELLY = 4
+    await (await fregsItems.setAllTraitMaxVariants(
         0,  // maxBackground (none yet)
-        0,  // maxBelly (none yet)
-        1   // maxHead (crown)
+        4,  // maxBody (bronze, silver, gold, diamond)
+        4,  // maxHead (3 base + crown item = 4)
+        1,  // maxMouth (1 base)
+        2   // maxBelly (2 base)
     )).wait();
-    console.log("Special dice configured with max variants");
+    console.log("Dice configured with max variants");
 
     // ============ MINT TEST ITEMS ============
     console.log("\n--- Minting Test Items ---");
@@ -212,10 +232,20 @@ async function main() {
     if (SVG_RENDERER_ADDRESS) {
         const svgRenderer = await ethers.getContractAt("FregsSVGRenderer", SVG_RENDERER_ADDRESS);
 
-        // Update specialHead contract
-        console.log("Setting Special Head contract on SVG Renderer...");
-        await (await svgRenderer.setSpecialHeadContract(specialHeadRouterAddr)).wait();
-        console.log("✅ Special Head contract updated");
+        // Update head contract to include crown
+        // Note: In simplified system, crown should be added to the unified head router
+        // The specialHeadRouter we created above should be merged into headContract
+        console.log("Adding Crown to Head Router...");
+        const headRouterAddr = await svgRenderer.headContract();
+        if (headRouterAddr && headRouterAddr !== ethers.ZeroAddress) {
+            const headRouter = await ethers.getContractAt("SVGRouter", headRouterAddr);
+            // Get crown renderer from our new router and add to head router
+            const crownRenderer = await specialHeadRouter.renderContracts(1);
+            // Add crown at ID 4 (after base heads 1-3)
+            await (await headRouter.setRenderContract(4, crownRenderer)).wait();
+            await (await headRouter.setTraitName(4, "Crown")).wait();
+            console.log("✅ Crown added to Head Router at ID 4");
+        }
     } else {
         console.log("⚠️  SVG_RENDERER_ADDRESS not set, skipping renderer update");
     }
@@ -234,10 +264,10 @@ async function main() {
     console.log("  Crown Trait Renderer: ", crownTraitRendererAddr);
     console.log("  Diamond Trait Renderer:", diamondTraitRendererAddr);
 
-    console.log("\nRegistered Item Types:");
-    console.log(`  Crown (ID: ${crownItemTypeId}):        TRAIT_SPECIAL_HEAD = 1`);
-    console.log(`  Diamond Skin (ID: ${diamondItemTypeId}): TRAIT_SPECIAL_BODY = 4`);
-    console.log("  Special Dice (ID: 100):  Random special trait");
+    console.log("\nRegistered Item Types (Simplified Trait System):");
+    console.log(`  Crown (ID: ${crownItemTypeId}):        TRAIT_HEAD = 4`);
+    console.log(`  Diamond Skin (ID: ${diamondItemTypeId}): TRAIT_BODY = 4`);
+    console.log("  Special Dice (ID: 100):  Random trait");
 
     console.log("\nMinted Items:");
     console.log(`  Crown items:        ${MINT_AMOUNT}`);

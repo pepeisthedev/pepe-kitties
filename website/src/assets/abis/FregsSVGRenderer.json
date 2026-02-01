@@ -47,7 +47,33 @@
   },
   {
     "inputs": [],
+    "name": "TRAIT_BACKGROUND",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "TRAIT_BELLY",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "TRAIT_BODY",
     "outputs": [
       {
         "internalType": "uint256",
@@ -86,59 +112,26 @@
   },
   {
     "inputs": [],
-    "name": "TRAIT_SPECIAL_BACKGROUND",
+    "name": "backgroundContract",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "contract ISVGTraitRenderer",
         "name": "",
-        "type": "uint256"
+        "type": "address"
       }
     ],
     "stateMutability": "view",
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "TRAIT_SPECIAL_BELLY",
-    "outputs": [
+    "inputs": [
       {
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
       }
     ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "TRAIT_SPECIAL_BODY",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "TRAIT_SPECIAL_HEAD",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "TRAIT_SPECIAL_MOUTH",
+    "name": "baseTraitCount",
     "outputs": [
       {
         "internalType": "uint256",
@@ -183,7 +176,26 @@
         "type": "uint256"
       }
     ],
-    "name": "getTraitCount",
+    "name": "getBaseTraitCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_traitType",
+        "type": "uint256"
+      }
+    ],
+    "name": "getTotalTraitCount",
     "outputs": [
       {
         "internalType": "uint256",
@@ -290,6 +302,16 @@
       },
       {
         "internalType": "uint256",
+        "name": "_background",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_body",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
         "name": "_head",
         "type": "uint256"
       },
@@ -301,31 +323,6 @@
       {
         "internalType": "uint256",
         "name": "_belly",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_specialBody",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_specialMouth",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_specialBackground",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_specialBelly",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_specialHead",
         "type": "uint256"
       }
     ],
@@ -350,13 +347,36 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "_head",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_mouth",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_belly",
+        "type": "uint256"
+      }
+    ],
+    "name": "setAllBaseTraitCounts",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
-        "name": "_body",
+        "name": "_background",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "_belly",
+        "name": "_body",
         "type": "address"
       },
       {
@@ -371,31 +391,42 @@
       },
       {
         "internalType": "address",
-        "name": "_specialBody",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_specialMouth",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_specialBackground",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_specialBelly",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_specialHead",
+        "name": "_belly",
         "type": "address"
       }
     ],
     "name": "setAllContracts",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_contract",
+        "type": "address"
+      }
+    ],
+    "name": "setBackgroundContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_traitType",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_count",
+        "type": "uint256"
+      }
+    ],
+    "name": "setBaseTraitCount",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -476,136 +507,6 @@
     "name": "setSVGHeader",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_contract",
-        "type": "address"
-      }
-    ],
-    "name": "setSpecialBackgroundContract",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_contract",
-        "type": "address"
-      }
-    ],
-    "name": "setSpecialBellyContract",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_contract",
-        "type": "address"
-      }
-    ],
-    "name": "setSpecialBodyContract",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_contract",
-        "type": "address"
-      }
-    ],
-    "name": "setSpecialHeadContract",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_contract",
-        "type": "address"
-      }
-    ],
-    "name": "setSpecialMouthContract",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "specialBackgroundContract",
-    "outputs": [
-      {
-        "internalType": "contract ISVGTraitRenderer",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "specialBellyContract",
-    "outputs": [
-      {
-        "internalType": "contract ISVGTraitRenderer",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "specialBodyContract",
-    "outputs": [
-      {
-        "internalType": "contract ISVGTraitRenderer",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "specialHeadContract",
-    "outputs": [
-      {
-        "internalType": "contract ISVGTraitRenderer",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "specialMouthContract",
-    "outputs": [
-      {
-        "internalType": "contract ISVGTraitRenderer",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {

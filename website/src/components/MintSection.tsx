@@ -438,10 +438,10 @@ export default function MintSection(): React.JSX.Element {
                             <div className="rounded-2xl overflow-hidden bg-white" style={{ aspectRatio: '617.49 / 644.18', width: '256px' }}>
                                 <KittyRenderer
                                     bodyColor={mintedKitty.bodyColor}
+                                    body={0}
                                     head={mintedKitty.head}
                                     mouth={mintedKitty.mouth}
                                     belly={mintedKitty.belly}
-                                    specialBody={0}
                                     size="sm"
                                     className="w-full h-full"
                                 />

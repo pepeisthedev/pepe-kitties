@@ -25,8 +25,9 @@ const ITEMS_PATH = path.join(__dirname, "../../website/public/items");
 
 // ============ TRAIT NAMES ============
 // Names for each trait variant (index matches SVG file number)
-// Customize these to match your actual trait designs
+// In simplified system: base traits are assigned at mint, item traits are added above baseTraitCount
 const TRAIT_NAMES = {
+    // Base traits (1-indexed, randomly assigned at mint)
     head: [
         "None",           // 1.svg - base head with eyes
         "3D Glasses",     // 2.svg
@@ -39,18 +40,15 @@ const TRAIT_NAMES = {
         "ETH",          // 1.svg
         "Thug life",        // 2.svg
     ],
-    special: [
+    // Body skins (1-indexed, 0 means use bodyColor)
+    body: [
         "Bronze",         // 1.svg - bronze body skin
-        "Silver",         // 2.svg - silver body skin (if exists)
-        "Gold",           // 3.svg - gold body skin (if exists)
+        "Silver",         // 2.svg - silver body skin
+        "Gold",           // 3.svg - gold body skin
         "Diamond",        // 4.svg - diamond body skin
     ],
-    specialHead: [
-        "Crown",          // 1.svg
-    ],
-    specialMouth: [],
-    specialBackground: [],
-    specialBelly: [],
+    // Background (1-indexed, 0 means use bodyColor rect)
+    background: [],
 };
 
 // Copy ABI from artifacts to website
@@ -79,7 +77,7 @@ async function deployBody(svgPartWriter) {
         return null;
     }
 
-    console.log("  Deploying body with color support...");
+    console.log("  Deploying UnifiedBodyRenderer (color + special skins)...");
     const svgData = processSvgFile(bodyPath, 'body');
 
     // Split at the color value in .body-cls-6{fill:COLOR;} (prefixed)
@@ -94,7 +92,7 @@ async function deployBody(svgPartWriter) {
     const part1 = svgData.substring(0, splitIndex);
     const part2 = svgData.substring(afterColor);
 
-    console.log(`    Part 1: ${part1.length} chars, Part 2: ${part2.length} chars`);
+    console.log(`    Color body Part 1: ${part1.length} chars, Part 2: ${part2.length} chars`);
 
     const part1Address = await storeSvgData(svgPartWriter, part1);
     console.log(`    Part 1 stored at: ${part1Address}`);
@@ -102,8 +100,9 @@ async function deployBody(svgPartWriter) {
     const part2Address = await storeSvgData(svgPartWriter, part2);
     console.log(`    Part 2 stored at: ${part2Address}`);
 
-    const BodyRenderer = await ethers.getContractFactory("BodyRenderer");
-    const bodyRenderer = await BodyRenderer.deploy(part1Address, part2Address);
+    // Deploy UnifiedBodyRenderer
+    const UnifiedBodyRenderer = await ethers.getContractFactory("UnifiedBodyRenderer");
+    const bodyRenderer = await UnifiedBodyRenderer.deploy(part1Address, part2Address);
     await bodyRenderer.waitForDeployment();
 
     if (network.name !== "localhost" && network.name !== "hardhat") {
@@ -111,7 +110,41 @@ async function deployBody(svgPartWriter) {
     }
 
     const address = await bodyRenderer.getAddress();
-    console.log(`    BodyRenderer deployed at: ${address}`);
+    console.log(`    UnifiedBodyRenderer deployed at: ${address}`);
+
+    // Deploy special skins (bronze, silver, gold, diamond) from special/ folder
+    const skinsPath = path.join(FROGZ_PATH, "special");
+    if (fs.existsSync(skinsPath)) {
+        const skinFiles = fs.readdirSync(skinsPath)
+            .filter(f => f.endsWith('.svg'))
+            .sort((a, b) => parseInt(a.replace('.svg', '')) - parseInt(b.replace('.svg', '')));
+
+        console.log(`    Deploying ${skinFiles.length} special skins...`);
+        const chunkSize = 16 * 1024;
+        const skinNames = TRAIT_NAMES.body || [];
+
+        for (let i = 0; i < skinFiles.length; i++) {
+            const file = skinFiles[i];
+            const filePath = path.join(skinsPath, file);
+            const skinId = parseInt(file.replace('.svg', '')); // 1=bronze, 2=silver, etc.
+            const classPrefix = `special${skinId}`;
+            const skinData = processSvgFile(filePath, classPrefix);
+
+            const totalChunks = Math.ceil(skinData.length / chunkSize);
+            const pointers = [];
+
+            for (let j = 0; j < totalChunks; j++) {
+                const chunk = skinData.slice(j * chunkSize, (j + 1) * chunkSize);
+                const addr = await storeSvgData(svgPartWriter, chunk);
+                pointers.push(addr);
+            }
+
+            const skinName = skinNames[i] || `Skin ${skinId}`;
+            await (await bodyRenderer.setSkin(skinId, pointers, skinName)).wait();
+            console.log(`      Skin ${skinId} (${skinName}) deployed (${totalChunks} chunks)`);
+        }
+    }
+
     return address;
 }
 
@@ -266,36 +299,33 @@ async function deployArt() {
     console.log(`  SVGPartWriter: ${await svgPartWriter.getAddress()}`);
 
     const artAddresses = {};
+    const baseTraitCounts = {};
 
-    // Deploy body with BodyRenderer
+    // Deploy UnifiedBodyRenderer (handles both color body ID=0 and special skins ID=1+)
     artAddresses.body = await deployBody(svgPartWriter);
 
-    // Deploy other trait folders (skip background and body)
-    const traitFolders = ['belly', 'head', 'mouth'];
+    // Deploy background (if exists)
+    const backgroundPath = path.join(FROGZ_PATH, 'background');
+    if (fs.existsSync(backgroundPath)) {
+        const bgAddress = await deployTraitFolder('background', svgPartWriter, TRAIT_NAMES.background || []);
+        if (bgAddress) {
+            artAddresses.background = bgAddress;
+        }
+    }
+
+    // Deploy base trait folders
+    const traitFolders = ['head', 'mouth', 'belly'];
     for (const folder of traitFolders) {
         const names = TRAIT_NAMES[folder] || [];
         const address = await deployTraitFolder(folder, svgPartWriter, names);
         if (address) {
             artAddresses[folder] = address;
+            baseTraitCounts[folder] = names.length || fs.readdirSync(path.join(FROGZ_PATH, folder)).filter(f => f.endsWith('.svg')).length;
         }
     }
 
-    // Deploy special trait folders (body, mouth, background, belly, head)
-    const specialTraitFolders = [
-        { folder: 'special', key: 'specialBody' },           // renamed from 'special'
-        { folder: 'specialMouth', key: 'specialMouth' },
-        { folder: 'specialBackground', key: 'specialBackground' },
-        { folder: 'specialBelly', key: 'specialBelly' },
-        { folder: 'specialHead', key: 'specialHead' }
-    ];
-
-    for (const { folder, key } of specialTraitFolders) {
-        const names = TRAIT_NAMES[folder] || [];
-        const address = await deployTraitFolder(folder, svgPartWriter, names);
-        if (address) {
-            artAddresses[key] = address;
-        }
-    }
+    // Store base trait counts for renderer configuration
+    artAddresses.baseTraitCounts = baseTraitCounts;
 
     // Deploy item SVGs
     const itemsRouter = await deployItems(svgPartWriter);
@@ -493,21 +523,28 @@ async function main() {
         await svgRenderer.deploymentTransaction()?.wait(2);
     }
 
-    // Configure SVG Renderer with art contracts
+    // Configure SVG Renderer with art contracts (simplified: 5 contracts)
     console.log("\n--- Configuring FregsSVGRenderer ---");
     console.log("Setting art contracts on SVG Renderer...");
     await (await svgRenderer.setAllContracts(
-        artAddresses.body || ethers.ZeroAddress,
-        artAddresses.belly || ethers.ZeroAddress,
-        artAddresses.head || ethers.ZeroAddress,
-        artAddresses.mouth || ethers.ZeroAddress,
-        artAddresses.specialBody || ethers.ZeroAddress,
-        artAddresses.specialMouth || ethers.ZeroAddress,
-        artAddresses.specialBackground || ethers.ZeroAddress,
-        artAddresses.specialBelly || ethers.ZeroAddress,
-        artAddresses.specialHead || ethers.ZeroAddress
+        artAddresses.background || ethers.ZeroAddress,  // background (0=color rect, 1+=special)
+        artAddresses.body || ethers.ZeroAddress,        // body (0=color, 1+=special skins)
+        artAddresses.head || ethers.ZeroAddress,        // head (all heads in one router)
+        artAddresses.mouth || ethers.ZeroAddress,       // mouth (all mouths in one router)
+        artAddresses.belly || ethers.ZeroAddress        // belly (all bellies in one router)
     )).wait();
     console.log("Art contracts configured!");
+
+    // Set base trait counts for mint randomization
+    if (artAddresses.baseTraitCounts) {
+        console.log("Setting base trait counts...");
+        await (await svgRenderer.setAllBaseTraitCounts(
+            artAddresses.baseTraitCounts.head || 0,
+            artAddresses.baseTraitCounts.mouth || 0,
+            artAddresses.baseTraitCounts.belly || 0
+        )).wait();
+        console.log("Base trait counts configured!");
+    }
 
     // Set SVG Renderer on Fregs
     console.log("Setting SVG Renderer on Fregs...");
@@ -621,17 +658,19 @@ async function main() {
     if (beadPunksAddress) {
         console.log("  BeadPunks:       ", beadPunksAddress, isTestnet ? "(Mock)" : "(Mainnet)");
     }
-    console.log("\nArt Contracts:");
+    console.log("\nArt Contracts (Simplified - 5 unified routers):");
+    console.log("  Background:        ", artAddresses.background || "Not deployed (uses color rect)");
     console.log("  Body:              ", artAddresses.body || "Not deployed");
-    console.log("  Belly:             ", artAddresses.belly || "Not deployed");
     console.log("  Head:              ", artAddresses.head || "Not deployed");
     console.log("  Mouth:             ", artAddresses.mouth || "Not deployed");
-    console.log("  Special Body:      ", artAddresses.specialBody || "Not deployed");
-    console.log("  Special Mouth:     ", artAddresses.specialMouth || "Not deployed");
-    console.log("  Special Background:", artAddresses.specialBackground || "Not deployed");
-    console.log("  Special Belly:     ", artAddresses.specialBelly || "Not deployed");
-    console.log("  Special Head:      ", artAddresses.specialHead || "Not deployed");
+    console.log("  Belly:             ", artAddresses.belly || "Not deployed");
     console.log("  Items:             ", artAddresses.items || "Not deployed");
+    if (artAddresses.baseTraitCounts) {
+        console.log("\nBase Trait Counts (for mint randomization):");
+        console.log("  Head:  ", artAddresses.baseTraitCounts.head || 0);
+        console.log("  Mouth: ", artAddresses.baseTraitCounts.mouth || 0);
+        console.log("  Belly: ", artAddresses.baseTraitCounts.belly || 0);
+    }
     console.log("\nConfiguration:");
     console.log("  Royalty Receiver:", ROYALTY_RECEIVER);
     console.log("  Royalty Fee:", ROYALTY_FEE / 100, "%");

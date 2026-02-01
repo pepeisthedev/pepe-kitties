@@ -2,15 +2,18 @@ import React, { useState, useEffect } from "react"
 
 interface KittyRendererProps {
   bodyColor: string
+  background?: number  // 0 = use bodyColor, 1+ = special background
+  body?: number        // 0 = use bodyColor, 1+ = special skin
   head?: number
   mouth?: number
   belly?: number
-  specialBody?: number
-  specialHead?: number
   size?: "sm" | "md" | "lg"
   className?: string
-  hideTraits?: boolean // Hide head, mouth, belly - for mint preview
+  hideTraits?: boolean // Hide mouth, belly - for mint preview (head/eyes always show)
 }
+
+// Base trait counts - heads with IDs above this are item heads (stored in specialHead folder)
+const BASE_HEAD_COUNT = 3
 
 // Cache for original SVG content to avoid repeated fetches
 const svgCache: { body: string | null; background: string | null } = {
@@ -20,11 +23,11 @@ const svgCache: { body: string | null; background: string | null } = {
 
 export default function KittyRenderer({
   bodyColor,
+  background = 0,
+  body = 0,
   head = 1,
   mouth = 1,
   belly = 1,
-  specialBody = 0,
-  specialHead = 0,
   size = "md",
   className = "",
   hideTraits = false,
@@ -39,10 +42,10 @@ export default function KittyRenderer({
     lg: "w-64 h-64",
   }
 
-  // If special body is set, render: background + special-body + head + mouth (no body/belly)
-  // Otherwise render: background + body + belly + head + mouth
-  const hasSpecialBody = specialBody > 0
-  const hasSpecialHead = specialHead > 0
+  // Simplified trait system:
+  // body=0 means use color body, body>0 means special skin (bronze=1, silver=2, gold=3, diamond=4)
+  // Belly always renders now (removed special body hiding)
+  const hasSpecialBody = body > 0
 
   // Fetch body SVG and replace color
   useEffect(() => {
@@ -124,40 +127,38 @@ export default function KittyRenderer({
         />
       )}
 
+      {/* Body - special skin or color-based */}
       {hasSpecialBody ? (
-        // Special body renders (replaces body + belly)
         <img
-          src={`/frogz/special/${specialBody}.svg`}
-          alt={`Special Body ${specialBody}`}
+          src={`/frogz/special/${body}.svg`}
+          alt={`Special Body ${body}`}
           className="absolute inset-0 w-full h-full object-contain"
         />
       ) : (
-        // Normal body + belly renders
-        <>
-          {/* Body with dynamic color */}
-          {bodySvgUrl && (
-            <img
-              src={bodySvgUrl}
-              alt="Body"
-              className="absolute inset-0 w-full h-full object-contain"
-            />
-          )}
-          {/* Belly - hidden in preview mode */}
-          {!hideTraits && (
-            <img
-              src={`/frogz/belly/${belly}.svg`}
-              alt={`Belly ${belly}`}
-              className="absolute inset-0 w-full h-full object-contain"
-            />
-          )}
-        </>
+        bodySvgUrl && (
+          <img
+            src={bodySvgUrl}
+            alt="Body"
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        )
       )}
 
-      {/* Head - use special head if present, otherwise normal head */}
-      {hasSpecialHead ? (
+      {/* Belly - always renders now (removed special body hiding) */}
+      {!hideTraits && (
         <img
-          src={`/frogz/specialHead/${specialHead}.svg`}
-          alt={`Special Head ${specialHead}`}
+          src={`/frogz/belly/${belly}.svg`}
+          alt={`Belly ${belly}`}
+          className="absolute inset-0 w-full h-full object-contain"
+        />
+      )}
+
+      {/* Head - each head trait includes eyes in its SVG
+          Base heads (1-3) are in /head/, item heads (4+) are in /specialHead/ */}
+      {head > BASE_HEAD_COUNT ? (
+        <img
+          src={`/frogz/specialHead/${head - BASE_HEAD_COUNT}.svg`}
+          alt={`Head ${head}`}
           className="absolute inset-0 w-full h-full object-contain"
         />
       ) : (

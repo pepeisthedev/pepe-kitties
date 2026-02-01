@@ -22,13 +22,13 @@ export const ITEM_TYPES = {
   SPECIAL_DICE: 100,
 } as const
 
-// Trait type constants (must match FregsItems.sol)
+// Trait type constants (must match Fregs.sol - simplified system)
 export const TRAIT_TYPES = {
-  SPECIAL_BODY: 4,
-  SPECIAL_MOUTH: 5,
-  SPECIAL_BACKGROUND: 6,
-  SPECIAL_BELLY: 7,
-  SPECIAL_HEAD: 8,
+  BACKGROUND: 0,
+  BODY: 1,
+  HEAD: 2,
+  MOUTH: 3,
+  BELLY: 4,
 } as const
 
 // Item type names for display

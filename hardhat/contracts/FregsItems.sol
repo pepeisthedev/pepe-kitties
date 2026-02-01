@@ -11,8 +11,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 interface IFregs {
     function ownerOf(uint256 tokenId) external view returns (address);
     function rerollHead(uint256 tokenId, address sender) external;
-    function setSpecialBody(uint256 tokenId, uint256 _specialBody, address sender) external;
-    function setSpecialTrait(uint256 tokenId, uint256 traitType, uint256 traitValue, address sender) external;
+    function setTrait(uint256 tokenId, uint256 traitType, uint256 traitValue, address sender) external;
     function setBodyColor(uint256 tokenId, string memory _color, address sender) external;
     function totalMinted() external view returns (uint256);
 }
@@ -42,12 +41,12 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     // Special dice item (reserved ID)
     uint256 public constant SPECIAL_DICE = 100;
 
-    // Trait type constants (must match Fregs.sol)
-    uint256 public constant TRAIT_SPECIAL_BODY = 4;
-    uint256 public constant TRAIT_SPECIAL_MOUTH = 5;
-    uint256 public constant TRAIT_SPECIAL_BACKGROUND = 6;
-    uint256 public constant TRAIT_SPECIAL_BELLY = 7;
-    uint256 public constant TRAIT_SPECIAL_HEAD = 8;
+    // Trait type constants (must match Fregs.sol) - simplified
+    uint256 public constant TRAIT_BACKGROUND = 0;
+    uint256 public constant TRAIT_BODY = 1;
+    uint256 public constant TRAIT_HEAD = 2;
+    uint256 public constant TRAIT_MOUTH = 3;
+    uint256 public constant TRAIT_BELLY = 4;
 
     // Dynamic item type configuration
     struct ItemTypeConfig {
@@ -394,16 +393,16 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             "Not a special skin item"
         );
 
-        // Determine special body type (1=bronze, 2=silver, 3=gold)
-        uint256 specialBodyValue;
-        if (iType == BRONZE_SKIN) specialBodyValue = 1;
-        else if (iType == SILVER_SKIN) specialBodyValue = 2;
-        else specialBodyValue = 3; // GOLD_SKIN
+        // Determine body type (1=bronze, 2=silver, 3=gold)
+        uint256 bodyValue;
+        if (iType == BRONZE_SKIN) bodyValue = 1;
+        else if (iType == SILVER_SKIN) bodyValue = 2;
+        else bodyValue = 3; // GOLD_SKIN
 
         _burn(itemTokenId);
-        fregs.setSpecialBody(fregId, specialBodyValue, msg.sender);
+        fregs.setTrait(fregId, TRAIT_BODY, bodyValue, msg.sender);
 
-        emit SpecialTraitItemUsed(itemTokenId, fregId, msg.sender, TRAIT_SPECIAL_BODY, specialBodyValue);
+        emit SpecialTraitItemUsed(itemTokenId, fregId, msg.sender, TRAIT_BODY, bodyValue);
     }
 
     // Use a dynamic trait item
@@ -415,15 +414,15 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         ItemTypeConfig storage config = itemTypeConfigs[iType];
 
         require(bytes(config.name).length > 0, "Unknown item type");
-        require(config.targetTraitType >= TRAIT_SPECIAL_BODY && config.targetTraitType <= TRAIT_SPECIAL_HEAD, "Not a trait item");
+        require(config.targetTraitType <= TRAIT_BELLY, "Not a trait item");
 
         _burn(itemTokenId);
-        fregs.setSpecialTrait(fregId, config.targetTraitType, config.traitValue, msg.sender);
+        fregs.setTrait(fregId, config.targetTraitType, config.traitValue, msg.sender);
 
         emit SpecialTraitItemUsed(itemTokenId, fregId, msg.sender, config.targetTraitType, config.traitValue);
     }
 
-    // Use special dice for random special trait
+    // Use special dice for random trait
     function useSpecialDice(uint256 itemTokenId, uint256 fregId) external nonReentrant {
         require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
         require(itemType[itemTokenId] == SPECIAL_DICE, "Not a special dice");
@@ -433,7 +432,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         uint256[] memory availableTraits = new uint256[](5);
         uint256 availableCount = 0;
 
-        for (uint256 t = TRAIT_SPECIAL_BODY; t <= TRAIT_SPECIAL_HEAD; t++) {
+        for (uint256 t = TRAIT_BACKGROUND; t <= TRAIT_BELLY; t++) {
             if (specialTraitMaxVariants[t] > 0) {
                 availableTraits[availableCount] = t;
                 availableCount++;
@@ -452,7 +451,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         uint256 variant = _getRandom(maxVariant) + 1;
 
         // Apply the trait
-        fregs.setSpecialTrait(fregId, traitType, variant, msg.sender);
+        fregs.setTrait(fregId, traitType, variant, msg.sender);
 
         emit SpecialDiceUsed(itemTokenId, fregId, traitType, variant);
     }
@@ -552,25 +551,25 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         });
     }
 
-    // Set max variants for a trait type (for special dice rolls)
-    function setSpecialTraitMaxVariants(uint256 traitType, uint256 maxVariant) external onlyOwner {
-        require(traitType >= TRAIT_SPECIAL_BODY && traitType <= TRAIT_SPECIAL_HEAD, "Invalid trait type");
+    // Set max variants for a trait type (for dice rolls)
+    function setTraitMaxVariants(uint256 traitType, uint256 maxVariant) external onlyOwner {
+        require(traitType <= TRAIT_BELLY, "Invalid trait type");
         specialTraitMaxVariants[traitType] = maxVariant;
     }
 
-    // Batch set max variants for all special trait types
-    function setAllSpecialTraitMaxVariants(
-        uint256 maxBody,
-        uint256 maxMouth,
+    // Batch set max variants for all trait types
+    function setAllTraitMaxVariants(
         uint256 maxBackground,
-        uint256 maxBelly,
-        uint256 maxHead
+        uint256 maxBody,
+        uint256 maxHead,
+        uint256 maxMouth,
+        uint256 maxBelly
     ) external onlyOwner {
-        specialTraitMaxVariants[TRAIT_SPECIAL_BODY] = maxBody;
-        specialTraitMaxVariants[TRAIT_SPECIAL_MOUTH] = maxMouth;
-        specialTraitMaxVariants[TRAIT_SPECIAL_BACKGROUND] = maxBackground;
-        specialTraitMaxVariants[TRAIT_SPECIAL_BELLY] = maxBelly;
-        specialTraitMaxVariants[TRAIT_SPECIAL_HEAD] = maxHead;
+        specialTraitMaxVariants[TRAIT_BACKGROUND] = maxBackground;
+        specialTraitMaxVariants[TRAIT_BODY] = maxBody;
+        specialTraitMaxVariants[TRAIT_HEAD] = maxHead;
+        specialTraitMaxVariants[TRAIT_MOUTH] = maxMouth;
+        specialTraitMaxVariants[TRAIT_BELLY] = maxBelly;
     }
 
     function setFregs(address _fregs) external onlyOwner {

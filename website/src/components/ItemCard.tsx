@@ -62,16 +62,21 @@ export default function ItemCard({
   size = "md",
 }: ItemCardProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
-  const [imgSrc, setImgSrc] = useState(ITEM_IMAGES[itemType] || `/items/${itemType}.svg`)
+  const [hasError, setHasError] = useState(false)
+  const imgSrc = ITEM_IMAGES[itemType] || `/items/${itemType}.svg`
   const colorClass = ITEM_COLORS[itemType] || "border-yellow-400/50 bg-black/30"
   const selectedRingClass = ITEM_SELECTED_COLORS[itemType] || "ring-yellow-400"
   const name = itemName || ITEM_TYPE_NAMES[itemType] || "Unknown Item"
   const description = ITEM_TYPE_DESCRIPTIONS[itemType] || ""
 
-  // Update imgSrc when itemType changes
+  // Reset loading state when itemType changes
   useEffect(() => {
-    setImgSrc(ITEM_IMAGES[itemType] || `/items/${itemType}.svg`)
     setIsLoading(true)
+    setHasError(false)
+
+    // Fallback timeout to hide spinner after 2 seconds
+    const timeout = setTimeout(() => setIsLoading(false), 2000)
+    return () => clearTimeout(timeout)
   }, [itemType])
 
   const sizeClasses = {
@@ -93,19 +98,20 @@ export default function ItemCard({
     >
       {/* Item icon */}
       <div className={`${sizeClass.icon} mx-auto mb-2 relative`}>
-        {isLoading && (
+        {isLoading && !hasError && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-700/50 rounded animate-pulse">
             <div className="w-4 h-4 border-2 border-lime-400 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
         <img
-          src={imgSrc}
+          key={`${itemType}-${tokenId}`}
+          src={hasError ? "/items/placeholder.svg" : imgSrc}
           alt={name}
-          className={`w-full h-full object-contain transition-opacity ${isLoading ? "opacity-0" : "opacity-100"}`}
+          className={`w-full h-full object-contain transition-opacity ${isLoading && !hasError ? "opacity-0" : "opacity-100"}`}
           onLoad={() => setIsLoading(false)}
           onError={() => {
             setIsLoading(false)
-            setImgSrc("/items/placeholder.svg")
+            setHasError(true)
           }}
         />
       </div>

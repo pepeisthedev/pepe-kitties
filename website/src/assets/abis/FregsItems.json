@@ -858,7 +858,7 @@
   },
   {
     "inputs": [],
-    "name": "TRAIT_SPECIAL_BACKGROUND",
+    "name": "TRAIT_BACKGROUND",
     "outputs": [
       {
         "internalType": "uint256",
@@ -871,7 +871,7 @@
   },
   {
     "inputs": [],
-    "name": "TRAIT_SPECIAL_BELLY",
+    "name": "TRAIT_BELLY",
     "outputs": [
       {
         "internalType": "uint256",
@@ -884,7 +884,7 @@
   },
   {
     "inputs": [],
-    "name": "TRAIT_SPECIAL_BODY",
+    "name": "TRAIT_BODY",
     "outputs": [
       {
         "internalType": "uint256",
@@ -897,7 +897,7 @@
   },
   {
     "inputs": [],
-    "name": "TRAIT_SPECIAL_HEAD",
+    "name": "TRAIT_HEAD",
     "outputs": [
       {
         "internalType": "uint256",
@@ -910,7 +910,7 @@
   },
   {
     "inputs": [],
-    "name": "TRAIT_SPECIAL_MOUTH",
+    "name": "TRAIT_MOUTH",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1656,7 +1656,17 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "maxBackground",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
         "name": "maxBody",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxHead",
         "type": "uint256"
       },
       {
@@ -1666,21 +1676,11 @@
       },
       {
         "internalType": "uint256",
-        "name": "maxBackground",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
         "name": "maxBelly",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxHead",
         "type": "uint256"
       }
     ],
-    "name": "setAllSpecialTraitMaxVariants",
+    "name": "setAllTraitMaxVariants",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1827,7 +1827,7 @@
         "type": "uint256"
       }
     ],
-    "name": "setSpecialTraitMaxVariants",
+    "name": "setTraitMaxVariants",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
