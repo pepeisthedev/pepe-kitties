@@ -10,7 +10,7 @@ export interface Kitty {
   body: number        // 0 = use bodyColor, 1+ = special skin
   head: number
   mouth: number
-  belly: number
+  stomach: number
 }
 
 export function useOwnedKitties() {
@@ -42,7 +42,7 @@ export function useOwnedKitties() {
         bodies,
         heads,
         mouths,
-        bellies,
+        stomachs,
       ] = result
 
       const kittyList: Kitty[] = tokenIds.map((id: bigint, i: number) => ({
@@ -52,7 +52,7 @@ export function useOwnedKitties() {
         body: Number(bodies[i]),
         head: Number(heads[i]),
         mouth: Number(mouths[i]),
-        belly: Number(bellies[i]),
+        stomach: Number(stomachs[i]),
       }))
 
       setKitties(kittyList)

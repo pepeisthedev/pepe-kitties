@@ -49,9 +49,6 @@ const isDynamicTraitItem = (item: Item): boolean => {
     const builtInTypes = [
         ITEM_TYPES.COLOR_CHANGE,
         ITEM_TYPES.HEAD_REROLL,
-        ITEM_TYPES.BRONZE_SKIN,
-        ITEM_TYPES.SILVER_SKIN,
-        ITEM_TYPES.GOLD_SKIN,
         ITEM_TYPES.TREASURE_CHEST,
         ITEM_TYPES.BEAD_PUNK,
         ITEM_TYPES.SPECIAL_DICE,
@@ -105,16 +102,10 @@ export default function UseItemsSection(): React.JSX.Element {
                 return "Are you sure you want to change the color of this Pepe?"
             case ITEM_TYPES.HEAD_REROLL:
                 return "Are you sure you want to re-roll the head trait? This will randomly change the head."
-            case ITEM_TYPES.BRONZE_SKIN:
-                return "Are you sure you want to apply the Bronze Skin? This will replace the body and belly."
-            case ITEM_TYPES.SILVER_SKIN:
-                return "Are you sure you want to apply the Silver Skin? This will replace the body and belly."
-            case ITEM_TYPES.GOLD_SKIN:
-                return "Are you sure you want to apply the Gold Skin? This will replace the body and belly. You will also receive a Treasure Chest!"
             case ITEM_TYPES.SPECIAL_DICE:
                 return "Are you sure you want to roll the Special Dice? This will randomly apply a special trait!"
             default:
-                // Dynamic trait items
+                // Dynamic trait items (skins, heads, etc.)
                 if (isDynamicTraitItem(selectedItem)) {
                     if (selectedItem.targetTraitType === TRAIT_TYPES.HEAD) {
                         return `Are you sure you want to apply ${selectedItem.name}? This will change the head.`
@@ -134,18 +125,19 @@ export default function UseItemsSection(): React.JSX.Element {
     }
 
     const parseHeadRerolledEvent = (receipt: any): number | null => {
-        const contract = contracts!.fregs.read
+        const fregsContract = contracts!.fregs.read
         for (const log of receipt.logs) {
             try {
-                const parsed = contract.interface.parseLog({
+                const parsed = fregsContract.interface.parseLog({
                     topics: log.topics as string[],
                     data: log.data
                 })
-                if (parsed?.name === "HeadRerolled") {
-                    return Number(parsed.args.newHead)
+                // Check for TraitSet event with HEAD type
+                if (parsed?.name === "TraitSet" && Number(parsed.args.traitType) === TRAIT_TYPES.HEAD) {
+                    return Number(parsed.args.traitValue)
                 }
             } catch {
-                // Not a HeadRerolled event, continue
+                // Not a Fregs event, continue
             }
         }
         return null
@@ -157,7 +149,7 @@ export default function UseItemsSection(): React.JSX.Element {
         const itemsContract = contracts!.items.read
 
         for (const log of receipt.logs) {
-            // Try parsing as TraitSet from Fregs contract (new simplified event)
+            // Try parsing as TraitSet from Fregs contract
             try {
                 const parsed = fregsContract.interface.parseLog({
                     topics: log.topics as string[],
@@ -210,12 +202,19 @@ export default function UseItemsSection(): React.JSX.Element {
                 tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId)
             } else if (selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE) {
                 tx = await contract.useSpecialDice(selectedItem.tokenId, selectedKitty.tokenId)
+            } else if (
+                selectedItem.itemType === ITEM_TYPES.BRONZE_SKIN ||
+                selectedItem.itemType === ITEM_TYPES.METAL_SKIN ||
+                selectedItem.itemType === ITEM_TYPES.GOLD_SKIN ||
+                selectedItem.itemType === ITEM_TYPES.DIAMOND_SKIN
+            ) {
+                // Skin items
+                tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId)
             } else if (isDynamicTraitItem(selectedItem)) {
-                // Dynamic trait items (Crown, Diamond Skin, etc.)
+                // Dynamic trait items (skins, heads, etc.)
                 tx = await contract.useDynamicTraitItem(selectedItem.tokenId, selectedKitty.tokenId)
             } else {
-                // Bronze, Silver, Gold skins
-                tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId)
+                throw new Error(`Unknown item type: ${selectedItem.itemType}`)
             }
 
             const receipt = await tx.wait()
@@ -230,13 +229,14 @@ export default function UseItemsSection(): React.JSX.Element {
                 if (newHead !== null) {
                     updatedKitty.head = newHead
                 }
-            } else if (selectedItem.itemType === ITEM_TYPES.BRONZE_SKIN) {
-                updatedKitty.body = 1
-            } else if (selectedItem.itemType === ITEM_TYPES.SILVER_SKIN) {
-                updatedKitty.body = 2
-            } else if (selectedItem.itemType === ITEM_TYPES.GOLD_SKIN) {
-                updatedKitty.body = 3
-            } else if (selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE || isDynamicTraitItem(selectedItem)) {
+            } else if (
+                selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE ||
+                selectedItem.itemType === ITEM_TYPES.BRONZE_SKIN ||
+                selectedItem.itemType === ITEM_TYPES.METAL_SKIN ||
+                selectedItem.itemType === ITEM_TYPES.GOLD_SKIN ||
+                selectedItem.itemType === ITEM_TYPES.DIAMOND_SKIN ||
+                isDynamicTraitItem(selectedItem)
+            ) {
                 // Parse the trait event to update the correct trait
                 const traitResult = parseTraitEvent(receipt)
                 if (traitResult) {
@@ -248,20 +248,14 @@ export default function UseItemsSection(): React.JSX.Element {
                         updatedKitty.head = traitResult.traitValue
                     } else if (traitResult.traitType === TRAIT_TYPES.MOUTH) {
                         updatedKitty.mouth = traitResult.traitValue
-                    } else if (traitResult.traitType === TRAIT_TYPES.BELLY) {
-                        updatedKitty.belly = traitResult.traitValue
+                    } else if (traitResult.traitType === TRAIT_TYPES.STOMACH) {
+                        updatedKitty.stomach = traitResult.traitValue
                     }
                 }
             }
 
             setResultKitty(updatedKitty)
-
-            let message = `${selectedItem.name} applied to Freg #${selectedKitty.tokenId}!`
-            if (selectedItem.itemType === ITEM_TYPES.GOLD_SKIN) {
-                message += " You also received a Treasure Chest!"
-            }
-
-            setModalData({ success: true, message })
+            setModalData({ success: true, message: `${selectedItem.name} applied to Freg #${selectedKitty.tokenId}!` })
             setSelectedKitty(null)
             setSelectedItem(null)
             refetchKitties()
@@ -617,7 +611,7 @@ export default function UseItemsSection(): React.JSX.Element {
                                 body={resultKitty.body}
                                 head={resultKitty.head}
                                 mouth={resultKitty.mouth}
-                                belly={resultKitty.belly}
+                                stomach={resultKitty.stomach}
                                 size="sm"
                                 className="w-full h-full"
                             />

@@ -19,37 +19,51 @@ const WEBSITE_ABI_PATH = path.join(__dirname, "../../website/src/assets/abis");
 
 // Path to the frogz SVG folder
 const FROGZ_PATH = path.join(__dirname, "../../website/public/frogz");
+const DEFAULT_TRAITS_PATH = path.join(FROGZ_PATH, "default");
+const TRAITS_JSON_PATH = path.join(DEFAULT_TRAITS_PATH, "traits.json");
 
 // Path to the items SVG folder
 const ITEMS_PATH = path.join(__dirname, "../../website/public/items");
 
-// ============ TRAIT NAMES ============
-// Names for each trait variant (index matches SVG file number)
-// In simplified system: base traits are assigned at mint, item traits are added above baseTraitCount
-const TRAIT_NAMES = {
-    // Base traits (1-indexed, randomly assigned at mint)
-    head: [
-        "None",           // 1.svg - base head with eyes
-        "3D Glasses",     // 2.svg
-        "Helmet",         // 3.svg
-    ],
-    mouth: [
-        "Cigarette",         // 1.svg
-    ],
-    belly: [
-        "ETH",          // 1.svg
-        "Thug life",        // 2.svg
-    ],
-    // Body skins (1-indexed, 0 means use bodyColor)
-    body: [
-        "Bronze",         // 1.svg - bronze body skin
-        "Silver",         // 2.svg - silver body skin
-        "Gold",           // 3.svg - gold body skin
-        "Diamond",        // 4.svg - diamond body skin
-    ],
-    // Background (1-indexed, 0 means use bodyColor rect)
-    background: [],
-};
+// Path to deployment status file
+const DEPLOYMENT_STATUS_PATH = path.join(__dirname, "../deployment-status.json");
+
+// ============ LOAD TRAITS FROM JSON ============
+function loadTraitsConfig() {
+    if (!fs.existsSync(TRAITS_JSON_PATH)) {
+        throw new Error(`Traits config not found at: ${TRAITS_JSON_PATH}`);
+    }
+    const traitsConfig = JSON.parse(fs.readFileSync(TRAITS_JSON_PATH, "utf8"));
+
+    // Convert to trait names format (array of names for each trait type)
+    const traitNames = {};
+    for (const [traitType, traits] of Object.entries(traitsConfig)) {
+        traitNames[traitType] = traits.map(t => t.name);
+    }
+    return { traitsConfig, traitNames };
+}
+
+// ============ DEPLOYMENT STATUS ============
+function loadDeploymentStatus() {
+    if (fs.existsSync(DEPLOYMENT_STATUS_PATH)) {
+        return JSON.parse(fs.readFileSync(DEPLOYMENT_STATUS_PATH, "utf8"));
+    }
+    return {
+        network: null,
+        lastUpdated: null,
+        contracts: {},
+        routers: {},
+        defaultTraits: {},
+        addedTraits: {},
+        itemTypes: {}
+    };
+}
+
+function saveDeploymentStatus(status) {
+    status.lastUpdated = new Date().toISOString();
+    fs.writeFileSync(DEPLOYMENT_STATUS_PATH, JSON.stringify(status, null, 2));
+    console.log(`  Deployment status saved to: ${DEPLOYMENT_STATUS_PATH}`);
+}
 
 // Copy ABI from artifacts to website
 function copyABI(contractName, targetFileName, subPath = "") {
@@ -70,27 +84,61 @@ function copyABI(contractName, targetFileName, subPath = "") {
 
 // ============ ART DEPLOYMENT HELPERS ============
 
-async function deployBody(svgPartWriter) {
-    const bodyPath = path.join(FROGZ_PATH, "body", "1.svg");
+async function deployBody(svgPartWriter, traitsConfig) {
+    // Base body/skin is now at default/skin/1.svg
+    const skinPath = path.join(DEFAULT_TRAITS_PATH, "skin");
+    const bodyPath = path.join(skinPath, "1.svg");
+
     if (!fs.existsSync(bodyPath)) {
-        console.log("  ⚠️  Body SVG not found, skipping...");
+        console.log("  ⚠️  Base skin SVG not found at:", bodyPath);
         return null;
     }
 
     console.log("  Deploying UnifiedBodyRenderer (color + special skins)...");
     const svgData = processSvgFile(bodyPath, 'body');
 
-    // Split at the color value in .body-cls-6{fill:COLOR;} (prefixed)
-    const colorPattern = /\.body-cls-6\{fill:/;
+    // Find the main body color (typically #65b449 green, used in .body-cls-6{fill:#65b449;})
+    // After prefixing, we look for .body-cls-X{fill:#XXXXXX pattern
+    const colorPattern = /\.body-cls-\d+\{fill:(#[0-9a-fA-F]{6});/;
     const match = svgData.match(colorPattern);
-    if (!match) throw new Error("Could not find .cls-6{fill: pattern in body SVG");
 
-    const splitIndex = svgData.indexOf(match[0]) + match[0].length;
+    if (!match) {
+        console.log("  ⚠️  Could not find color pattern in body SVG");
+        console.log("     Expected pattern like: .body-cls-X{fill:#XXXXXX;}");
+        console.log("     Deploying as static SVG...");
+
+        // Deploy as a simple SVG renderer without color support
+        const chunkSize = 16 * 1024;
+        const totalChunks = Math.ceil(svgData.length / chunkSize);
+        const addresses = [];
+
+        for (let j = 0; j < totalChunks; j++) {
+            const chunk = svgData.slice(j * chunkSize, (j + 1) * chunkSize);
+            const addr = await storeSvgData(svgPartWriter, chunk);
+            addresses.push(addr);
+        }
+
+        const SVGRenderer = await ethers.getContractFactory("SVGRenderer");
+        const renderer = await SVGRenderer.deploy(addresses);
+        await renderer.waitForDeployment();
+        const address = await renderer.getAddress();
+        console.log(`    Static body renderer deployed at: ${address}`);
+        return address;
+    }
+
+    // Find where to split for color injection
+    // We split right before the # of the color value
+    const fullMatch = match[0];
+    const matchIndex = svgData.indexOf(fullMatch);
+    const colorStartInMatch = fullMatch.indexOf('#');
+    const splitIndex = matchIndex + colorStartInMatch;
     const afterColor = svgData.indexOf(';', splitIndex);
     if (afterColor === -1) throw new Error("Could not find semicolon after color value");
 
     const part1 = svgData.substring(0, splitIndex);
     const part2 = svgData.substring(afterColor);
+
+    console.log(`    Found body color: ${match[1]}`);
 
     console.log(`    Color body Part 1: ${part1.length} chars, Part 2: ${part2.length} chars`);
 
@@ -112,22 +160,21 @@ async function deployBody(svgPartWriter) {
     const address = await bodyRenderer.getAddress();
     console.log(`    UnifiedBodyRenderer deployed at: ${address}`);
 
-    // Deploy special skins (bronze, silver, gold, diamond) from special/ folder
-    const skinsPath = path.join(FROGZ_PATH, "special");
-    if (fs.existsSync(skinsPath)) {
-        const skinFiles = fs.readdirSync(skinsPath)
-            .filter(f => f.endsWith('.svg'))
-            .sort((a, b) => parseInt(a.replace('.svg', '')) - parseInt(b.replace('.svg', '')));
+    // Deploy special skins (2.svg, 3.svg, etc.) from same skin folder
+    const skinFiles = fs.readdirSync(skinPath)
+        .filter(f => f.endsWith('.svg') && f !== '1.svg') // Skip base skin
+        .sort((a, b) => parseInt(a.replace('.svg', '')) - parseInt(b.replace('.svg', '')));
 
+    if (skinFiles.length > 0) {
         console.log(`    Deploying ${skinFiles.length} special skins...`);
         const chunkSize = 16 * 1024;
-        const skinNames = TRAIT_NAMES.body || [];
+        const skinNames = traitsConfig?.skin?.slice(1) || []; // Skip first (base) skin name
 
         for (let i = 0; i < skinFiles.length; i++) {
             const file = skinFiles[i];
-            const filePath = path.join(skinsPath, file);
-            const skinId = parseInt(file.replace('.svg', '')); // 1=bronze, 2=silver, etc.
-            const classPrefix = `special${skinId}`;
+            const filePath = path.join(skinPath, file);
+            const skinId = parseInt(file.replace('.svg', '')); // 2=Diamond, 3=Metal, etc.
+            const classPrefix = `skin${skinId}`;
             const skinData = processSvgFile(filePath, classPrefix);
 
             const totalChunks = Math.ceil(skinData.length / chunkSize);
@@ -139,7 +186,7 @@ async function deployBody(svgPartWriter) {
                 pointers.push(addr);
             }
 
-            const skinName = skinNames[i] || `Skin ${skinId}`;
+            const skinName = skinNames[i]?.name || `Skin ${skinId}`;
             await (await bodyRenderer.setSkin(skinId, pointers, skinName)).wait();
             console.log(`      Skin ${skinId} (${skinName}) deployed (${totalChunks} chunks)`);
         }
@@ -148,8 +195,8 @@ async function deployBody(svgPartWriter) {
     return address;
 }
 
-async function deployTraitFolder(folderName, svgPartWriter, traitNames = []) {
-    const folderPath = path.join(FROGZ_PATH, folderName);
+async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], deploymentStatus = null) {
+    const folderPath = path.join(DEFAULT_TRAITS_PATH, folderName);
     if (!fs.existsSync(folderPath)) return null;
 
     const files = fs.readdirSync(folderPath)
@@ -162,11 +209,12 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = []) {
 
     const svgRendererAddresses = [];
     const chunkSize = 16 * 1024;
+    const deployedTraits = {};
 
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const filePath = path.join(folderPath, file);
-        // Create unique prefix: folder + file number (e.g., 'head1', 'belly2', 'mouth1')
+        // Create unique prefix: folder + file number (e.g., 'head1', 'stomach2', 'mouth1')
         const fileNum = file.replace('.svg', '');
         const classPrefix = `${folderName}${fileNum}`;
         const svgData = processSvgFile(filePath, classPrefix);
@@ -188,9 +236,17 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = []) {
             await renderer.deploymentTransaction()?.wait(2);
         }
 
-        svgRendererAddresses.push(await renderer.getAddress());
+        const rendererAddress = await renderer.getAddress();
+        svgRendererAddresses.push(rendererAddress);
         const traitName = traitNames[i] || `Type ${i + 1}`;
         console.log(`    ${file} deployed (${totalChunks} chunks) - "${traitName}"`);
+
+        // Track deployed trait
+        deployedTraits[file] = {
+            routerId: i + 1, // 1-indexed in router
+            name: traitName,
+            rendererAddress: rendererAddress
+        };
     }
 
     // Deploy router
@@ -214,6 +270,13 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = []) {
 
     const routerAddress = await router.getAddress();
     console.log(`    ${folderName} router: ${routerAddress}`);
+
+    // Save to deployment status
+    if (deploymentStatus) {
+        deploymentStatus.routers[folderName] = routerAddress;
+        deploymentStatus.defaultTraits[folderName] = deployedTraits;
+    }
+
     return routerAddress;
 }
 
@@ -280,12 +343,16 @@ async function deployItems(svgPartWriter) {
     return routerAddress;
 }
 
-async function deployArt() {
+async function deployArt(deploymentStatus) {
     console.log("\n--- Deploying SVG Art Contracts ---");
 
-    if (!fs.existsSync(FROGZ_PATH)) {
-        throw new Error(`Frogz folder not found at: ${FROGZ_PATH}`);
+    if (!fs.existsSync(DEFAULT_TRAITS_PATH)) {
+        throw new Error(`Default traits folder not found at: ${DEFAULT_TRAITS_PATH}`);
     }
+
+    // Load traits from JSON
+    const { traitsConfig, traitNames } = loadTraitsConfig();
+    console.log("  Loaded traits config from:", TRAITS_JSON_PATH);
 
     // Deploy SVGPartWriter
     console.log("  Deploying SVGPartWriter...");
@@ -296,31 +363,36 @@ async function deployArt() {
     if (network.name !== "localhost" && network.name !== "hardhat") {
         await svgPartWriter.deploymentTransaction()?.wait(2);
     }
-    console.log(`  SVGPartWriter: ${await svgPartWriter.getAddress()}`);
+    const svgPartWriterAddress = await svgPartWriter.getAddress();
+    console.log(`  SVGPartWriter: ${svgPartWriterAddress}`);
+    deploymentStatus.contracts.svgPartWriter = svgPartWriterAddress;
 
     const artAddresses = {};
     const baseTraitCounts = {};
 
     // Deploy UnifiedBodyRenderer (handles both color body ID=0 and special skins ID=1+)
-    artAddresses.body = await deployBody(svgPartWriter);
+    artAddresses.body = await deployBody(svgPartWriter, traitsConfig);
+    if (artAddresses.body) {
+        deploymentStatus.routers.body = artAddresses.body;
+    }
 
-    // Deploy background (if exists)
-    const backgroundPath = path.join(FROGZ_PATH, 'background');
-    if (fs.existsSync(backgroundPath)) {
-        const bgAddress = await deployTraitFolder('background', svgPartWriter, TRAIT_NAMES.background || []);
+    // Deploy background (if exists in traits.json)
+    if (traitsConfig.background && traitsConfig.background.length > 0) {
+        const bgAddress = await deployTraitFolder('background', svgPartWriter, traitNames.background || [], deploymentStatus);
         if (bgAddress) {
             artAddresses.background = bgAddress;
         }
     }
 
-    // Deploy base trait folders
-    const traitFolders = ['head', 'mouth', 'belly'];
+    // Deploy base trait folders (changed 'belly' to 'stomach')
+    const traitFolders = ['head', 'mouth', 'stomach'];
     for (const folder of traitFolders) {
-        const names = TRAIT_NAMES[folder] || [];
-        const address = await deployTraitFolder(folder, svgPartWriter, names);
+        const names = traitNames[folder] || [];
+        const address = await deployTraitFolder(folder, svgPartWriter, names, deploymentStatus);
         if (address) {
             artAddresses[folder] = address;
-            baseTraitCounts[folder] = names.length || fs.readdirSync(path.join(FROGZ_PATH, folder)).filter(f => f.endsWith('.svg')).length;
+            const folderPath = path.join(DEFAULT_TRAITS_PATH, folder);
+            baseTraitCounts[folder] = names.length || fs.readdirSync(folderPath).filter(f => f.endsWith('.svg')).length;
         }
     }
 
@@ -331,6 +403,7 @@ async function deployArt() {
     const itemsRouter = await deployItems(svgPartWriter);
     if (itemsRouter) {
         artAddresses.items = itemsRouter;
+        deploymentStatus.routers.items = itemsRouter;
     }
 
     return artAddresses;
@@ -360,6 +433,10 @@ async function main() {
     console.log("Deployer:", deployerAddress);
     console.log("Balance:", ethers.formatEther(await ethers.provider.getBalance(deployerAddress)), "ETH");
     console.log("Verify Contracts:", VERIFY_CONTRACTS);
+
+    // Load or initialize deployment status
+    const deploymentStatus = loadDeploymentStatus();
+    deploymentStatus.network = network.name;
 
     const isTestnet = network.name === "localhost" || network.name === "hardhat" || network.name === "baseSepolia";
     const isMainnet = network.name === "base";
@@ -508,8 +585,16 @@ async function main() {
 
     console.log("\nCross-contract references configured!");
 
+    // Save contract addresses to deployment status
+    deploymentStatus.contracts.fregs = fregsAddress;
+    deploymentStatus.contracts.fregsItems = fregsItemsAddress;
+    deploymentStatus.contracts.fregsMintPass = fregsMintPassAddress;
+    if (beadPunksAddress) {
+        deploymentStatus.contracts.beadPunks = beadPunksAddress;
+    }
+
     // ============ Deploy Art and SVG Renderer ============
-    const artAddresses = await deployArt();
+    const artAddresses = await deployArt(deploymentStatus);
 
     console.log("\n--- Deploying FregsSVGRenderer ---");
     const FregsSVGRenderer = await ethers.getContractFactory("FregsSVGRenderer");
@@ -523,6 +608,9 @@ async function main() {
         await svgRenderer.deploymentTransaction()?.wait(2);
     }
 
+    // Save SVG Renderer address to deployment status
+    deploymentStatus.contracts.svgRenderer = svgRendererAddress;
+
     // Configure SVG Renderer with art contracts (simplified: 5 contracts)
     console.log("\n--- Configuring FregsSVGRenderer ---");
     console.log("Setting art contracts on SVG Renderer...");
@@ -531,7 +619,7 @@ async function main() {
         artAddresses.body || ethers.ZeroAddress,        // body (0=color, 1+=special skins)
         artAddresses.head || ethers.ZeroAddress,        // head (all heads in one router)
         artAddresses.mouth || ethers.ZeroAddress,       // mouth (all mouths in one router)
-        artAddresses.belly || ethers.ZeroAddress        // belly (all bellies in one router)
+        artAddresses.stomach || ethers.ZeroAddress      // stomach (all stomachs in one router)
     )).wait();
     console.log("Art contracts configured!");
 
@@ -541,7 +629,7 @@ async function main() {
         await (await svgRenderer.setAllBaseTraitCounts(
             artAddresses.baseTraitCounts.head || 0,
             artAddresses.baseTraitCounts.mouth || 0,
-            artAddresses.baseTraitCounts.belly || 0
+            artAddresses.baseTraitCounts.stomach || 0
         )).wait();
         console.log("Base trait counts configured!");
     }
@@ -663,13 +751,13 @@ async function main() {
     console.log("  Body:              ", artAddresses.body || "Not deployed");
     console.log("  Head:              ", artAddresses.head || "Not deployed");
     console.log("  Mouth:             ", artAddresses.mouth || "Not deployed");
-    console.log("  Belly:             ", artAddresses.belly || "Not deployed");
+    console.log("  Stomach:           ", artAddresses.stomach || "Not deployed");
     console.log("  Items:             ", artAddresses.items || "Not deployed");
     if (artAddresses.baseTraitCounts) {
         console.log("\nBase Trait Counts (for mint randomization):");
-        console.log("  Head:  ", artAddresses.baseTraitCounts.head || 0);
-        console.log("  Mouth: ", artAddresses.baseTraitCounts.mouth || 0);
-        console.log("  Belly: ", artAddresses.baseTraitCounts.belly || 0);
+        console.log("  Head:    ", artAddresses.baseTraitCounts.head || 0);
+        console.log("  Mouth:   ", artAddresses.baseTraitCounts.mouth || 0);
+        console.log("  Stomach: ", artAddresses.baseTraitCounts.stomach || 0);
     }
     console.log("\nConfiguration:");
     console.log("  Royalty Receiver:", ROYALTY_RECEIVER);
@@ -688,6 +776,10 @@ async function main() {
         console.log("  3. Set BeadPunks contract (mainnet):");
         console.log("     await fregsItems.setBeadPunksContract('0x...')");
     }
+    // ============ Save Deployment Status ============
+    console.log("\n--- Saving Deployment Status ---");
+    saveDeploymentStatus(deploymentStatus);
+
     console.log("\n" + "=".repeat(60));
 
     console.log(`\nVITE_FREGS_ITEMS_ADDRESS=${fregsItemsAddress} VITE_SVG_RENDERER_ADDRESS=${svgRendererAddress} npx hardhat run scripts/deploySpecialItems.js --network localhost`);

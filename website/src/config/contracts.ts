@@ -15,10 +15,11 @@ export const ITEM_TYPES = {
   COLOR_CHANGE: 1,
   HEAD_REROLL: 2,
   BRONZE_SKIN: 3,
-  SILVER_SKIN: 4,
+  METAL_SKIN: 4,
   GOLD_SKIN: 5,
   TREASURE_CHEST: 6,
   BEAD_PUNK: 7,
+  DIAMOND_SKIN: 8,
   SPECIAL_DICE: 100,
 } as const
 
@@ -28,7 +29,7 @@ export const TRAIT_TYPES = {
   BODY: 1,
   HEAD: 2,
   MOUTH: 3,
-  BELLY: 4,
+  STOMACH: 4,
 } as const
 
 // Item type names for display
@@ -36,10 +37,11 @@ export const ITEM_TYPE_NAMES: Record<number, string> = {
   [ITEM_TYPES.COLOR_CHANGE]: "Color Change",
   [ITEM_TYPES.HEAD_REROLL]: "Head Reroll",
   [ITEM_TYPES.BRONZE_SKIN]: "Bronze Skin",
-  [ITEM_TYPES.SILVER_SKIN]: "Silver Skin",
+  [ITEM_TYPES.METAL_SKIN]: "Metal Skin",
   [ITEM_TYPES.GOLD_SKIN]: "Gold Skin",
   [ITEM_TYPES.TREASURE_CHEST]: "Treasure Chest",
   [ITEM_TYPES.BEAD_PUNK]: "Bead Punk",
+  [ITEM_TYPES.DIAMOND_SKIN]: "Diamond Skin",
   [ITEM_TYPES.SPECIAL_DICE]: "Special Dice",
 }
 
@@ -47,10 +49,11 @@ export const ITEM_TYPE_NAMES: Record<number, string> = {
 export const ITEM_TYPE_DESCRIPTIONS: Record<number, string> = {
   [ITEM_TYPES.COLOR_CHANGE]: "Change your Freg's body color",
   [ITEM_TYPES.HEAD_REROLL]: "Reroll your Freg's head trait",
-  [ITEM_TYPES.BRONZE_SKIN]: "Apply a bronze skin to your Freg",
-  [ITEM_TYPES.SILVER_SKIN]: "Apply a silver skin to your Freg",
-  [ITEM_TYPES.GOLD_SKIN]: "Apply a golden skin (+ free treasure chest!)",
+  [ITEM_TYPES.BRONZE_SKIN]: "Give your Freg a bronze skin",
+  [ITEM_TYPES.METAL_SKIN]: "Give your Freg a shiny metal skin",
+  [ITEM_TYPES.GOLD_SKIN]: "Give your Freg a luxurious gold skin",
   [ITEM_TYPES.TREASURE_CHEST]: "Burn to claim ETH rewards",
   [ITEM_TYPES.BEAD_PUNK]: "A rare Bead Punk NFT!",
+  [ITEM_TYPES.DIAMOND_SKIN]: "Give your Freg a dazzling diamond skin",
   [ITEM_TYPES.SPECIAL_DICE]: "Roll the dice for a random special trait!",
 }

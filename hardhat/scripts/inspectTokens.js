@@ -55,8 +55,8 @@ async function main() {
         const tokenId = i; // Token IDs start at 0
 
         try {
-            // Get tokenURI
-            const tokenUri = await fregs.tokenURI(tokenId);
+            // Get tokenURI (with high gas limit for large SVGs)
+            const tokenUri = await fregs.tokenURI(tokenId, { gasLimit: 50000000n });
 
             // Parse the data URI
             // Format: data:application/json,<json> (no base64)

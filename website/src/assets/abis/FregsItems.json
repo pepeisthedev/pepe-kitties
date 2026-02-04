@@ -793,6 +793,19 @@
   },
   {
     "inputs": [],
+    "name": "DIAMOND_SKIN",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "GOLD_SKIN",
     "outputs": [
       {
@@ -832,7 +845,7 @@
   },
   {
     "inputs": [],
-    "name": "SILVER_SKIN",
+    "name": "METAL_SKIN",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1146,6 +1159,19 @@
   },
   {
     "inputs": [],
+    "name": "diamondSkinWeight",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "fregs",
     "outputs": [
       {
@@ -1444,6 +1470,19 @@
       {
         "internalType": "uint256",
         "name": "claimWeight",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "metalSkinWeight",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -1787,12 +1826,17 @@
       },
       {
         "internalType": "uint256",
-        "name": "_silver",
+        "name": "_metal",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
         "name": "_gold",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_diamond",
         "type": "uint256"
       }
     ],
@@ -1856,19 +1900,6 @@
     "name": "setTreasureChestWeight",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "silverSkinWeight",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {

@@ -64,7 +64,7 @@ export default function MyKittiesSection(): React.JSX.Element {
             const receipt = await tx.wait()
 
             const claimedItem = parseItemClaimedEvent(receipt)
-            const itemName = claimedItem ? ITEM_TYPE_NAMES[claimedItem.itemType] : "Item"
+            const itemName = claimedItem ? (ITEM_TYPE_NAMES[claimedItem.itemType] || "Item") : "Item"
 
             setModalData({
                 success: true,

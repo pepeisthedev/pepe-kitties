@@ -9,15 +9,75 @@ const {
 } = require("./deployUtils");
 
 // ============ CONFIGURATION ============
-// Set these addresses after initial deployment
+// These can be overridden with environment variables
 const FREGS_ITEMS_ADDRESS = process.env.VITE_FREGS_ITEMS_ADDRESS || "";
 const SVG_RENDERER_ADDRESS = process.env.VITE_SVG_RENDERER_ADDRESS || "";
 
 // Paths
 const FROGZ_PATH = path.join(__dirname, "../../website/public/frogz");
+const ADDED_TRAITS_PATH = path.join(FROGZ_PATH, "added");
+const ADDED_TRAITS_JSON = path.join(ADDED_TRAITS_PATH, "traits.json");
+const DEPLOYMENT_STATUS_PATH = path.join(__dirname, "../deployment-status.json");
 
-// Items to mint for testing
-const MINT_AMOUNT = 5;
+// Trait type constants (must match contracts)
+const TRAIT_TYPES = {
+    BACKGROUND: 0,
+    BODY: 1,
+    HEAD: 2,
+    MOUTH: 3,
+    STOMACH: 4, // Changed from BELLY
+};
+
+// Map folder names to trait types
+const FOLDER_TO_TRAIT_TYPE = {
+    background: TRAIT_TYPES.BACKGROUND,
+    skin: TRAIT_TYPES.BODY, // skin applies to body
+    head: TRAIT_TYPES.HEAD,
+    mouth: TRAIT_TYPES.MOUTH,
+    stomach: TRAIT_TYPES.STOMACH,
+};
+
+// ============ DEPLOYMENT STATUS ============
+
+function loadDeploymentStatus() {
+    if (fs.existsSync(DEPLOYMENT_STATUS_PATH)) {
+        return JSON.parse(fs.readFileSync(DEPLOYMENT_STATUS_PATH, "utf8"));
+    }
+    return {
+        network: null,
+        lastUpdated: null,
+        contracts: {},
+        routers: {},
+        defaultTraits: {},
+        addedTraits: {},
+        itemTypes: {}
+    };
+}
+
+function saveDeploymentStatus(status) {
+    status.lastUpdated = new Date().toISOString();
+    fs.writeFileSync(DEPLOYMENT_STATUS_PATH, JSON.stringify(status, null, 2));
+    console.log(`  Deployment status saved to: ${DEPLOYMENT_STATUS_PATH}`);
+}
+
+function loadAddedTraitsConfig() {
+    if (!fs.existsSync(ADDED_TRAITS_JSON)) {
+        throw new Error(`Added traits config not found at: ${ADDED_TRAITS_JSON}`);
+    }
+    return JSON.parse(fs.readFileSync(ADDED_TRAITS_JSON, "utf8"));
+}
+
+// ============ HELPERS ============
+
+function isTraitDeployed(deploymentStatus, traitType, fileName) {
+    const addedTraits = deploymentStatus.addedTraits[traitType] || {};
+    return addedTraits[fileName] !== undefined;
+}
+
+async function getNextTraitId(router) {
+    // SVGRouter.nextTypeId tells us what ID will be assigned next
+    return Number(await router.nextTypeId());
+}
 
 // ============ MAIN ============
 
@@ -32,252 +92,225 @@ async function main() {
     console.log("\nNetwork:", network.name);
     console.log("Deployer:", deployerAddress);
 
-    // Get contract instances
-    if (!FREGS_ITEMS_ADDRESS) {
+    // Load deployment status
+    const deploymentStatus = loadDeploymentStatus();
+
+    // Verify network matches
+    if (deploymentStatus.network && deploymentStatus.network !== network.name) {
+        console.warn(`\n⚠️  Warning: Deployment status is for ${deploymentStatus.network}, but running on ${network.name}`);
+        console.warn("   Contract addresses may not be valid for this network.\n");
+    }
+
+    // Get contract addresses from status or env
+    const fregsItemsAddress = FREGS_ITEMS_ADDRESS || deploymentStatus.contracts?.fregsItems;
+    const svgRendererAddress = SVG_RENDERER_ADDRESS || deploymentStatus.contracts?.svgRenderer;
+
+    if (!fregsItemsAddress) {
         console.error("\n❌ Error: FREGS_ITEMS_ADDRESS not set!");
-        console.error("Set VITE_FREGS_ITEMS_ADDRESS in .env or update the script");
+        console.error("Run deploy.js first or set VITE_FREGS_ITEMS_ADDRESS in environment");
         process.exit(1);
     }
 
-    const fregsItems = await ethers.getContractAt("FregsItems", FREGS_ITEMS_ADDRESS);
-    console.log("\nFregsItems contract:", FREGS_ITEMS_ADDRESS);
+    console.log("\nFregsItems contract:", fregsItemsAddress);
+    console.log("SVG Renderer:", svgRendererAddress || "Not set");
 
-    // Deploy SVGPartWriter using shared utility
-    console.log("\n--- Deploying SVGPartWriter ---");
+    const fregsItems = await ethers.getContractAt("FregsItems", fregsItemsAddress);
+
+    // Load added traits config
+    const addedTraitsConfig = loadAddedTraitsConfig();
+    console.log("\nLoaded added traits from:", ADDED_TRAITS_JSON);
+
+    // Deploy SVGPartWriter
+    console.log("\n--- Getting SVGPartWriter ---");
     const svgPartWriter = await getOrDeploySvgPartWriter();
 
-    // ============ DEPLOY CROWN SPECIAL HEAD ============
-    console.log("\n--- Deploying Crown Special Head Trait ---");
+    // Track what we deploy
+    const deployedItems = [];
+    let newItemsDeployed = 0;
 
-    const crownTraitPath = path.join(FROGZ_PATH, "specialHead", "1.svg");
-    if (!fs.existsSync(crownTraitPath)) {
-        console.error("❌ Crown trait SVG not found at:", crownTraitPath);
-        process.exit(1);
-    }
+    // Process each trait type
+    for (const [traitType, traits] of Object.entries(addedTraitsConfig)) {
+        if (!traits || traits.length === 0) continue;
 
-    const crownTraitRendererAddr = await deploySingleSvg(svgPartWriter, crownTraitPath, 'crownTrait');
-    console.log("Crown trait renderer deployed:", crownTraitRendererAddr);
+        console.log(`\n--- Processing ${traitType.toUpperCase()} traits ---`);
 
-    // Deploy specialHead router if it doesn't exist
-    console.log("\n--- Deploying Special Head Router ---");
-    const SVGRouter = await ethers.getContractFactory("SVGRouter");
-    const specialHeadRouter = await SVGRouter.deploy();
-    await specialHeadRouter.waitForDeployment();
-    const specialHeadRouterAddr = await specialHeadRouter.getAddress();
-    console.log("Special Head Router deployed:", specialHeadRouterAddr);
+        // Initialize addedTraits for this type if needed
+        if (!deploymentStatus.addedTraits[traitType]) {
+            deploymentStatus.addedTraits[traitType] = {};
+        }
 
-    // Add crown to router at index 1
-    const crownTraitTx = await specialHeadRouter.setRenderContract(1, crownTraitRendererAddr);
-    await crownTraitTx.wait();
-    console.log("Crown added to Special Head Router (variant ID: 1)");
+        for (const trait of traits) {
+            const { fileName, name, description, isOwnerMintable = true, isClaimable = false, claimWeight = 0 } = trait;
 
-    // Set trait name
-    await (await specialHeadRouter.setTraitName(1, "Crown")).wait();
+            // Check if already deployed
+            if (isTraitDeployed(deploymentStatus, traitType, fileName)) {
+                const existingTrait = deploymentStatus.addedTraits[traitType][fileName];
+                console.log(`  ✓ ${fileName} (${name}) - Already deployed (routerId: ${existingTrait.routerId}, itemTypeId: ${existingTrait.itemTypeId})`);
+                continue;
+            }
 
-    // ============ DEPLOY DIAMOND SPECIAL BODY ============
-    console.log("\n--- Deploying Diamond Special Body Trait ---");
+            console.log(`\n  Deploying ${fileName} (${name})...`);
 
-    const diamondTraitPath = path.join(FROGZ_PATH, "special", "4.svg");
-    if (!fs.existsSync(diamondTraitPath)) {
-        console.error("❌ Diamond trait SVG not found at:", diamondTraitPath);
-        process.exit(1);
-    }
+            // Deploy the SVG
+            const svgPath = path.join(ADDED_TRAITS_PATH, traitType, fileName);
+            if (!fs.existsSync(svgPath)) {
+                console.error(`    ❌ SVG not found: ${svgPath}`);
+                continue;
+            }
 
-    const diamondTraitRendererAddr = await deploySingleSvg(svgPartWriter, diamondTraitPath, 'diamondTrait');
-    console.log("Diamond trait renderer deployed:", diamondTraitRendererAddr);
+            const classPrefix = `added${traitType}${fileName.replace('.svg', '')}`;
+            const rendererAddress = await deploySingleSvg(svgPartWriter, svgPath, classPrefix);
+            console.log(`    Renderer deployed: ${rendererAddress}`);
 
-    // Note: For production, add diamond to the EXISTING UnifiedBodyRenderer
-    console.log("\n--- Updating UnifiedBodyRenderer ---");
+            // Get the router for this trait type and add the trait
+            let routerId = null;
+            const routerAddress = deploymentStatus.routers[traitType];
 
-    // If SVG_RENDERER_ADDRESS is set, we can update the existing body renderer
-    if (SVG_RENDERER_ADDRESS) {
-        const svgRenderer = await ethers.getContractAt("FregsSVGRenderer", SVG_RENDERER_ADDRESS);
-        const bodyContractAddr = await svgRenderer.bodyContract();
+            if (routerAddress) {
+                const router = await ethers.getContractAt("SVGRouter", routerAddress);
 
-        if (bodyContractAddr && bodyContractAddr !== ethers.ZeroAddress) {
-            // UnifiedBodyRenderer uses setSkin(skinId, pointers[], name)
-            // We need to store the diamond SVG and get its pointer
-            const diamondPointers = [];
+                // Add to router and get the assigned ID
+                const tx = await router.addRenderContractWithName(rendererAddress, name);
+                const receipt = await tx.wait();
 
-            // Read diamond SVG data and store it
-            const diamondPath = path.join(FROGZ_PATH, "special", "4.svg");
-            const chunkSize = 16 * 1024;
+                // Get the assigned ID from nextTypeId before the transaction
+                // Since addRenderContractWithName returns the ID, we need to get it
+                // The ID is nextTypeId - 1 after the transaction
+                routerId = Number(await router.nextTypeId()) - 1;
+                console.log(`    Added to ${traitType} router with ID: ${routerId}`);
+            } else {
+                console.log(`    ⚠️  No router found for ${traitType}, creating standalone`);
+                // Deploy a new router for this trait type
+                const SVGRouter = await ethers.getContractFactory("SVGRouter");
+                const router = await SVGRouter.deploy();
+                await router.waitForDeployment();
 
-            if (fs.existsSync(diamondPath)) {
-                const diamondData = processSvgFile(diamondPath, 'special4');
-                const totalChunks = Math.ceil(diamondData.length / chunkSize);
-
-                for (let j = 0; j < totalChunks; j++) {
-                    const chunk = diamondData.slice(j * chunkSize, (j + 1) * chunkSize);
-                    const addr = await storeSvgData(svgPartWriter, chunk);
-                    diamondPointers.push(addr);
+                if (network.name !== "localhost" && network.name !== "hardhat") {
+                    await router.deploymentTransaction()?.wait(2);
                 }
 
-                const bodyRenderer = await ethers.getContractAt("UnifiedBodyRenderer", bodyContractAddr);
-                await (await bodyRenderer.setSkin(4, diamondPointers, "Diamond")).wait();
-                console.log("Diamond skin added to UnifiedBodyRenderer at ID 4");
-            } else {
-                console.log("⚠️  Diamond SVG not found, skipping body update");
+                const newRouterAddress = await router.getAddress();
+                await (await router.addRenderContractWithName(rendererAddress, name)).wait();
+                routerId = 1;
+
+                deploymentStatus.routers[traitType] = newRouterAddress;
+                console.log(`    New router created: ${newRouterAddress}`);
             }
-        } else {
-            console.log("⚠️  No existing body contract found");
-        }
-    }
 
-    // ============ REGISTER ITEM TYPES IN FREGSITEMS ============
-    console.log("\n--- Registering Item Types ---");
-
-    // Simplified trait constants (must match Fregs.sol):
-    // TRAIT_BACKGROUND = 0
-    // TRAIT_BODY = 1
-    // TRAIT_HEAD = 2
-    // TRAIT_MOUTH = 3
-    // TRAIT_BELLY = 4
-
-    // Add Crown item type
-    // targetTraitType = 2 (TRAIT_HEAD)
-    // traitValue = ID above baseTraitCount (e.g., if 3 base heads, crown = 4)
-    console.log("Adding Crown item type...");
-    const crownItemTx = await fregsItems.addItemType(
-        "Crown",                           // name
-        "A royal crown for your Freg",     // description
-        2,                                 // targetTraitType (TRAIT_HEAD)
-        4,                                 // traitValue (ID above base head count)
-        true,                              // isOwnerMintable
-        false,                             // isClaimable
-        0                                  // claimWeight
-    );
-    const crownReceipt = await crownItemTx.wait();
-
-    // Get the item type ID from event
-    let crownItemTypeId;
-    for (const log of crownReceipt.logs) {
-        try {
-            const parsedLog = fregsItems.interface.parseLog(log);
-            if (parsedLog && parsedLog.name === 'ItemTypeAdded') {
-                crownItemTypeId = parsedLog.args.itemTypeId;
-                break;
+            // Register item type in FregsItems
+            const targetTraitType = FOLDER_TO_TRAIT_TYPE[traitType];
+            if (targetTraitType === undefined) {
+                console.error(`    ❌ Unknown trait type: ${traitType}`);
+                continue;
             }
-        } catch (e) {
-            continue;
-        }
-    }
-    console.log(`Crown item type registered with ID: ${crownItemTypeId}`);
 
-    // Add Diamond item type
-    // targetTraitType = 1 (TRAIT_BODY)
-    // traitValue = 4 (Diamond variant)
-    console.log("Adding Diamond item type...");
-    const diamondItemTx = await fregsItems.addItemType(
-        "Diamond Skin",                    // name
-        "A dazzling diamond skin for your Freg", // description
-        1,                                 // targetTraitType (TRAIT_BODY)
-        4,                                 // traitValue (Diamond = 4)
-        true,                              // isOwnerMintable
-        false,                             // isClaimable
-        0                                  // claimWeight
-    );
-    const diamondReceipt = await diamondItemTx.wait();
+            console.log(`    Registering item type in FregsItems...`);
+            const itemTx = await fregsItems.addItemType(
+                name,
+                description,
+                targetTraitType,
+                routerId,
+                isOwnerMintable,
+                isClaimable,
+                claimWeight
+            );
+            const itemReceipt = await itemTx.wait();
 
-    let diamondItemTypeId;
-    for (const log of diamondReceipt.logs) {
-        try {
-            const parsedLog = fregsItems.interface.parseLog(log);
-            if (parsedLog && parsedLog.name === 'ItemTypeAdded') {
-                diamondItemTypeId = parsedLog.args.itemTypeId;
-                break;
+            // Get the item type ID from event
+            let itemTypeId = null;
+            for (const log of itemReceipt.logs) {
+                try {
+                    const parsedLog = fregsItems.interface.parseLog(log);
+                    if (parsedLog && parsedLog.name === 'ItemTypeAdded') {
+                        itemTypeId = Number(parsedLog.args.itemTypeId);
+                        break;
+                    }
+                } catch (e) {
+                    continue;
+                }
             }
-        } catch (e) {
-            continue;
+
+            console.log(`    ✅ Item type registered with ID: ${itemTypeId}`);
+
+            // Save to deployment status
+            deploymentStatus.addedTraits[traitType][fileName] = {
+                name,
+                description,
+                routerId,
+                itemTypeId,
+                rendererAddress,
+                targetTraitType,
+                isOwnerMintable,
+                isClaimable,
+                claimWeight,
+                deployedAt: new Date().toISOString()
+            };
+
+            // Also track in itemTypes for easy lookup
+            if (itemTypeId) {
+                deploymentStatus.itemTypes[itemTypeId] = {
+                    name,
+                    traitType,
+                    fileName,
+                    routerId
+                };
+            }
+
+            deployedItems.push({
+                traitType,
+                fileName,
+                name,
+                routerId,
+                itemTypeId
+            });
+
+            newItemsDeployed++;
         }
     }
-    console.log(`Diamond item type registered with ID: ${diamondItemTypeId}`);
 
-    // ============ CONFIGURE SPECIAL DICE ============
-    console.log("\n--- Configuring Special Dice ---");
-
-    // Set max variants for trait types (for dice rolls)
-    // Simplified trait constants:
-    // TRAIT_BACKGROUND = 0, TRAIT_BODY = 1, TRAIT_HEAD = 2, TRAIT_MOUTH = 3, TRAIT_BELLY = 4
-    await (await fregsItems.setAllTraitMaxVariants(
-        0,  // maxBackground (none yet)
-        4,  // maxBody (bronze, silver, gold, diamond)
-        4,  // maxHead (3 base + crown item = 4)
-        1,  // maxMouth (1 base)
-        2   // maxBelly (2 base)
-    )).wait();
-    console.log("Dice configured with max variants");
-
-    // ============ MINT TEST ITEMS ============
-    console.log("\n--- Minting Test Items ---");
-
-    // Mint Crown items
-    console.log(`Minting ${MINT_AMOUNT} Crown items to ${deployerAddress}...`);
-    await (await fregsItems.ownerMint(deployerAddress, crownItemTypeId, MINT_AMOUNT)).wait();
-    console.log(`✅ Minted ${MINT_AMOUNT} Crown items`);
-
-    // Mint Diamond items
-    console.log(`Minting ${MINT_AMOUNT} Diamond Skin items to ${deployerAddress}...`);
-    await (await fregsItems.ownerMint(deployerAddress, diamondItemTypeId, MINT_AMOUNT)).wait();
-    console.log(`✅ Minted ${MINT_AMOUNT} Diamond Skin items`);
-
-    // Mint Special Dice
-    console.log(`Minting ${MINT_AMOUNT} Special Dice to ${deployerAddress}...`);
-    await (await fregsItems.ownerMint(deployerAddress, 100, MINT_AMOUNT)).wait(); // 100 = SPECIAL_DICE
-    console.log(`✅ Minted ${MINT_AMOUNT} Special Dice`);
-
-    // ============ UPDATE SVG RENDERER ============
-    console.log("\n--- Updating SVG Renderer ---");
-
-    if (SVG_RENDERER_ADDRESS) {
-        const svgRenderer = await ethers.getContractAt("FregsSVGRenderer", SVG_RENDERER_ADDRESS);
-
-        // Update head contract to include crown
-        // Note: In simplified system, crown should be added to the unified head router
-        // The specialHeadRouter we created above should be merged into headContract
-        console.log("Adding Crown to Head Router...");
-        const headRouterAddr = await svgRenderer.headContract();
-        if (headRouterAddr && headRouterAddr !== ethers.ZeroAddress) {
-            const headRouter = await ethers.getContractAt("SVGRouter", headRouterAddr);
-            // Get crown renderer from our new router and add to head router
-            const crownRenderer = await specialHeadRouter.renderContracts(1);
-            // Add crown at ID 4 (after base heads 1-3)
-            await (await headRouter.setRenderContract(4, crownRenderer)).wait();
-            await (await headRouter.setTraitName(4, "Crown")).wait();
-            console.log("✅ Crown added to Head Router at ID 4");
-        }
-    } else {
-        console.log("⚠️  SVG_RENDERER_ADDRESS not set, skipping renderer update");
-    }
-
-    // Trait validation is now dynamic - no need to update max values
-    // The contract queries svgRenderer.isValidTrait() to check if a trait exists
+    // Save deployment status
+    console.log("\n--- Saving Deployment Status ---");
+    saveDeploymentStatus(deploymentStatus);
 
     // ============ SUMMARY ============
     console.log("\n" + "=".repeat(60));
     console.log("DEPLOYMENT SUMMARY");
     console.log("=".repeat(60));
 
-    console.log("\nDeployed Contracts:");
-    console.log("  SVGPartWriter:        ", await svgPartWriter.getAddress());
-    console.log("  Special Head Router:  ", specialHeadRouterAddr);
-    console.log("  Crown Trait Renderer: ", crownTraitRendererAddr);
-    console.log("  Diamond Trait Renderer:", diamondTraitRendererAddr);
+    if (newItemsDeployed === 0) {
+        console.log("\n✓ No new items to deploy. Everything is up to date!");
+    } else {
+        console.log(`\n✅ Deployed ${newItemsDeployed} new item(s):`);
+        console.log("-".repeat(60));
 
-    console.log("\nRegistered Item Types (Simplified Trait System):");
-    console.log(`  Crown (ID: ${crownItemTypeId}):        TRAIT_HEAD = 4`);
-    console.log(`  Diamond Skin (ID: ${diamondItemTypeId}): TRAIT_BODY = 4`);
-    console.log("  Special Dice (ID: 100):  Random trait");
+        for (const item of deployedItems) {
+            console.log(`  ${item.traitType}/${item.fileName}`);
+            console.log(`    Name: ${item.name}`);
+            console.log(`    Router ID: ${item.routerId}`);
+            console.log(`    Item Type ID: ${item.itemTypeId}`);
+            console.log("");
+        }
+    }
 
-    console.log("\nMinted Items:");
-    console.log(`  Crown items:        ${MINT_AMOUNT}`);
-    console.log(`  Diamond Skin items: ${MINT_AMOUNT}`);
-    console.log(`  Special Dice:       ${MINT_AMOUNT}`);
+    // Show all deployed added traits
+    console.log("\nAll deployed special items:");
+    console.log("-".repeat(60));
 
-    console.log("\n⚠️  IMPORTANT: Update your website's ItemCard.tsx with these item type IDs:");
-    console.log(`     ${crownItemTypeId}: "/items/7.svg",  // Crown`);
-    console.log(`     ${diamondItemTypeId}: "/items/8.svg",  // Diamond Skin`);
+    for (const [traitType, traits] of Object.entries(deploymentStatus.addedTraits)) {
+        const traitEntries = Object.entries(traits);
+        if (traitEntries.length === 0) continue;
 
+        console.log(`\n  ${traitType.toUpperCase()}:`);
+        for (const [fileName, data] of traitEntries) {
+            console.log(`    ${fileName}: "${data.name}" (routerId: ${data.routerId}, itemTypeId: ${data.itemTypeId})`);
+        }
+    }
+
+    console.log("\n" + "=".repeat(60));
+    console.log("\nTo add more special items:");
+    console.log("  1. Add SVG files to website/public/frogz/added/<traitType>/");
+    console.log("  2. Update website/public/frogz/added/traits.json");
+    console.log("  3. Run this script again");
     console.log("\n" + "=".repeat(60));
 }
 

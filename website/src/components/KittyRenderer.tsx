@@ -3,17 +3,21 @@ import React, { useState, useEffect } from "react"
 interface KittyRendererProps {
   bodyColor: string
   background?: number  // 0 = use bodyColor, 1+ = special background
-  body?: number        // 0 = use bodyColor, 1+ = special skin
+  body?: number        // 0 = use base colorable skin, 1+ = special skin (Diamond=1, Metal=2)
   head?: number
   mouth?: number
-  belly?: number
+  stomach?: number
   size?: "sm" | "md" | "lg"
   className?: string
-  hideTraits?: boolean // Hide mouth, belly - for mint preview (head/eyes always show)
+  hideTraits?: boolean // Hide mouth, stomach - for mint preview (head/eyes always show)
 }
 
-// Base trait counts - heads with IDs above this are item heads (stored in specialHead folder)
-const BASE_HEAD_COUNT = 3
+// Paths to SVG assets
+const FROGZ_PATH = "/frogz/default"
+const ADDED_PATH = "/frogz/added"
+
+// Base trait counts - heads with IDs above this are item heads (stored in added/head folder)
+const BASE_HEAD_COUNT = 21
 
 // Cache for original SVG content to avoid repeated fetches
 const svgCache: { body: string | null; background: string | null } = {
@@ -25,9 +29,9 @@ export default function KittyRenderer({
   bodyColor,
   background = 0,
   body = 0,
-  head = 1,
+  head = 11,  // Default eyes (Mohawk head includes base eyes)
   mouth = 1,
-  belly = 1,
+  stomach = 1,
   size = "md",
   className = "",
   hideTraits = false,
@@ -43,8 +47,8 @@ export default function KittyRenderer({
   }
 
   // Simplified trait system:
-  // body=0 means use color body, body>0 means special skin (bronze=1, silver=2, gold=3, diamond=4)
-  // Belly always renders now (removed special body hiding)
+  // body=0 means use base colorable skin (skin/1.svg), body>0 means special skin (Diamond=1→skin/2, Metal=2→skin/3)
+  // Stomach always renders now
   const hasSpecialBody = body > 0
 
   // Fetch body SVG and replace color
@@ -58,7 +62,7 @@ export default function KittyRenderer({
       try {
         // Fetch and cache the original SVG if not already cached
         if (!svgCache.body) {
-          const response = await fetch("/frogz/body/1.svg")
+          const response = await fetch(`${FROGZ_PATH}/skin/1.svg`)
           svgCache.body = await response.text()
         }
 
@@ -83,7 +87,7 @@ export default function KittyRenderer({
       try {
         // Fetch and cache the original SVG if not already cached
         if (!svgCache.background) {
-          const response = await fetch("/frogz/background/1.svg")
+          const response = await fetch(`${FROGZ_PATH}/background/1.svg`)
           svgCache.background = await response.text()
         }
 
@@ -130,8 +134,8 @@ export default function KittyRenderer({
       {/* Body - special skin or color-based */}
       {hasSpecialBody ? (
         <img
-          src={`/frogz/special/${body}.svg`}
-          alt={`Special Body ${body}`}
+          src={`${FROGZ_PATH}/skin/${body + 1}.svg`}
+          alt={`Special Skin ${body}`}
           className="absolute inset-0 w-full h-full object-contain"
         />
       ) : (
@@ -144,26 +148,26 @@ export default function KittyRenderer({
         )
       )}
 
-      {/* Belly - always renders now (removed special body hiding) */}
+      {/* Stomach - always renders now */}
       {!hideTraits && (
         <img
-          src={`/frogz/belly/${belly}.svg`}
-          alt={`Belly ${belly}`}
+          src={`${FROGZ_PATH}/stomach/${stomach}.svg`}
+          alt={`Stomach ${stomach}`}
           className="absolute inset-0 w-full h-full object-contain"
         />
       )}
 
       {/* Head - each head trait includes eyes in its SVG
-          Base heads (1-3) are in /head/, item heads (4+) are in /specialHead/ */}
+          Base heads (1-21) are in default/head/, item heads (22+) are in added/head/ */}
       {head > BASE_HEAD_COUNT ? (
         <img
-          src={`/frogz/specialHead/${head - BASE_HEAD_COUNT}.svg`}
+          src={`${ADDED_PATH}/head/${head - BASE_HEAD_COUNT}.svg`}
           alt={`Head ${head}`}
           className="absolute inset-0 w-full h-full object-contain"
         />
       ) : (
         <img
-          src={`/frogz/head/${head}.svg`}
+          src={`${FROGZ_PATH}/head/${head}.svg`}
           alt={`Head ${head}`}
           className="absolute inset-0 w-full h-full object-contain"
         />
@@ -172,7 +176,7 @@ export default function KittyRenderer({
       {/* Mouth - hidden in preview mode */}
       {!hideTraits && (
         <img
-          src={`/frogz/mouth/${mouth}.svg`}
+          src={`${FROGZ_PATH}/mouth/${mouth}.svg`}
           alt={`Mouth ${mouth}`}
           className="absolute inset-0 w-full h-full object-contain"
         />

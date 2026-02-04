@@ -1,0 +1,46 @@
+{
+  "background": [
+    { "fileName": "1.svg", "name": "Default", "description": "Default background" }
+  ],
+  "head": [
+    { "fileName": "1.svg", "name": "None", "description": "Base head with eyes" },
+    { "fileName": "2.svg", "name": "3D Glasses", "description": "Cool 3D glasses" },
+    { "fileName": "3.svg", "name": "Helmet", "description": "Protective helmet" },
+    { "fileName": "4.svg", "name": "Cap", "description": "Baseball cap" },
+    { "fileName": "5.svg", "name": "Headband", "description": "Sporty headband" },
+    { "fileName": "6.svg", "name": "Beanie", "description": "Warm beanie" },
+    { "fileName": "7.svg", "name": "Sunglasses", "description": "Stylish sunglasses" },
+    { "fileName": "8.svg", "name": "Crown", "description": "Royal crown" },
+    { "fileName": "9.svg", "name": "Halo", "description": "Angelic halo" },
+    { "fileName": "10.svg", "name": "Devil Horns", "description": "Devilish horns" },
+    { "fileName": "11.svg", "name": "Mohawk", "description": "Punk mohawk" },
+    { "fileName": "12.svg", "name": "Top Hat", "description": "Fancy top hat" },
+    { "fileName": "13.svg", "name": "Pirate Hat", "description": "Pirate hat" },
+    { "fileName": "14.svg", "name": "Wizard Hat", "description": "Magical wizard hat" },
+    { "fileName": "15.svg", "name": "Antenna", "description": "Alien antenna" },
+    { "fileName": "16.svg", "name": "Bow", "description": "Cute bow" },
+    { "fileName": "17.svg", "name": "Chef Hat", "description": "Chef hat" },
+    { "fileName": "18.svg", "name": "VR Headset", "description": "VR headset" },
+    { "fileName": "19.svg", "name": "Propeller Hat", "description": "Propeller hat" },
+    { "fileName": "20.svg", "name": "Flower Crown", "description": "Beautiful flower crown" },
+    { "fileName": "21.svg", "name": "Ninja Mask", "description": "Stealthy ninja mask" }
+  ],
+  "mouth": [
+    { "fileName": "1.svg", "name": "Cigarette", "description": "Smoking cigarette" },
+    { "fileName": "2.svg", "name": "Pipe", "description": "Classic pipe" },
+    { "fileName": "3.svg", "name": "Tongue", "description": "Tongue out" },
+    { "fileName": "4.svg", "name": "Smile", "description": "Happy smile" },
+    { "fileName": "5.svg", "name": "Frown", "description": "Sad frown" },
+    { "fileName": "6.svg", "name": "Grin", "description": "Big grin" }
+  ],
+  "skin": [
+    { "fileName": "1.svg", "name": "Base", "description": "Base colorable skin" },
+    { "fileName": "2.svg", "name": "Diamond", "description": "Dazzling diamond skin" },
+    { "fileName": "3.svg", "name": "Metal", "description": "Metallic skin" }
+  ],
+  "stomach": [
+    { "fileName": "1.svg", "name": "ETH", "description": "Ethereum logo on belly" },
+    { "fileName": "2.svg", "name": "Thug Life", "description": "Thug life tattoo" },
+    { "fileName": "3.svg", "name": "Heart", "description": "Heart tattoo" }
+  ]
+}

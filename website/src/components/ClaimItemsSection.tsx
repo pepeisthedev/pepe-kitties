@@ -68,7 +68,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
             const claimedItem = parseItemClaimedEvent(receipt)
 
             const isBeadPunk = claimedItem?.itemType === ITEM_TYPES.BEAD_PUNK
-            const itemName = claimedItem ? ITEM_TYPE_NAMES[claimedItem.itemType] : "Item"
+            const itemName = claimedItem ? (ITEM_TYPE_NAMES[claimedItem.itemType] || "Item") : "Item"
 
             const newModalData = {
                 success: true,
@@ -125,12 +125,16 @@ export default function ClaimItemsSection(): React.JSX.Element {
                                 <p className="font-bangers text-lg text-white">{getRarityPercent(contractData.bronzeSkinWeight)}%</p>
                             </div>
                             <div className="bg-gray-300/20 rounded-lg p-2">
-                                <p className="font-righteous text-xs text-gray-300">Silver Skin</p>
-                                <p className="font-bangers text-lg text-white">{getRarityPercent(contractData.silverSkinWeight)}%</p>
+                                <p className="font-righteous text-xs text-gray-300">Metal Skin</p>
+                                <p className="font-bangers text-lg text-white">{getRarityPercent(contractData.metalSkinWeight)}%</p>
                             </div>
                             <div className="bg-yellow-400/20 rounded-lg p-2">
                                 <p className="font-righteous text-xs text-yellow-400">Gold Skin</p>
                                 <p className="font-bangers text-lg text-white">{getRarityPercent(contractData.goldSkinWeight)}%</p>
+                            </div>
+                            <div className="bg-cyan-400/20 rounded-lg p-2">
+                                <p className="font-righteous text-xs text-cyan-400">Diamond Skin</p>
+                                <p className="font-bangers text-lg text-white">{getRarityPercent(contractData.diamondSkinWeight)}%</p>
                             </div>
                         </div>
                     </CardContent>

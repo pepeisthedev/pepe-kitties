@@ -70,7 +70,7 @@ export default function MintSection(): React.JSX.Element {
         bodyColor: string
         head: number
         mouth: number
-        belly: number
+        stomach: number
     } | null>(null)
 
     const paletteColors = generatePalette(hue)
@@ -93,7 +93,7 @@ export default function MintSection(): React.JSX.Element {
                         bodyColor: parsed.args.bodyColor,
                         head: Number(parsed.args.head),
                         mouth: Number(parsed.args.mouth),
-                        belly: Number(parsed.args.belly)
+                        stomach: Number(parsed.args.belly) // Contract uses 'belly', we use 'stomach'
                     }
                 }
             } catch {
@@ -441,7 +441,7 @@ export default function MintSection(): React.JSX.Element {
                                     body={0}
                                     head={mintedKitty.head}
                                     mouth={mintedKitty.mouth}
-                                    belly={mintedKitty.belly}
+                                    stomach={mintedKitty.stomach}
                                     size="sm"
                                     className="w-full h-full"
                                 />

@@ -6,14 +6,12 @@ const ITEM_IMAGES: Record<number, string> = {
   [ITEM_TYPES.COLOR_CHANGE]: "/items/1.svg",
   [ITEM_TYPES.HEAD_REROLL]: "/items/2.svg",
   [ITEM_TYPES.BRONZE_SKIN]: "/items/3.svg",
-  [ITEM_TYPES.SILVER_SKIN]: "/items/4.svg",
+  [ITEM_TYPES.METAL_SKIN]: "/items/4.svg",
   [ITEM_TYPES.GOLD_SKIN]: "/items/5.svg",
   [ITEM_TYPES.TREASURE_CHEST]: "/items/6.svg",
   [ITEM_TYPES.BEAD_PUNK]: "/beadpunks.png",
+  [ITEM_TYPES.DIAMOND_SKIN]: "/items/8.svg",
   [ITEM_TYPES.SPECIAL_DICE]: "/items/100.svg",
-  // Dynamic items - IDs assigned by addItemType() starting from nextItemTypeId
-  101: "/items/7.svg",  // Crown
-  102: "/items/8.svg",  // Diamond Skin
 }
 
 interface ItemCardProps {
@@ -29,27 +27,25 @@ interface ItemCardProps {
 const ITEM_COLORS: Record<number, string> = {
   [ITEM_TYPES.COLOR_CHANGE]: "border-lime-400/50 bg-black/30",
   [ITEM_TYPES.HEAD_REROLL]: "border-lime-400/50 bg-black/30",
-  [ITEM_TYPES.BRONZE_SKIN]: "border-lime-400/50 bg-black/30",
-  [ITEM_TYPES.SILVER_SKIN]: "border-lime-400/50 bg-black/30",
-  [ITEM_TYPES.GOLD_SKIN]: "border-lime-400/50 bg-black/30",
+  [ITEM_TYPES.BRONZE_SKIN]: "border-amber-600/50 bg-black/30",
+  [ITEM_TYPES.METAL_SKIN]: "border-gray-400/50 bg-black/30",
+  [ITEM_TYPES.GOLD_SKIN]: "border-yellow-400/50 bg-black/30",
   [ITEM_TYPES.TREASURE_CHEST]: "border-lime-400/50 bg-black/30",
   [ITEM_TYPES.BEAD_PUNK]: "border-purple-400/50 bg-black/30",
+  [ITEM_TYPES.DIAMOND_SKIN]: "border-cyan-400/50 bg-black/30",
   [ITEM_TYPES.SPECIAL_DICE]: "border-cyan-400/50 bg-black/30",
-  101: "border-yellow-400/50 bg-black/30",  // Crown
-  102: "border-cyan-400/50 bg-black/30",    // Diamond Skin
 }
 
 const ITEM_SELECTED_COLORS: Record<number, string> = {
   [ITEM_TYPES.COLOR_CHANGE]: "ring-lime-400",
   [ITEM_TYPES.HEAD_REROLL]: "ring-lime-400",
-  [ITEM_TYPES.BRONZE_SKIN]: "ring-lime-400",
-  [ITEM_TYPES.SILVER_SKIN]: "ring-lime-400",
-  [ITEM_TYPES.GOLD_SKIN]: "ring-lime-400",
+  [ITEM_TYPES.BRONZE_SKIN]: "ring-amber-600",
+  [ITEM_TYPES.METAL_SKIN]: "ring-gray-400",
+  [ITEM_TYPES.GOLD_SKIN]: "ring-yellow-400",
   [ITEM_TYPES.TREASURE_CHEST]: "ring-lime-400",
   [ITEM_TYPES.BEAD_PUNK]: "ring-purple-400",
+  [ITEM_TYPES.DIAMOND_SKIN]: "ring-cyan-400",
   [ITEM_TYPES.SPECIAL_DICE]: "ring-cyan-400",
-  101: "ring-yellow-400",  // Crown
-  102: "ring-cyan-400",    // Diamond Skin
 }
 
 export default function ItemCard({

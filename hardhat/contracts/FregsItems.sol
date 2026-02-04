@@ -33,10 +33,11 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     uint256 public constant COLOR_CHANGE = 1;   // Most common - change body color
     uint256 public constant HEAD_REROLL = 2;
     uint256 public constant BRONZE_SKIN = 3;
-    uint256 public constant SILVER_SKIN = 4;
+    uint256 public constant METAL_SKIN = 4;
     uint256 public constant GOLD_SKIN = 5;
     uint256 public constant TREASURE_CHEST = 6;
     uint256 public constant BEAD_PUNK = 7;      // External NFT reward
+    uint256 public constant DIAMOND_SKIN = 8;
 
     // Special dice item (reserved ID)
     uint256 public constant SPECIAL_DICE = 100;
@@ -87,8 +88,9 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     uint256 public colorChangeWeight = 4000;  // 40% - most common
     uint256 public headRerollWeight = 3000;   // 30%
     uint256 public bronzeSkinWeight = 1500;   // 15%
-    uint256 public silverSkinWeight = 1000;   // 10%
+    uint256 public metalSkinWeight = 1000;    // 10%
     uint256 public goldSkinWeight = 500;      // 5%
+    uint256 public diamondSkinWeight = 0;     // 0% - owner mint only for now
     uint256 public beadPunkWeight = 100;      // 1% - rare external NFT (only when available)
     uint256 public treasureChestWeight = 50;  // 0.5% - ultra rare, max 5 ever
 
@@ -222,10 +224,11 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         if (_itemType == COLOR_CHANGE) return "Color Change";
         if (_itemType == HEAD_REROLL) return "Head Reroll";
         if (_itemType == BRONZE_SKIN) return "Bronze Skin";
-        if (_itemType == SILVER_SKIN) return "Silver Skin";
+        if (_itemType == METAL_SKIN) return "Metal Skin";
         if (_itemType == GOLD_SKIN) return "Gold Skin";
         if (_itemType == TREASURE_CHEST) return "Treasure Chest";
         if (_itemType == SPECIAL_DICE) return "Special Dice";
+        if (_itemType == DIAMOND_SKIN) return "Diamond Skin";
 
         // Dynamic items
         if (bytes(itemTypeConfigs[_itemType].name).length > 0) {
@@ -240,10 +243,11 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         if (_itemType == COLOR_CHANGE) return "Change your Freg's body color to any hex color";
         if (_itemType == HEAD_REROLL) return "Use this item to reroll your Freg's head trait";
         if (_itemType == BRONZE_SKIN) return "Apply a bronze skin to your Freg";
-        if (_itemType == SILVER_SKIN) return "Apply a silver skin to your Freg";
+        if (_itemType == METAL_SKIN) return "Apply a metal skin to your Freg";
         if (_itemType == GOLD_SKIN) return "Apply a golden skin to your Freg";
         if (_itemType == TREASURE_CHEST) return "Burn this chest to claim ETH rewards";
         if (_itemType == SPECIAL_DICE) return "Roll for a random special trait on your Freg";
+        if (_itemType == DIAMOND_SKIN) return "Apply a diamond skin to your Freg";
 
         // Dynamic items
         if (bytes(itemTypeConfigs[_itemType].description).length > 0) {
@@ -270,7 +274,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
         // Calculate total weight (only include special items if available)
         uint256 totalWeight = colorChangeWeight + headRerollWeight + bronzeSkinWeight +
-                              silverSkinWeight + goldSkinWeight;
+                              metalSkinWeight + goldSkinWeight + diamondSkinWeight;
         if (hasBeadPunks) {
             totalWeight += beadPunkWeight;
         }
@@ -325,11 +329,16 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
                 if (rand < cumulative) {
                     newItemType = BRONZE_SKIN;
                 } else {
-                    cumulative += silverSkinWeight;
+                    cumulative += metalSkinWeight;
                     if (rand < cumulative) {
-                        newItemType = SILVER_SKIN;
+                        newItemType = METAL_SKIN;
                     } else {
-                        newItemType = GOLD_SKIN;
+                        cumulative += goldSkinWeight;
+                        if (rand < cumulative) {
+                            newItemType = GOLD_SKIN;
+                        } else {
+                            newItemType = DIAMOND_SKIN;
+                        }
                     }
                 }
             }
@@ -389,15 +398,16 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
         uint256 iType = itemType[itemTokenId];
         require(
-            iType == BRONZE_SKIN || iType == SILVER_SKIN || iType == GOLD_SKIN,
+            iType == BRONZE_SKIN || iType == METAL_SKIN || iType == GOLD_SKIN || iType == DIAMOND_SKIN,
             "Not a special skin item"
         );
 
-        // Determine body type (1=bronze, 2=silver, 3=gold)
+        // Determine body type (maps to skin SVG files: skin/1.svg, skin/2.svg, etc.)
         uint256 bodyValue;
         if (iType == BRONZE_SKIN) bodyValue = 1;
-        else if (iType == SILVER_SKIN) bodyValue = 2;
-        else bodyValue = 3; // GOLD_SKIN
+        else if (iType == DIAMOND_SKIN) bodyValue = 2;  // skin/2.svg
+        else if (iType == METAL_SKIN) bodyValue = 3;    // skin/3.svg
+        else bodyValue = 4; // GOLD_SKIN
 
         _burn(itemTokenId);
         fregs.setTrait(fregId, TRAIT_BODY, bodyValue, msg.sender);
@@ -479,8 +489,9 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             _itemType == COLOR_CHANGE ||
             _itemType == HEAD_REROLL ||
             _itemType == BRONZE_SKIN ||
-            _itemType == SILVER_SKIN ||
+            _itemType == METAL_SKIN ||
             _itemType == GOLD_SKIN ||
+            _itemType == DIAMOND_SKIN ||
             _itemType == SPECIAL_DICE ||
             bytes(itemTypeConfigs[_itemType].name).length > 0,
             "Invalid item type"
@@ -600,18 +611,20 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         uint256 _colorChange,
         uint256 _headReroll,
         uint256 _bronze,
-        uint256 _silver,
-        uint256 _gold
+        uint256 _metal,
+        uint256 _gold,
+        uint256 _diamond
     ) external onlyOwner {
         require(
-            _colorChange + _headReroll + _bronze + _silver + _gold == 10000,
+            _colorChange + _headReroll + _bronze + _metal + _gold + _diamond == 10000,
             "Weights must sum to 10000"
         );
         colorChangeWeight = _colorChange;
         headRerollWeight = _headReroll;
         bronzeSkinWeight = _bronze;
-        silverSkinWeight = _silver;
+        metalSkinWeight = _metal;
         goldSkinWeight = _gold;
+        diamondSkinWeight = _diamond;
     }
 
     function withdrawExcess() external onlyOwner {
