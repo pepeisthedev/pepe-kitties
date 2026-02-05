@@ -1,4 +1,5 @@
-import React, { useState } from "react"
+import React, { useState, useCallback } from "react"
+import { flushSync } from "react-dom"
 import { useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
@@ -53,10 +54,19 @@ export default function MyKittiesSection(): React.JSX.Element {
         return null
     }
 
-    const handleClaim = async () => {
+    const [isModalLoading, setIsModalLoading] = useState(false)
+
+    const handleClaim = useCallback(async () => {
         if (!contracts || selectedKittyId === null || !selectedCanClaim) return
 
-        setIsClaiming(true)
+        // Use flushSync to ensure modal renders immediately before wallet popup
+        flushSync(() => {
+            setIsClaiming(true)
+            setIsModalLoading(true)
+            setModalData({ success: false, message: "" })
+            setShowModal(true)
+        })
+
         try {
             const contract = await contracts.items.write()
             // Manually specify gas to avoid MetaMask gas estimation issues on localhost
@@ -73,18 +83,20 @@ export default function MyKittiesSection(): React.JSX.Element {
                 itemTokenId: claimedItem?.itemTokenId
             })
 
-            // Refresh all relevant data
-            refetchKitties()
-            refetchUnclaimed()
-            refetchItems()
+            // Refresh all relevant data - await to ensure completion
+            await Promise.all([
+                refetchKitties(),
+                refetchUnclaimed(),
+                refetchItems()
+            ])
             setSelectedKittyId(null)
         } catch (err: any) {
             setModalData({ success: false, message: err.message || "Claim failed" })
         } finally {
             setIsClaiming(false)
-            setShowModal(true)
+            setIsModalLoading(false)
         }
-    }
+    }, [contracts, selectedKittyId, selectedCanClaim, refetchKitties, refetchUnclaimed, refetchItems])
 
     const handleKittyClick = (tokenId: number) => {
         setSelectedKittyId(selectedKittyId === tokenId ? null : tokenId)
@@ -226,11 +238,12 @@ export default function MyKittiesSection(): React.JSX.Element {
             <ResultModal
                 isOpen={showModal}
                 onClose={() => setShowModal(false)}
-                title={modalData.success ? "Item Claimed!" : "Error"}
-                description={modalData.message}
+                title={isModalLoading ? "Claiming..." : modalData.success ? "Item Claimed!" : "Error"}
+                description={isModalLoading ? "Please wait while your item is being claimed" : modalData.message}
                 success={modalData.success}
+                loading={isModalLoading}
             >
-                {modalData.success && modalData.itemType !== undefined && modalData.itemTokenId !== undefined && (
+                {!isModalLoading && modalData.success && modalData.itemType !== undefined && modalData.itemTokenId !== undefined && (
                     <div className="flex flex-col items-center gap-2">
                         <ItemCard
                             tokenId={modalData.itemTokenId}

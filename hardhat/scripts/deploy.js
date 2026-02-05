@@ -7,8 +7,40 @@ const {
     processSvgFile,
 } = require("./deployUtils");
 
+// Helper to send transaction with retry and proper waiting
+async function sendTx(txPromise, confirmations = 1) {
+    return await retryWithBackoff(async () => {
+        const tx = await txPromise;
+        const receipt = await tx.wait(confirmations);
+        // Small delay to let the network catch up
+        if (network.name !== "localhost" && network.name !== "hardhat") {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        return receipt;
+    }, 3, 5000);
+}
+
+// Helper to deploy contract with retry
+async function deployContract(factory, args = [], name = "Contract") {
+    return await retryWithBackoff(async () => {
+        console.log(`  Deploying ${name}...`);
+        const contract = await factory.deploy(...args);
+        await contract.waitForDeployment();
+
+        // Wait for confirmations on live networks
+        if (network.name !== "localhost" && network.name !== "hardhat") {
+            await contract.deploymentTransaction()?.wait(2);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        const address = await contract.getAddress();
+        console.log(`  ${name} deployed to: ${address}`);
+        return contract;
+    }, 3, 5000);
+}
+
 // ============ CONFIGURATION ============
-const VERIFY_CONTRACTS = true; // Set to false to skip contract verification
+const VERIFY_CONTRACTS = false; // Set to false to skip contract verification
 const BEAD_PUNKS_TO_MINT = 5;  // Number of mock BeadPunks to mint on testnet
 const MINT_PASSES_TO_MINT = 2; // Number of mint passes to mint to deployer
 const ADDITIONAL_MINTPASS_RECIPIENT = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"; // Also mint passes to this address (for testing)
@@ -119,11 +151,8 @@ async function deployBody(svgPartWriter, traitsConfig) {
         }
 
         const SVGRenderer = await ethers.getContractFactory("SVGRenderer");
-        const renderer = await SVGRenderer.deploy(addresses);
-        await renderer.waitForDeployment();
-        const address = await renderer.getAddress();
-        console.log(`    Static body renderer deployed at: ${address}`);
-        return address;
+        const renderer = await deployContract(SVGRenderer, [addresses], "Static body renderer");
+        return await renderer.getAddress();
     }
 
     // Find where to split for color injection
@@ -150,15 +179,8 @@ async function deployBody(svgPartWriter, traitsConfig) {
 
     // Deploy UnifiedBodyRenderer
     const UnifiedBodyRenderer = await ethers.getContractFactory("UnifiedBodyRenderer");
-    const bodyRenderer = await UnifiedBodyRenderer.deploy(part1Address, part2Address);
-    await bodyRenderer.waitForDeployment();
-
-    if (network.name !== "localhost" && network.name !== "hardhat") {
-        await bodyRenderer.deploymentTransaction()?.wait(2);
-    }
-
+    const bodyRenderer = await deployContract(UnifiedBodyRenderer, [part1Address, part2Address], "UnifiedBodyRenderer");
     const address = await bodyRenderer.getAddress();
-    console.log(`    UnifiedBodyRenderer deployed at: ${address}`);
 
     // Deploy special skins (2.svg, 3.svg, etc.) from same skin folder
     const skinFiles = fs.readdirSync(skinPath)
@@ -187,7 +209,7 @@ async function deployBody(svgPartWriter, traitsConfig) {
             }
 
             const skinName = skinNames[i]?.name || `Skin ${skinId}`;
-            await (await bodyRenderer.setSkin(skinId, pointers, skinName)).wait();
+            await sendTx(bodyRenderer.setSkin(skinId, pointers, skinName));
             console.log(`      Skin ${skinId} (${skinName}) deployed (${totalChunks} chunks)`);
         }
     }
@@ -229,16 +251,10 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
         }
 
         const SVGRenderer = await ethers.getContractFactory("SVGRenderer");
-        const renderer = await SVGRenderer.deploy(addresses);
-        await renderer.waitForDeployment();
-
-        if (network.name !== "localhost" && network.name !== "hardhat") {
-            await renderer.deploymentTransaction()?.wait(2);
-        }
-
+        const traitName = traitNames[i] || `Type ${i + 1}`;
+        const renderer = await deployContract(SVGRenderer, [addresses], `${folderName}/${file}`);
         const rendererAddress = await renderer.getAddress();
         svgRendererAddresses.push(rendererAddress);
-        const traitName = traitNames[i] || `Type ${i + 1}`;
         console.log(`    ${file} deployed (${totalChunks} chunks) - "${traitName}"`);
 
         // Track deployed trait
@@ -251,20 +267,15 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
 
     // Deploy router
     const SVGRouter = await ethers.getContractFactory("SVGRouter");
-    const router = await SVGRouter.deploy();
-    await router.waitForDeployment();
+    const router = await deployContract(SVGRouter, [], `${folderName} router`);
 
-    if (network.name !== "localhost" && network.name !== "hardhat") {
-        await router.deploymentTransaction()?.wait(2);
-    }
-
-    await (await router.setRenderContractsBatch(svgRendererAddresses)).wait();
+    await sendTx(router.setRenderContractsBatch(svgRendererAddresses));
 
     // Set trait names if provided
     if (traitNames.length > 0) {
         // Only set names for the number of files we actually deployed
         const namesToSet = traitNames.slice(0, files.length);
-        await (await router.setTraitNamesBatch(namesToSet)).wait();
+        await sendTx(router.setTraitNamesBatch(namesToSet));
         console.log(`    Set ${namesToSet.length} trait names`);
     }
 
@@ -316,30 +327,17 @@ async function deployItems(svgPartWriter) {
         }
 
         const SVGRenderer = await ethers.getContractFactory("SVGRenderer");
-        const renderer = await SVGRenderer.deploy(addresses);
-        await renderer.waitForDeployment();
-
-        if (network.name !== "localhost" && network.name !== "hardhat") {
-            await renderer.deploymentTransaction()?.wait(2);
-        }
-
+        const renderer = await deployContract(SVGRenderer, [addresses], `Item ${file}`);
         svgRendererAddresses.push(await renderer.getAddress());
-        console.log(`    Item ${file} deployed (${totalChunks} chunks)`);
     }
 
     // Deploy router for items
     const SVGRouter = await ethers.getContractFactory("SVGRouter");
-    const router = await SVGRouter.deploy();
-    await router.waitForDeployment();
+    const router = await deployContract(SVGRouter, [], "Items router");
 
-    if (network.name !== "localhost" && network.name !== "hardhat") {
-        await router.deploymentTransaction()?.wait(2);
-    }
-
-    await (await router.setRenderContractsBatch(svgRendererAddresses)).wait();
+    await sendTx(router.setRenderContractsBatch(svgRendererAddresses));
 
     const routerAddress = await router.getAddress();
-    console.log(`    Items router: ${routerAddress}`);
     return routerAddress;
 }
 
@@ -355,16 +353,9 @@ async function deployArt(deploymentStatus) {
     console.log("  Loaded traits config from:", TRAITS_JSON_PATH);
 
     // Deploy SVGPartWriter
-    console.log("  Deploying SVGPartWriter...");
     const SVGPartWriter = await ethers.getContractFactory("SVGPartWriter");
-    const svgPartWriter = await SVGPartWriter.deploy();
-    await svgPartWriter.waitForDeployment();
-
-    if (network.name !== "localhost" && network.name !== "hardhat") {
-        await svgPartWriter.deploymentTransaction()?.wait(2);
-    }
+    const svgPartWriter = await deployContract(SVGPartWriter, [], "SVGPartWriter");
     const svgPartWriterAddress = await svgPartWriter.getAddress();
-    console.log(`  SVGPartWriter: ${svgPartWriterAddress}`);
     deploymentStatus.contracts.svgPartWriter = svgPartWriterAddress;
 
     const artAddresses = {};
@@ -452,15 +443,8 @@ async function main() {
     if (isTestnet) {
         console.log("\n--- Deploying MockERC721 (BeadPunks) ---");
         const MockERC721 = await ethers.getContractFactory("MockERC721");
-        beadPunksContract = await MockERC721.deploy("Bead Punks", "BEADPUNK");
-        await beadPunksContract.waitForDeployment();
+        beadPunksContract = await deployContract(MockERC721, ["Bead Punks", "BEADPUNK"], "MockERC721 (BeadPunks)");
         beadPunksAddress = await beadPunksContract.getAddress();
-        console.log("MockERC721 (BeadPunks) deployed to:", beadPunksAddress);
-
-        if (network.name === "baseSepolia") {
-            console.log("Waiting for confirmations...");
-            await beadPunksContract.deploymentTransaction()?.wait(2);
-        }
     } else if (isMainnet) {
         beadPunksAddress = MAINNET_BEAD_PUNKS_ADDRESS;
         console.log("\n--- Using existing BeadPunks contract ---");
@@ -470,112 +454,85 @@ async function main() {
     // ============ Deploy Fregs ============
     console.log("\n--- Deploying Fregs ---");
     const Fregs = await ethers.getContractFactory("Fregs");
-    const fregs = await Fregs.deploy(
-        ROYALTY_RECEIVER,
-        ROYALTY_FEE,
-        "Fregs",
-        "FREG"
-    );
-    await fregs.waitForDeployment();
+    const fregs = await deployContract(Fregs, [ROYALTY_RECEIVER, ROYALTY_FEE, "Fregs", "FREG"], "Fregs");
     const fregsAddress = await fregs.getAddress();
-    console.log("Fregs deployed to:", fregsAddress);
-
-    // Wait for confirmations on live networks
-    if (network.name !== "localhost" && network.name !== "hardhat") {
-        console.log("Waiting for confirmations...");
-        await fregs.deploymentTransaction()?.wait(2);
-    }
 
     // ============ Deploy FregsItems ============
     console.log("\n--- Deploying Fregs Items ---");
     const FregsItems = await ethers.getContractFactory("FregsItems");
-    const fregsItems = await FregsItems.deploy(
-        ROYALTY_RECEIVER,
-        ROYALTY_FEE,
-        "Fregs Items",
-        "FREGITEM",
-        fregsAddress
-    );
-    await fregsItems.waitForDeployment();
+    const fregsItems = await deployContract(FregsItems, [ROYALTY_RECEIVER, ROYALTY_FEE, "Fregs Items", "FREGITEM", fregsAddress], "FregsItems");
     const fregsItemsAddress = await fregsItems.getAddress();
-    console.log("Fregs Items deployed to:", fregsItemsAddress);
-
-    if (network.name !== "localhost" && network.name !== "hardhat") {
-        console.log("Waiting for confirmations...");
-        await fregsItems.deploymentTransaction()?.wait(2);
-    }
 
     // ============ Deploy FregsMintPass ============
     console.log("\n--- Deploying Fregs Mint Pass ---");
     const FregsMintPass = await ethers.getContractFactory("FregsMintPass");
-    const fregsMintPass = await FregsMintPass.deploy("");
-    await fregsMintPass.waitForDeployment();
+    const fregsMintPass = await deployContract(FregsMintPass, [""], "FregsMintPass");
     const fregsMintPassAddress = await fregsMintPass.getAddress();
-    console.log("Fregs Mint Pass deployed to:", fregsMintPassAddress);
-
-    if (network.name !== "localhost" && network.name !== "hardhat") {
-        console.log("Waiting for confirmations...");
-        await fregsMintPass.deploymentTransaction()?.wait(2);
-    }
 
     // ============ Configure Cross-Contract References ============
     console.log("\n--- Configuring Cross-Contract References ---");
 
     console.log("Setting items contract on Fregs...");
-    await (await fregs.setItemsContract(fregsItemsAddress)).wait();
+    await sendTx(fregs.setItemsContract(fregsItemsAddress));
 
     console.log("Setting mint pass contract on Fregs...");
-    await (await fregs.setMintPassContract(fregsMintPassAddress)).wait();
+    await sendTx(fregs.setMintPassContract(fregsMintPassAddress));
 
     console.log("Setting Fregs on MintPass...");
-    await (await fregsMintPass.setFregs(fregsAddress)).wait();
+    await sendTx(fregsMintPass.setFregs(fregsAddress));
 
-    // ============ Mint Mint Passes to Deployer ============
-    console.log("\n--- Minting Mint Passes ---");
-    console.log(`Minting ${MINT_PASSES_TO_MINT} mint passes to deployer...`);
-    await (await fregsMintPass.ownerMint(deployerAddress, MINT_PASSES_TO_MINT)).wait();
-    const mintPassBalance = await fregsMintPass.balanceOf(deployerAddress, 1); // Token ID 1 = MINT_PASS
-    console.log(`Deployer mint pass balance: ${mintPassBalance}`);
+    // ============ Mint Mint Passes to Deployer (localhost only) ============
+    const isLocalhost = network.name === "localhost" || network.name === "hardhat";
+    let mintPassBalance = 0n;
+    if (isLocalhost) {
+        console.log("\n--- Minting Mint Passes ---");
+        console.log(`Minting ${MINT_PASSES_TO_MINT} mint passes to deployer...`);
+        await sendTx(fregsMintPass.ownerMint(deployerAddress, MINT_PASSES_TO_MINT, { gasLimit: 200000n }));
+        mintPassBalance = await fregsMintPass.balanceOf(deployerAddress, 1); // Token ID 1 = MINT_PASS
+        console.log(`Deployer mint pass balance: ${mintPassBalance}`);
 
-    // Also mint to additional recipient if configured
-    if (ADDITIONAL_MINTPASS_RECIPIENT && ADDITIONAL_MINTPASS_RECIPIENT !== "0x0000000000000000000000000000000000000000") {
-        console.log(`Minting ${MINT_PASSES_TO_MINT} mint passes to ${ADDITIONAL_MINTPASS_RECIPIENT}...`);
-        await (await fregsMintPass.ownerMint(ADDITIONAL_MINTPASS_RECIPIENT, MINT_PASSES_TO_MINT)).wait();
-        const additionalBalance = await fregsMintPass.balanceOf(ADDITIONAL_MINTPASS_RECIPIENT, 1);
-        console.log(`Additional recipient mint pass balance: ${additionalBalance}`);
+        // Also mint to additional recipient if configured
+        if (ADDITIONAL_MINTPASS_RECIPIENT && ADDITIONAL_MINTPASS_RECIPIENT !== "0x0000000000000000000000000000000000000000") {
+            console.log(`Minting ${MINT_PASSES_TO_MINT} mint passes to ${ADDITIONAL_MINTPASS_RECIPIENT}...`);
+            await sendTx(fregsMintPass.ownerMint(ADDITIONAL_MINTPASS_RECIPIENT, MINT_PASSES_TO_MINT, { gasLimit: 200000n }));
+            const additionalBalance = await fregsMintPass.balanceOf(ADDITIONAL_MINTPASS_RECIPIENT, 1);
+            console.log(`Additional recipient mint pass balance: ${additionalBalance}`);
+        }
+    } else {
+        console.log("\n--- Skipping Mint Pass minting (not localhost) ---");
     }
 
     // ============ Configure BeadPunks ============
     if (beadPunksAddress && beadPunksAddress !== "0x0000000000000000000000000000000000000000") {
         console.log("\n--- Configuring BeadPunks ---");
         console.log("Setting BeadPunks contract on Fregs Items...");
-        await (await fregsItems.setBeadPunksContract(beadPunksAddress)).wait();
+        await sendTx(fregsItems.setBeadPunksContract(beadPunksAddress));
 
-        // On testnet, mint BeadPunks and transfer to Items contract
-        if (isTestnet && beadPunksContract) {
+        // On localhost only, mint BeadPunks and transfer to Items contract
+        if (isLocalhost && beadPunksContract) {
             console.log(`Minting ${BEAD_PUNKS_TO_MINT} BeadPunks to deployer...`);
             const mintedTokenIds = [];
             for (let i = 0; i < BEAD_PUNKS_TO_MINT; i++) {
-                const tx = await beadPunksContract.mint(deployerAddress);
-                const receipt = await tx.wait();
+                await sendTx(beadPunksContract.mint(deployerAddress));
                 mintedTokenIds.push(i);
                 console.log(`  Minted BeadPunk #${i}`);
             }
 
             console.log(`Transferring ${BEAD_PUNKS_TO_MINT} BeadPunks to Fregs Items contract...`);
             for (const tokenId of mintedTokenIds) {
-                const tx = await beadPunksContract["safeTransferFrom(address,address,uint256)"](
+                await sendTx(beadPunksContract["safeTransferFrom(address,address,uint256)"](
                     deployerAddress,
                     fregsItemsAddress,
                     tokenId
-                );
-                await tx.wait();
+                ));
                 console.log(`  Transferred BeadPunk #${tokenId}`);
             }
 
             // Verify BeadPunks are in Items contract
             const beadPunksInContract = await fregsItems.getAvailableBeadPunks();
             console.log(`BeadPunks in Items contract: ${beadPunksInContract}`);
+        } else if (!isLocalhost) {
+            console.log("  Skipping BeadPunks minting (not localhost)");
         }
     } else if (isMainnet) {
         console.log("\n--- WARNING: BeadPunks not configured ---");
@@ -598,15 +555,8 @@ async function main() {
 
     console.log("\n--- Deploying FregsSVGRenderer ---");
     const FregsSVGRenderer = await ethers.getContractFactory("FregsSVGRenderer");
-    const svgRenderer = await FregsSVGRenderer.deploy();
-    await svgRenderer.waitForDeployment();
+    const svgRenderer = await deployContract(FregsSVGRenderer, [], "FregsSVGRenderer");
     const svgRendererAddress = await svgRenderer.getAddress();
-    console.log("FregsSVGRenderer deployed to:", svgRendererAddress);
-
-    if (network.name !== "localhost" && network.name !== "hardhat") {
-        console.log("Waiting for confirmations...");
-        await svgRenderer.deploymentTransaction()?.wait(2);
-    }
 
     // Save SVG Renderer address to deployment status
     deploymentStatus.contracts.svgRenderer = svgRendererAddress;
@@ -614,35 +564,35 @@ async function main() {
     // Configure SVG Renderer with art contracts (simplified: 5 contracts)
     console.log("\n--- Configuring FregsSVGRenderer ---");
     console.log("Setting art contracts on SVG Renderer...");
-    await (await svgRenderer.setAllContracts(
+    await sendTx(svgRenderer.setAllContracts(
         artAddresses.background || ethers.ZeroAddress,  // background (0=color rect, 1+=special)
         artAddresses.body || ethers.ZeroAddress,        // body (0=color, 1+=special skins)
         artAddresses.head || ethers.ZeroAddress,        // head (all heads in one router)
         artAddresses.mouth || ethers.ZeroAddress,       // mouth (all mouths in one router)
         artAddresses.stomach || ethers.ZeroAddress      // stomach (all stomachs in one router)
-    )).wait();
+    ));
     console.log("Art contracts configured!");
 
     // Set base trait counts for mint randomization
     if (artAddresses.baseTraitCounts) {
         console.log("Setting base trait counts...");
-        await (await svgRenderer.setAllBaseTraitCounts(
+        await sendTx(svgRenderer.setAllBaseTraitCounts(
             artAddresses.baseTraitCounts.head || 0,
             artAddresses.baseTraitCounts.mouth || 0,
             artAddresses.baseTraitCounts.stomach || 0
-        )).wait();
+        ));
         console.log("Base trait counts configured!");
     }
 
     // Set SVG Renderer on Fregs
     console.log("Setting SVG Renderer on Fregs...");
-    await (await fregs.setSVGRenderer(svgRendererAddress)).wait();
+    await sendTx(fregs.setSVGRenderer(svgRendererAddress));
     console.log("SVG Renderer set on Fregs!");
 
     // Set Items SVG Renderer on FregsItems
     if (artAddresses.items) {
         console.log("Setting SVG Renderer on FregsItems...");
-        await (await fregsItems.setSVGRenderer(artAddresses.items)).wait();
+        await sendTx(fregsItems.setSVGRenderer(artAddresses.items));
         console.log("SVG Renderer set on FregsItems!");
     }
 

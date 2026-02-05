@@ -9,6 +9,7 @@ import {
 } from "./ui/dialog"
 import { Button } from "./ui/button"
 import { CheckCircle, XCircle } from "lucide-react"
+import LoadingSpinner from "./LoadingSpinner"
 
 interface ResultModalProps {
   isOpen: boolean
@@ -16,6 +17,7 @@ interface ResultModalProps {
   title: string
   description?: string
   success: boolean
+  loading?: boolean
   children?: React.ReactNode
 }
 
@@ -25,14 +27,19 @@ export default function ResultModal({
   title,
   description,
   success,
+  loading = false,
   children,
 }: ResultModalProps): React.JSX.Element {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !loading && onClose()}>
       <DialogContent className="bg-black/95 border-2 border-lime-400 rounded-2xl max-w-md">
         <DialogHeader className="text-center">
           <div className="flex justify-center mb-4">
-            {success ? (
+            {loading ? (
+              <div className="w-16 h-16 flex items-center justify-center">
+                <LoadingSpinner size="lg" />
+              </div>
+            ) : success ? (
               <CheckCircle className="w-16 h-16 text-lime-400" />
             ) : (
               <XCircle className="w-16 h-16 text-red-400" />
@@ -40,7 +47,7 @@ export default function ResultModal({
           </div>
           <DialogTitle
             className={`font-bangers text-3xl text-center ${
-              success ? "text-lime-400" : "text-red-400"
+              loading ? "text-lime-400" : success ? "text-lime-400" : "text-red-400"
             }`}
           >
             {title}
@@ -54,18 +61,20 @@ export default function ResultModal({
 
         {children && <div className="py-4">{children}</div>}
 
-        <DialogFooter className="sm:justify-center">
-          <Button
-            onClick={onClose}
-            className={`font-bangers text-xl px-8 py-3 rounded-xl ${
-              success
-                ? "bg-lime-500 hover:bg-lime-400 text-black"
-                : "bg-red-500 hover:bg-red-400 text-white"
-            }`}
-          >
-            {success ? "Awesome!" : "Close"}
-          </Button>
-        </DialogFooter>
+        {!loading && (
+          <DialogFooter className="sm:justify-center">
+            <Button
+              onClick={onClose}
+              className={`font-bangers text-xl px-8 py-3 rounded-xl ${
+                success
+                  ? "bg-lime-500 hover:bg-lime-400 text-black"
+                  : "bg-red-500 hover:bg-red-400 text-white"
+              }`}
+            >
+              {success ? "Awesome!" : "Close"}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   )

@@ -1,4 +1,5 @@
-import React, { useState } from "react"
+import React, { useState, useCallback } from "react"
+import { flushSync } from "react-dom"
 import { useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
@@ -184,11 +185,18 @@ export default function UseItemsSection(): React.JSX.Element {
         return null
     }
 
-    const handleConfirmApply = async () => {
+    const handleConfirmApply = useCallback(async () => {
         if (!contracts || !selectedKitty || !selectedItem) return
 
-        setShowConfirmModal(false)
-        setIsApplying(true)
+        // Use flushSync to ensure modal renders immediately before wallet popup
+        flushSync(() => {
+            setShowConfirmModal(false)
+            setIsApplying(true)
+            setModalData({ success: false, message: "" })
+            setResultKitty(null)
+            setShowResultModal(true)
+        })
+
         try {
             const contract = await contracts.items.write()
             let tx
@@ -258,16 +266,19 @@ export default function UseItemsSection(): React.JSX.Element {
             setModalData({ success: true, message: `${selectedItem.name} applied to Freg #${selectedKitty.tokenId}!` })
             setSelectedKitty(null)
             setSelectedItem(null)
-            refetchKitties()
-            refetchItems()
+
+            // Refresh data - await to ensure completion
+            await Promise.all([
+                refetchKitties(),
+                refetchItems()
+            ])
         } catch (err: any) {
             setResultKitty(null)
             setModalData({ success: false, message: err.message || "Failed to apply item" })
         } finally {
             setIsApplying(false)
-            setShowResultModal(true)
         }
-    }
+    }, [contracts, selectedKitty, selectedItem, newColor, refetchKitties, refetchItems])
 
     const canApply = selectedKitty && selectedItem &&
         (selectedItem.itemType !== ITEM_TYPES.COLOR_CHANGE || isValidHexColor(newColor))
@@ -598,11 +609,12 @@ export default function UseItemsSection(): React.JSX.Element {
                     setShowResultModal(false)
                     setResultKitty(null)
                 }}
-                title={modalData.success ? "Item Applied!" : "Error"}
-                description={modalData.success ? undefined : modalData.message}
+                title={isApplying ? "Applying..." : modalData.success ? "Item Applied!" : "Error"}
+                description={isApplying ? "Please wait while your item is being applied" : modalData.success ? undefined : modalData.message}
                 success={modalData.success}
+                loading={isApplying}
             >
-                {modalData.success && resultKitty && (
+                {!isApplying && modalData.success && resultKitty && (
                     <div className="flex justify-center">
                         <div className="overflow-hidden rounded-xl bg-white" style={{ aspectRatio: '617.49 / 644.18', width: '256px' }}>
                             <KittyRenderer

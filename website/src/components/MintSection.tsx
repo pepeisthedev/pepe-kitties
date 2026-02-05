@@ -128,10 +128,12 @@ export default function MintSection(): React.JSX.Element {
             const kitty = parseFregMintedEvent(receipt)
             setMintedKitty(kitty)
             setMintStatus('success')
-            // Refresh all relevant data
-            refetch()
-            refetchKitties()
-            refetchUnclaimed()
+            // Refresh all relevant data - await to ensure completion
+            await Promise.all([
+                refetch(),
+                refetchKitties(),
+                refetchUnclaimed()
+            ])
         } catch (err: any) {
             setErrorMessage(err.message || "Minting failed")
             setMintStatus('error')

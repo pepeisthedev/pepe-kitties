@@ -1,4 +1,5 @@
-import React, { useState } from "react"
+import React, { useState, useCallback } from "react"
+import { flushSync } from "react-dom"
 import { useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
@@ -20,6 +21,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
 
     const [claimingId, setClaimingId] = useState<number | null>(null)
     const [showModal, setShowModal] = useState(false)
+    const [isModalLoading, setIsModalLoading] = useState(false)
     const [modalData, setModalData] = useState<{ success: boolean; message: string; itemType?: number; itemTokenId?: number }>({ success: false, message: "" })
 
     const parseItemClaimedEvent = (receipt: any) => {
@@ -55,10 +57,17 @@ export default function ClaimItemsSection(): React.JSX.Element {
         return itemClaimedResult || treasureChestResult || null
     }
 
-    const handleClaim = async (kittyId: number) => {
+    const handleClaim = useCallback(async (kittyId: number) => {
         if (!contracts) return
 
-        setClaimingId(kittyId)
+        // Use flushSync to ensure modal renders immediately before wallet popup
+        flushSync(() => {
+            setClaimingId(kittyId)
+            setIsModalLoading(true)
+            setModalData({ success: false, message: "" })
+            setShowModal(true)
+        })
+
         try {
             const contract = await contracts.items.write()
             // Manually specify gas to avoid MetaMask gas estimation issues on localhost
@@ -70,26 +79,26 @@ export default function ClaimItemsSection(): React.JSX.Element {
             const isBeadPunk = claimedItem?.itemType === ITEM_TYPES.BEAD_PUNK
             const itemName = claimedItem ? (ITEM_TYPE_NAMES[claimedItem.itemType] || "Item") : "Item"
 
-            const newModalData = {
+            setModalData({
                 success: true,
                 message: isBeadPunk ? "Congratz, you got a Beadpunk!" : `You got a ${itemName}!`,
                 itemType: claimedItem?.itemType,
                 itemTokenId: claimedItem?.itemTokenId
-            }
-            console.log("Setting modal data:", newModalData)
-            setModalData(newModalData)
+            })
 
-            // Refresh all relevant data
-            refetch()
-            refetchItems()
-            refetchKitties()
+            // Refresh all relevant data - await to ensure completion
+            await Promise.all([
+                refetch(),
+                refetchItems(),
+                refetchKitties()
+            ])
         } catch (err: any) {
             setModalData({ success: false, message: err.shortMessage || err.message || "Claim failed" })
         } finally {
             setClaimingId(null)
-            setShowModal(true)
+            setIsModalLoading(false)
         }
-    }
+    }, [contracts, refetch, refetchItems, refetchKitties])
 
     // Calculate percentages from weights
     const totalWeight = 10000
@@ -202,11 +211,12 @@ export default function ClaimItemsSection(): React.JSX.Element {
             <ResultModal
                 isOpen={showModal}
                 onClose={() => setShowModal(false)}
-                title={modalData.success ? (modalData.itemType === ITEM_TYPES.BEAD_PUNK ? "Rare Drop!" : "Item Claimed!") : "Error"}
-                description={modalData.success ? `You got a ${ITEM_TYPE_NAMES[modalData.itemType!] || "Item"}!` : modalData.message}
+                title={isModalLoading ? "Claiming..." : modalData.success ? (modalData.itemType === ITEM_TYPES.BEAD_PUNK ? "Rare Drop!" : "Item Claimed!") : "Error"}
+                description={isModalLoading ? "Please wait while your item is being claimed" : modalData.success ? `You got a ${ITEM_TYPE_NAMES[modalData.itemType!] || "Item"}!` : modalData.message}
                 success={modalData.success}
+                loading={isModalLoading}
             >
-                {modalData.success && modalData.itemType !== undefined && modalData.itemTokenId !== undefined && (
+                {!isModalLoading && modalData.success && modalData.itemType !== undefined && modalData.itemTokenId !== undefined && (
                     <div className="flex justify-center">
                         <ItemCard
                             tokenId={modalData.itemTokenId}
