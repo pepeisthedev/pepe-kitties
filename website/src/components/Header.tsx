@@ -179,7 +179,9 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                         className={`md:hidden p-2 rounded-lg transition-colors ${
                             isLanding
                                 ? "text-white hover:bg-white/20"
-                                : "text-lime-400 hover:bg-lime-400/20"
+                                : theme === 'dark'
+                                    ? "text-lime-400 hover:bg-lime-400/20"
+                                    : "text-orange-700 hover:bg-orange-700/20"
                         }`}
                     >
                         {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -192,7 +194,11 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                 className={`md:hidden overflow-hidden transition-all duration-300 ease-out ${
                     mobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
                 } ${
-                    isLanding ? 'bg-white/10 backdrop-blur-md' : 'bg-black/90 border-t border-lime-400/30'
+                    isLanding
+                        ? 'bg-white/10 backdrop-blur-md'
+                        : theme === 'dark'
+                            ? 'bg-black/90 border-t border-lime-400/30'
+                            : 'bg-[#e8b078] border-t border-orange-700/30'
                 }`}
             >
                 <nav>
@@ -206,11 +212,27 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                             className={`w-full text-left px-6 py-4 font-righteous text-xl transition-colors border-b ${
                                 mobileMenuOpen ? 'animate-menu-item-bounce' : 'opacity-0 translate-x-[-30px]'
                             } ${
-                                isLanding ? 'border-white/20' : 'border-lime-400/20'
+                                isLanding
+                                    ? 'border-white/20'
+                                    : theme === 'dark'
+                                        ? 'border-lime-400/20'
+                                        : 'border-orange-700/20'
                             } ${
                                 activeSection === item.id
-                                    ? (isLanding ? "text-white bg-white/10" : (item.id === "admin" ? "text-orange-400 bg-orange-400/10" : "text-lime-400 bg-lime-400/10"))
-                                    : (isLanding ? "text-white hover:text-white/70 hover:bg-white/5" : (item.id === "admin" ? "text-orange-400 hover:text-orange-300 hover:bg-orange-400/5" : "text-white hover:text-lime-400 hover:bg-lime-400/5"))
+                                    ? (isLanding
+                                        ? "text-white bg-white/10"
+                                        : (item.id === "admin"
+                                            ? "text-orange-400 bg-orange-400/10"
+                                            : theme === 'dark'
+                                                ? "text-lime-400 bg-lime-400/10"
+                                                : "text-orange-800 bg-orange-700/10"))
+                                    : (isLanding
+                                        ? "text-white hover:text-white/70 hover:bg-white/5"
+                                        : (item.id === "admin"
+                                            ? "text-orange-400 hover:text-orange-300 hover:bg-orange-400/5"
+                                            : theme === 'dark'
+                                                ? "text-white hover:text-lime-400 hover:bg-lime-400/5"
+                                                : "text-orange-900 hover:text-orange-700 hover:bg-orange-700/5"))
                             }`}
                         >
                             {item.label}
@@ -230,8 +252,12 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                                 mobileMenuOpen ? 'animate-menu-item-bounce' : 'opacity-0 translate-x-[-30px]'
                             } ${
                                 isConnected
-                                    ? "text-lime-400 bg-lime-400/10"
-                                    : "text-white hover:text-lime-400 hover:bg-lime-400/5"
+                                    ? theme === 'dark'
+                                        ? "text-lime-400 bg-lime-400/10"
+                                        : "text-orange-700 bg-orange-700/10"
+                                    : theme === 'dark'
+                                        ? "text-white hover:text-lime-400 hover:bg-lime-400/5"
+                                        : "text-orange-900 hover:text-orange-700 hover:bg-orange-700/5"
                             }`}
                         >
                             <Wallet className="w-5 h-5" />
@@ -250,7 +276,11 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
                             }}
                             className={`w-full text-left px-6 py-4 font-righteous text-lg transition-colors flex items-center gap-3 ${
                                 mobileMenuOpen ? 'animate-menu-item-bounce' : 'opacity-0 translate-x-[-30px]'
-                            } text-white hover:text-lime-400 hover:bg-lime-400/5`}
+                            } ${
+                                theme === 'dark'
+                                    ? "text-white hover:text-lime-400 hover:bg-lime-400/5"
+                                    : "text-orange-900 hover:text-orange-700 hover:bg-orange-700/5"
+                            }`}
                         >
                             {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                             {theme === "dark" ? "Light Mode" : "Dark Mode"}
