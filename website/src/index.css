@@ -203,7 +203,7 @@ body {
   min-height: 100vh;
   font-family: 'Righteous', 'Arial Black', 'Helvetica', 'Arial', sans-serif;
   font-weight: 600;
-  background: linear-gradient(135deg, #134e4a 0%, #064e3b 25%, #14532d 50%, #1a2e05 100%);
+  background: linear-gradient(135deg, #134e4a 0%, #064e3b 25%, #14532d 50%, #1a2e05 100%);    
   background-attachment: fixed;
 }
 

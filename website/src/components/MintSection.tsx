@@ -3,9 +3,8 @@ import { useAppKitAccount, useAppKit } from "@reown/appkit/react"
 import { parseEther } from "ethers"
 import Section from "./Section"
 import { Button } from "./ui/button"
-import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
-import { Sparkles, Zap, Palette, CheckCircle, XCircle, Gift } from "lucide-react"
+import { Sparkles, Palette, CheckCircle, XCircle, Gift } from "lucide-react"
 import { useContractData, useContracts, useOwnedKitties, useUnclaimedKitties } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import KittyRenderer from "./KittyRenderer"
@@ -160,213 +159,192 @@ export default function MintSection(): React.JSX.Element {
     }
 
     return (
-        <Section id="mint">
+        <Section id="mint" wide>
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400  mb-4">
+                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 mb-4">
                     MINT YOUR FREG
                 </h2>
-
             </div>
 
-            <div className="grid md:grid-cols-2 gap-8 items-stretch">
-                {/* NFT Preview Card */}
-                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl overflow-hidden backdrop-blur-sm hover:border-lime-300 transition-colors duration-300 h-full flex flex-col">
-                    <CardContent className="p-8 flex-1 flex flex-col justify-center">
-                        <div className="relative rounded-2xl overflow-hidden bg-white border-0 border-dashed border-lime-400/30 flex items-center justify-center" style={{ aspectRatio: '617.49 / 644.18' }}>
-                            <KittyRenderer
-                                bodyColor={skinColor}
-                                hideTraits
-                                size="sm"
-                                className="w-full h-full"
-                            />
-                        </div>
-
-
-                    </CardContent>
-                </Card>
+            <div className="grid md:grid-cols-2 gap-8 items-stretch min-h-[500px]">
+                {/* NFT Preview */}
+                <div className="flex items-center justify-center">
+                    <div className="w-full max-w-lg relative rounded-3xl overflow-hidden" style={{ aspectRatio: '617.49 / 644.18' }}>
+                        <KittyRenderer
+                            bodyColor={skinColor}
+                            hideTraits
+                            size="sm"
+                            className="w-full h-full"
+                        />
+                    </div>
+                </div>
 
                 {/* Mint Controls */}
-                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl backdrop-blur-sm h-full flex flex-col">
-                    <CardContent className="p-8 space-y-6 flex-1">
-                            {/* Price Display */}
-                            <div className="text-center">
-                                <p className="font-righteous text-white/70 text-lg mb-2">
-                                    Price
-                                </p>
-                                <div className="font-bangers text-4xl text-lime-400">
-                                    {dataLoading ? (
-                                        <LoadingSpinner size="sm" />
-                                    ) : hasMintPass ? (
-                                        <div className="flex flex-col items-center gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <Gift className="w-8 h-8" />
-                                                <span>FREE</span>
-                                            </div>
-                                            <span className="text-base text-white/60 font-righteous">
-                                                with Mint Pass ({mintPassCount} remaining)
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        <span className="animate-count-up">{contractData?.mintPrice || "0"} ETH</span>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Skin Color Selector */}
-                            <div className="border-t border-white/20 pt-6">
-                                <div className="flex items-center justify-center gap-2 mb-4">
-                                    <Palette className="w-5 h-5 text-lime-400" />
-                                    <p className="font-righteous text-white/70 text-lg">Select Skin Color</p>
-                                </div>
-
-                                {/* Hue Slider */}
-                                <div className="mb-4">
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max="360"
-                                        value={hue}
-                                        onChange={(e) => setHue(Number(e.target.value))}
-                                        className="w-full h-4 rounded-full appearance-none cursor-pointer"
-                                        style={{
-                                            background: `linear-gradient(to right,
-                                                hsl(0, 100%, 50%),
-                                                hsl(60, 100%, 50%),
-                                                hsl(120, 100%, 50%),
-                                                hsl(180, 100%, 50%),
-                                                hsl(240, 100%, 50%),
-                                                hsl(300, 100%, 50%),
-                                                hsl(360, 100%, 50%)
-                                            )`,
-                                        }}
-                                    />
-                                    <style>{`
-                                        input[type="range"]::-webkit-slider-thumb {
-                                            appearance: none;
-                                            width: 24px;
-                                            height: 24px;
-                                            border-radius: 50%;
-                                            background: white;
-                                            border: 3px solid #000;
-                                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-                                            cursor: pointer;
-                                        }
-                                        input[type="range"]::-moz-range-thumb {
-                                            width: 24px;
-                                            height: 24px;
-                                            border-radius: 50%;
-                                            background: white;
-                                            border: 3px solid #000;
-                                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-                                            cursor: pointer;
-                                        }
-                                    `}</style>
-                                </div>
-
-                                {/* Color Palette */}
-                                <div className="grid grid-cols-6 gap-2 mb-4">
-                                    {paletteColors.map((hex, index) => (
-                                        <button
-                                            key={`${hue}-${index}`}
-                                            onClick={() => setSkinColor(hex)}
-                                            className={`
-                                                w-full aspect-square rounded-lg transition-all duration-200
-                                                hover:scale-110 hover:z-10 relative
-                                                ${skinColor === hex
-                                                    ? "ring-4 ring-white ring-offset-2 ring-offset-black/40 scale-110 z-10"
-                                                    : "ring-1 ring-white/20"
-                                                }
-                                            `}
-                                            style={{ backgroundColor: hex }}
-                                            title={hex}
-                                        />
-                                    ))}
-                                </div>
-
-                                {/* Color Preview & Input */}
-                                <div className="flex items-center gap-4 bg-black/30 rounded-xl p-4">
-                                    {/* Color Preview */}
-                                    <div
-                                        className="w-16 h-16 rounded-xl border-4 border-white/30 shadow-lg flex-shrink-0"
-                                        style={{ backgroundColor: isValidHexColor(skinColor) ? skinColor : "#000000" }}
-                                    />
-
-                                    {/* Hex Input */}
-                                    <div className="flex-1">
-                                        <label className="font-righteous text-white/50 text-xs block mb-1">
-                                            Hex Color Value
-                                        </label>
-                                        <Input
-                                            type="text"
-                                            value={skinColor}
-                                            onChange={(e) => handleColorInput(e.target.value)}
-                                            placeholder="#7CB342"
-                                            className={`
-                                                font-mono text-lg bg-black/50 border-2
-                                                ${isValidHexColor(skinColor)
-                                                    ? "border-lime-400/50 text-lime-400"
-                                                    : "border-red-400/50 text-red-400"
-                                                }
-                                            `}
-                                            maxLength={7}
-                                        />
-                                        {!isValidHexColor(skinColor) && skinColor.length > 0 && (
-                                            <p className="text-red-400 text-xs mt-1 font-righteous">
-                                                Enter valid hex color (e.g., #7CB342)
-                                            </p>
-                                        )}
+                <div className="space-y-8 flex flex-col justify-center">
+                    {/* Price Display */}
+                    <div className="text-center">
+                        <p className="font-righteous text-white/70 text-lg mb-2">Price</p>
+                        <div className="font-bangers text-5xl text-lime-400">
+                            {dataLoading ? (
+                                <LoadingSpinner size="sm" />
+                            ) : hasMintPass ? (
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <Gift className="w-8 h-8" />
+                                        <span>FREE</span>
                                     </div>
+                                    <span className="text-base text-white/60 font-righteous">
+                                        with Mint Pass ({mintPassCount} remaining)
+                                    </span>
                                 </div>
-                            </div>
-
-                            {/* Mint Button */}
-                            <Button
-                                onClick={handleMint}
-                                disabled={(isConnected && !isValidHexColor(skinColor)) || mintStatus !== 'idle'}
-                                className="w-full py-6 rounded-2xl font-bangers text-2xl
-                                    bg-lime-500 hover:bg-lime-400
-                                    text-black border-4 border-lime-300
-                                    transform hover:scale-105 transition-all duration-300
-                                    shadow-lg hover:shadow-lime-400/50
-                                    disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                            >
-                                {hasMintPass ? (
-                                    <>
-                                        <Gift className="w-6 h-6 mr-2" />
-                                        {isConnected ? "MINT FREE!" : "CONNECT TO MINT"}
-                                    </>
-                                ) : (
-                                    <>
-                                        <Sparkles className="w-6 h-6 mr-2" />
-                                        {isConnected ? `MINT (${contractData?.mintPrice || "0"} ETH)` : "CONNECT TO MINT"}
-                                        <Zap className="w-6 h-6 ml-2" />
-                                    </>
-                                )}
-                            </Button>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mt-8 max-w-md mx-auto md:max-w-none md:grid-cols-6">
-                {dataLoading ? (
-                    <div className="col-span-3 md:col-span-6 flex justify-center">
-                        <LoadingSpinner message="Loading stats..." />
+                            ) : (
+                                <span className="animate-count-up">{contractData?.mintPrice || "0"} ETH</span>
+                            )}
+                        </div>
                     </div>
-                ) : (
-                    [
-                        { label: "Total Supply", value: contractData?.supply?.toLocaleString() || "0" },
-                        { label: "Minted", value: contractData?.totalMinted?.toLocaleString() || "0" },
-                        { label: "Remaining", value: ((contractData?.supply || 0) - (contractData?.totalMinted || 0)).toLocaleString() },
-                    ].map((stat, i) => (
-                        <Card key={i} className="bg-black/30 border-2 border-lime-400 rounded-xl backdrop-blur-sm md:col-span-2">
-                            <CardContent className="p-4 text-center">
-                                <p className="font-righteous text-white/60 text-xs">{stat.label}</p>
-                                <p className="font-bangers text-xl text-lime-400">{stat.value}</p>
-                            </CardContent>
-                        </Card>
-                    ))
-                )}
+
+                    {/* Skin Color Selector */}
+                    <div>
+                        <div className="flex items-center justify-center gap-2 mb-4">
+                            <Palette className="w-5 h-5 text-lime-400" />
+                            <p className="font-righteous text-white/70 text-lg">Select Skin Color</p>
+                        </div>
+
+                        {/* Hue Slider */}
+                        <div className="mb-4">
+                            <input
+                                type="range"
+                                min="0"
+                                max="360"
+                                value={hue}
+                                onChange={(e) => setHue(Number(e.target.value))}
+                                className="w-full h-4 rounded-full appearance-none cursor-pointer"
+                                style={{
+                                    background: `linear-gradient(to right,
+                                        hsl(0, 100%, 50%),
+                                        hsl(60, 100%, 50%),
+                                        hsl(120, 100%, 50%),
+                                        hsl(180, 100%, 50%),
+                                        hsl(240, 100%, 50%),
+                                        hsl(300, 100%, 50%),
+                                        hsl(360, 100%, 50%)
+                                    )`,
+                                }}
+                            />
+                            <style>{`
+                                input[type="range"]::-webkit-slider-thumb {
+                                    appearance: none;
+                                    width: 24px;
+                                    height: 24px;
+                                    border-radius: 50%;
+                                    background: white;
+                                    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                                    cursor: pointer;
+                                }
+                                input[type="range"]::-moz-range-thumb {
+                                    width: 24px;
+                                    height: 24px;
+                                    border-radius: 50%;
+                                    background: white;
+                                    border: none;
+                                    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                                    cursor: pointer;
+                                }
+                            `}</style>
+                        </div>
+
+                        {/* Color Palette */}
+                        <div className="grid grid-cols-6 gap-3 mb-6">
+                            {paletteColors.map((hex, index) => (
+                                <button
+                                    key={`${hue}-${index}`}
+                                    onClick={() => setSkinColor(hex)}
+                                    className={`
+                                        aspect-square rounded-lg transition-all duration-200 min-h-[48px]
+                                        hover:scale-110 hover:z-10 relative
+                                        ${skinColor === hex
+                                            ? "ring-2 ring-white scale-110 z-10"
+                                            : "opacity-90 hover:opacity-100"
+                                        }
+                                    `}
+                                    style={{ backgroundColor: hex }}
+                                    title={hex}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Hex Input */}
+                        <div className="flex items-center gap-4">
+                            <div
+                                className="w-16 h-16 rounded-xl flex-shrink-0"
+                                style={{ backgroundColor: isValidHexColor(skinColor) ? skinColor : "#000000" }}
+                            />
+                            <Input
+                                type="text"
+                                value={skinColor}
+                                onChange={(e) => handleColorInput(e.target.value)}
+                                placeholder="#7CB342"
+                                className={`
+                                    font-mono text-2xl bg-transparent border-0 border-b-2 rounded-none px-0
+                                    focus-visible:ring-0 focus-visible:ring-offset-0
+                                    ${isValidHexColor(skinColor)
+                                        ? "border-lime-400/50 text-lime-400"
+                                        : "border-red-400/50 text-red-400"
+                                    }
+                                `}
+                                maxLength={7}
+                            />
+                        </div>
+                        {!isValidHexColor(skinColor) && skinColor.length > 0 && (
+                            <p className="text-red-400 text-xs mt-2 font-righteous">
+                                Enter valid hex color (e.g., #7CB342)
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Mint Button */}
+                    <Button
+                        onClick={handleMint}
+                        disabled={(isConnected && !isValidHexColor(skinColor)) || mintStatus !== 'idle'}
+                        className="w-full py-7 rounded-2xl font-bangers text-2xl
+                            bg-lime-500 hover:bg-lime-400
+                            text-black
+                            transform hover:scale-105 transition-all duration-300
+                            shadow-lg hover:shadow-lime-400/30
+                            disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    >
+                        {hasMintPass ? (
+                            <>
+                                <Gift className="w-6 h-6 mr-2" />
+                                {isConnected ? "MINT FREE!" : "CONNECT TO MINT"}
+                            </>
+                        ) : (
+                            <>
+                                <Sparkles className="w-6 h-6 mr-2" />
+                                {isConnected ? `MINT (${contractData?.mintPrice || "0"} ETH)` : "CONNECT TO MINT"}
+                            </>
+                        )}
+                    </Button>
+
+                    {/* Stats - inline */}
+                    <div className="flex justify-center gap-12 text-center pt-6">
+                        {dataLoading ? (
+                            <LoadingSpinner size="sm" />
+                        ) : (
+                            <>
+                                <div>
+                                    <p className="font-bangers text-4xl text-lime-400">{contractData?.totalMinted?.toLocaleString() || "0"}</p>
+                                    <p className="font-righteous text-white/60 text-base">Minted</p>
+                                </div>
+                                <div className="text-white/30 text-3xl self-center">/</div>
+                                <div>
+                                    <p className="font-bangers text-4xl text-white/80">{contractData?.supply?.toLocaleString() || "0"}</p>
+                                    <p className="font-righteous text-white/60 text-base">Supply</p>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Mint Modal */}

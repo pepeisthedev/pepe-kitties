@@ -5,12 +5,14 @@ interface SectionProps {
     id?: string
     className?: string
     children: React.ReactNode
+    wide?: boolean
 }
 
 export default function Section({
     id,
     className,
     children,
+    wide = false,
 }: SectionProps): React.JSX.Element {
     return (
         <section
@@ -23,7 +25,10 @@ export default function Section({
             )}
         >
             <div className="flex-1 overflow-y-auto px-4 md:px-8 py-8">
-                <div className="max-w-6xl mx-auto relative z-10">
+                <div className={cn(
+                    "mx-auto relative z-10",
+                    wide ? "max-w-7xl" : "max-w-6xl"
+                )}>
                     {children}
                 </div>
             </div>
