@@ -47,16 +47,16 @@ export default function TreasureChestSection(): React.JSX.Element {
     return (
         <Section id="treasure-chests">
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 mb-4">
+                <h2 className="font-bangers text-5xl md:text-7xl text-theme-primary mb-4">
                     TREASURE CHESTS
                 </h2>
-                <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto mb-2">
+                <p className="font-righteous text-xl md:text-2xl text-theme-muted max-w-2xl mx-auto mb-2">
                     Burn your treasure chest to claim ETH!
                 </p>
                 {contractData && (
-                    <p className="font-righteous text-sm text-white/60">
+                    <p className="font-righteous text-sm text-theme-subtle">
                         {contractData.remainingChests > 0 ? (
-                            <><span className="text-lime-400 font-bold">{contractData.remainingChests}</span> chests still to be found</>
+                            <><span className="text-theme-primary font-bold">{contractData.remainingChests}</span> chests still to be found</>
                         ) : (
                             <span className="text-orange-400">All chests have been found!</span>
                         )}
@@ -65,9 +65,9 @@ export default function TreasureChestSection(): React.JSX.Element {
             </div>
 
             {!isConnected ? (
-                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl">
+                <Card className="bg-theme-card border-4 border-theme rounded-3xl">
                     <CardContent className="p-12 text-center">
-                        <p className="font-righteous text-xl text-white/70">
+                        <p className="font-righteous text-xl text-theme-muted">
                             Connect your wallet to view your treasure chests
                         </p>
                     </CardContent>
@@ -77,10 +77,10 @@ export default function TreasureChestSection(): React.JSX.Element {
                     <LoadingSpinner size="lg" message="Loading chests..." />
                 </div>
             ) : chests.length === 0 ? (
-                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl">
+                <Card className="bg-theme-card border-4 border-theme rounded-3xl">
                     <CardContent className="p-12 text-center">
-                        <p className="font-bangers text-3xl text-white/70 mb-4">No Treasure Chests</p>
-                        <p className="font-righteous text-lg text-white/50">
+                        <p className="font-bangers text-3xl text-theme-muted mb-4">No Treasure Chests</p>
+                        <p className="font-righteous text-lg text-theme-subtle">
                             Treasure chests are ultra-rare drops when claiming items from your Fregs!
                         </p>
                     </CardContent>
@@ -96,7 +96,7 @@ export default function TreasureChestSection(): React.JSX.Element {
                                     className="w-full h-full object-contain"
                                 />
                             </div>
-                            <p className="font-bangers text-2xl text-lime-400 mb-3">
+                            <p className="font-bangers text-2xl text-theme-primary mb-3">
                                 Chest #{chest.tokenId}
                             </p>
                             <Button

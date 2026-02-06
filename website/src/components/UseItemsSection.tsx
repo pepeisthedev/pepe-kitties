@@ -286,104 +286,103 @@ export default function UseItemsSection(): React.JSX.Element {
     return (
         <Section id="use-items">
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400  mb-4">
+                <h2 className="font-bangers text-5xl md:text-7xl text-theme-primary mb-4">
                     USE ITEMS
                 </h2>
-                <p className="font-righteous text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
+                <p className="font-righteous text-xl md:text-2xl text-theme-muted max-w-2xl mx-auto">
                     Select a Freg and an item to combine them!
                 </p>
             </div>
 
             {!isConnected ? (
-                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl">
+                <Card className="bg-theme-card border-4 border-theme rounded-3xl">
                     <CardContent className="p-12 text-center">
-                        <p className="font-righteous text-xl text-white/70">
+                        <p className="font-righteous text-xl text-theme-muted">
                             Connect your wallet to use items
                         </p>
                     </CardContent>
                 </Card>
             ) : (
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="flex flex-col md:flex-row gap-6">
                     {/* Kitties Panel */}
-                    <Card className="bg-black/40 border-2 border-lime-400 rounded-2xl">
-                        <CardContent className="p-4">
-                            <p className="font-bangers text-xl text-lime-400 mb-4 text-center">
-                                Select a Freg
+                    <div className="flex-1">
+                        <p className="font-bangers text-xl text-theme-primary mb-4 text-center">
+                            Select a Freg
+                        </p>
+                        {kittiesLoading ? (
+                            <div className="flex justify-center py-8">
+                                <LoadingSpinner message="Loading kitties..." />
+                            </div>
+                        ) : kitties.length === 0 ? (
+                            <p className="text-white/50 text-center py-8 font-righteous">
+                                No kitties owned
                             </p>
-                            {kittiesLoading ? (
-                                <div className="flex justify-center py-8">
-                                    <LoadingSpinner message="Loading kitties..." />
-                                </div>
-                            ) : kitties.length === 0 ? (
-                                <p className="text-white/50 text-center py-8 font-righteous">
-                                    No kitties owned
-                                </p>
-                            ) : (
-                                <div className="grid grid-cols-4 gap-3 overflow-hidden">
-                                    {kitties.map((kitty) => (
-                                        <button
-                                            key={kitty.tokenId}
-                                            onClick={() => setSelectedKitty(kitty)}
-                                            className={`p-2 rounded-xl border-2 transition-all ${
-                                                selectedKitty?.tokenId === kitty.tokenId
-                                                    ? "border-lime-400 ring-2 ring-lime-400"
-                                                    : "border-lime-400/50 hover:border-lime-400"
-                                            }`}
-                                        >
-                                            <div className="overflow-hidden rounded-lg bg-white" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                                <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
-                                            </div>
-                                            <p className="font-bangers text-xs text-white mt-1">#{kitty.tokenId}</p>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                        ) : (
+                            <div className="grid grid-cols-4 gap-4">
+                                {kitties.map((kitty) => (
+                                    <button
+                                        key={kitty.tokenId}
+                                        onClick={() => setSelectedKitty(kitty)}
+                                        className={`p-2 rounded-xl transition-all ${
+                                            selectedKitty?.tokenId === kitty.tokenId
+                                                ? "border-2 border-theme ring-2 ring-theme scale-105"
+                                                : "border-0 hover:scale-102"
+                                        }`}
+                                    >
+                                        <div className="overflow-hidden rounded-lg bg-white" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                            <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
+                                        </div>
+                                        <p className="font-bangers text-xs text-theme mt-1">#{kitty.tokenId}</p>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Vertical Divider */}
+                    <div className="hidden md:block w-[2px] min-h-[200px] self-stretch" style={{ backgroundColor: 'var(--theme-border)', opacity: 0.3 }} />
 
                     {/* Items Panel */}
-                    <Card className="bg-black/40 border-2 border-lime-400 rounded-2xl">
-                        <CardContent className="p-4">
-                            <p className="font-bangers text-xl text-lime-400 mb-4 text-center">
-                                Select an Item
+                    <div className="flex-1">
+                        <p className="font-bangers text-xl text-theme-primary mb-4 text-center">
+                            Select an Item
+                        </p>
+                        {itemsLoading ? (
+                            <div className="flex justify-center py-8">
+                                <LoadingSpinner message="Loading items..." />
+                            </div>
+                        ) : usableItems.length === 0 ? (
+                            <p className="text-theme-subtle text-center py-8 font-righteous">
+                                No items available
                             </p>
-                            {itemsLoading ? (
-                                <div className="flex justify-center py-8">
-                                    <LoadingSpinner message="Loading items..." />
-                                </div>
-                            ) : usableItems.length === 0 ? (
-                                <p className="text-white/50 text-center py-8 font-righteous">
-                                    No items available
-                                </p>
-                            ) : (
-                                <div className="grid grid-cols-4 gap-3 overflow-hidden">
-                                    {usableItems.map((item) => (
-                                        <ItemCard
-                                            key={item.tokenId}
-                                            tokenId={item.tokenId}
-                                            itemType={item.itemType}
-                                            itemName={item.name}
-                                            selected={selectedItem?.tokenId === item.tokenId}
-                                            onClick={() => setSelectedItem(item)}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                        ) : (
+                            <div className="grid grid-cols-4 gap-4">
+                                {usableItems.map((item) => (
+                                    <ItemCard
+                                        key={item.tokenId}
+                                        tokenId={item.tokenId}
+                                        itemType={item.itemType}
+                                        itemName={item.name}
+                                        selected={selectedItem?.tokenId === item.tokenId}
+                                        onClick={() => setSelectedItem(item)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
             {/* Action Panel */}
             {selectedKitty && selectedItem && (
-                <Card className="bg-black/60 border-4 border-lime-400 rounded-3xl mt-8 max-w-2xl mx-auto">
+                <Card className="bg-theme-card border-4 border-theme rounded-3xl mt-8 max-w-2xl mx-auto">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-center gap-8 mb-6">
                             <div className="text-center">
-                                <div className="overflow-hidden rounded-xl bg-white w-40 h-40" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                <div className="overflow-hidden rounded-xl w-40 bg-white" style={{ aspectRatio: '617.49 / 644.18' }}>
                                     <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
                                 </div>
-                                <p className="font-bangers text-lime-400 mt-2">#{selectedKitty.tokenId}</p>
+                                <p className="font-bangers text-theme-primary mt-2">#{selectedKitty.tokenId}</p>
                             </div>
                             <Wand2 className="w-12 h-12 text-yellow-400 animate-pulse" />
                             <div className="text-center">
@@ -391,7 +390,7 @@ export default function UseItemsSection(): React.JSX.Element {
                             </div>
                         </div>
 
-                        <p className="font-righteous text-white/70 text-center mb-4">
+                        <p className="font-righteous text-theme-muted text-center mb-4">
                             {getItemDescription(selectedItem)}
                         </p>
 
@@ -523,7 +522,7 @@ export default function UseItemsSection(): React.JSX.Element {
                         <Button
                             onClick={handleApplyClick}
                             disabled={!canApply || isApplying}
-                            className="w-full py-4 rounded-xl font-bangers text-xl bg-gradient-to-r from-lime-500 to-green-500 hover:from-lime-400 hover:to-green-400 text-black"
+                            className="w-full py-4 rounded-xl font-bangers text-xl btn-theme-primary"
                         >
                             {isApplying ? (
                                 <LoadingSpinner size="sm" message="Applying..." />
@@ -592,7 +591,7 @@ export default function UseItemsSection(): React.JSX.Element {
                                 </Button>
                                 <Button
                                     onClick={handleConfirmApply}
-                                    className="flex-1 py-3 rounded-xl font-bangers text-lg bg-gradient-to-r from-lime-500 to-green-500 hover:from-lime-400 hover:to-green-400 text-black"
+                                    className="flex-1 py-3 rounded-xl font-bangers text-lg btn-theme-primary"
                                 >
                                     Confirm
                                 </Button>

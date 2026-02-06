@@ -108,16 +108,16 @@ export default function MyKittiesSection(): React.JSX.Element {
     return (
         <Section id="my-kitties">
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 mb-4">
+                <h2 className="font-bangers text-5xl md:text-7xl text-theme-primary mb-4">
                     MY FREGS
                 </h2>
-    
+
             </div>
 
             {!isConnected ? (
-                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl">
+                <Card className="bg-theme-card border-4 border-theme rounded-3xl">
                     <CardContent className="p-12 text-center">
-                        <p className="font-righteous text-xl text-white/70">
+                        <p className="font-righteous text-xl text-theme-muted">
                             Connect your wallet to see your Fregs
                         </p>
                     </CardContent>
@@ -127,7 +127,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                     <LoadingSpinner size="lg" message="Loading your Fregs..." />
                 </div>
             ) : error ? (
-                <Card className="bg-black/40 border-4 border-red-400 rounded-3xl">
+                <Card className="bg-theme-card border-4 border-red-400 rounded-3xl">
                     <CardContent className="p-12 text-center">
                         <p className="font-righteous text-xl text-red-400">
                             Error loading Fregs: {error}
@@ -135,10 +135,10 @@ export default function MyKittiesSection(): React.JSX.Element {
                     </CardContent>
                 </Card>
             ) : kitties.length === 0 ? (
-                <Card className="bg-black/40 border-4 border-lime-400 rounded-3xl">
+                <Card className="bg-theme-card border-4 border-theme rounded-3xl">
                     <CardContent className="p-12 text-center">
-                        <p className="font-bangers text-3xl text-white/70 mb-4">No Fregs Yet!</p>
-                        <p className="font-righteous text-lg text-white/50">
+                        <p className="font-bangers text-3xl text-theme-muted mb-4">No Fregs Yet!</p>
+                        <p className="font-righteous text-lg text-theme-subtle">
                             Mint your first Freg above to start your collection
                         </p>
                     </CardContent>
@@ -147,26 +147,23 @@ export default function MyKittiesSection(): React.JSX.Element {
                 <>
                     {/* Claim Item Banner */}
                     {claimableCount > 0 && (
-                        <Card className="bg-black/40 border-2 border-lime-400 rounded-2xl mb-6">
-                            <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="mb-8 pb-6 border-b border-theme-muted/20">
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
-                                    <Gift className="w-8 h-8 text-lime-400" />
-                                    <div>
-                                        <p className="font-bangers text-xl text-lime-400">
-                                            {claimableCount} {claimableCount === 1 ? 'Freg' : 'Fregs'} can claim items!
-                                        </p>
-                                        <p className="font-righteous text-sm text-white/60">
-                                            Select a Freg with the gift icon to claim
-                                        </p>
+                                    <div className="p-2 rounded-full bg-theme-primary/20">
+                                        <Gift className="w-6 h-6 text-theme-primary" />
                                     </div>
+                                    <p className="font-bangers text-xl text-theme-primary">
+                                        {claimableCount} {claimableCount === 1 ? 'Freg' : 'Fregs'} can claim items
+                                    </p>
                                 </div>
                                 <Button
                                     onClick={handleClaim}
                                     disabled={!selectedCanClaim || isClaiming}
                                     className={`px-6 py-3 rounded-xl font-bangers text-lg transition-all ${
                                         selectedCanClaim
-                                            ? "bg-lime-500 hover:bg-lime-400 text-black"
-                                            : "bg-gray-600 text-gray-400 cursor-not-allowed"
+                                            ? "btn-theme-primary"
+                                            : "bg-theme-card text-theme-subtle cursor-not-allowed"
                                     }`}
                                 >
                                     {isClaiming ? (
@@ -178,8 +175,8 @@ export default function MyKittiesSection(): React.JSX.Element {
                                         </>
                                     )}
                                 </Button>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     )}
 
                     {/* Kitties Grid */}
@@ -192,20 +189,18 @@ export default function MyKittiesSection(): React.JSX.Element {
                                 <Card
                                     key={kitty.tokenId}
                                     onClick={() => handleKittyClick(kitty.tokenId)}
-                                    className={`bg-black/40 border-2 rounded-2xl transition-all cursor-pointer ${
+                                    className={`bg-transparent rounded-2xl transition-all cursor-pointer ${
                                         isSelected
-                                            ? "border-lime-400 ring-2 ring-lime-400 scale-105"
-                                            : hasClaimable
-                                            ? "border-lime-400/70 hover:border-lime-400"
-                                            : "border-lime-400/50 hover:border-lime-400"
+                                            ? "border-2 border-theme ring-2 ring-theme scale-105"
+                                            : "border-0 hover:scale-102"
                                     }`}
                                 >
                                     <CardContent className="p-4 relative">
                                         {/* Claimable indicator */}
                                         {hasClaimable && (
                                             <div className="absolute top-2 right-2 z-10">
-                                                <div className="bg-lime-500 rounded-full p-1.5 animate-pulse">
-                                                    <Gift className="w-4 h-4 text-black" />
+                                                <div className="bg-theme-primary rounded-full p-1.5 animate-pulse">
+                                                    <Gift className="w-4 h-4 text-theme-button-text" />
                                                 </div>
                                             </div>
                                         )}
@@ -213,19 +208,9 @@ export default function MyKittiesSection(): React.JSX.Element {
                                         <div className="overflow-hidden rounded-lg bg-white mb-3" style={{ aspectRatio: '617.49 / 644.18' }}>
                                             <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
                                         </div>
-                                        <p className="font-bangers text-lg text-lime-400 text-center">
+                                        <p className="font-bangers text-lg text-theme-primary text-center">
                                             #{kitty.tokenId}
                                         </p>
-                                        {kitty.body > 0 && (
-                                            <p className="font-righteous text-xs text-yellow-400 text-center">
-                                                {kitty.body === 1 ? "Bronze" : kitty.body === 2 ? "Silver" : kitty.body === 3 ? "Gold" : "Diamond"} Skin
-                                            </p>
-                                        )}
-                                        {hasClaimable && (
-                                            <p className="font-righteous text-xs text-lime-400 text-center mt-1">
-                                                Can claim item!
-                                            </p>
-                                        )}
                                     </CardContent>
                                 </Card>
                             )

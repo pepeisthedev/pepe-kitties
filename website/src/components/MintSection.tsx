@@ -161,7 +161,7 @@ export default function MintSection(): React.JSX.Element {
     return (
         <Section id="mint" wide>
             <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-lime-400 mb-4">
+                <h2 className="font-bangers text-5xl md:text-7xl text-theme-primary mb-4">
                     MINT YOUR FREG
                 </h2>
             </div>
@@ -183,8 +183,8 @@ export default function MintSection(): React.JSX.Element {
                 <div className="space-y-8 flex flex-col justify-center">
                     {/* Price Display */}
                     <div className="text-center">
-                        <p className="font-righteous text-white/70 text-lg mb-2">Price</p>
-                        <div className="font-bangers text-5xl text-lime-400">
+                        <p className="font-righteous text-theme-muted text-lg mb-2">Price</p>
+                        <div className="font-bangers text-5xl text-theme-primary">
                             {dataLoading ? (
                                 <LoadingSpinner size="sm" />
                             ) : hasMintPass ? (
@@ -193,7 +193,7 @@ export default function MintSection(): React.JSX.Element {
                                         <Gift className="w-8 h-8" />
                                         <span>FREE</span>
                                     </div>
-                                    <span className="text-base text-white/60 font-righteous">
+                                    <span className="text-base text-theme-subtle font-righteous">
                                         with Mint Pass ({mintPassCount} remaining)
                                     </span>
                                 </div>
@@ -206,8 +206,8 @@ export default function MintSection(): React.JSX.Element {
                     {/* Skin Color Selector */}
                     <div>
                         <div className="flex items-center justify-center gap-2 mb-4">
-                            <Palette className="w-5 h-5 text-lime-400" />
-                            <p className="font-righteous text-white/70 text-lg">Select Skin Color</p>
+                            <Palette className="w-5 h-5 text-theme-primary" />
+                            <p className="font-righteous text-theme-muted text-lg">Select Skin Color</p>
                         </div>
 
                         {/* Hue Slider */}
@@ -288,7 +288,7 @@ export default function MintSection(): React.JSX.Element {
                                     font-mono text-2xl bg-transparent border-0 border-b-2 rounded-none px-0
                                     focus-visible:ring-0 focus-visible:ring-offset-0
                                     ${isValidHexColor(skinColor)
-                                        ? "border-lime-400/50 text-lime-400"
+                                        ? "border-theme-primary text-theme-primary"
                                         : "border-red-400/50 text-red-400"
                                     }
                                 `}
@@ -307,10 +307,9 @@ export default function MintSection(): React.JSX.Element {
                         onClick={handleMint}
                         disabled={(isConnected && !isValidHexColor(skinColor)) || mintStatus !== 'idle'}
                         className="w-full py-7 rounded-2xl font-bangers text-2xl
-                            bg-lime-500 hover:bg-lime-400
-                            text-black
+                            btn-theme-primary
                             transform hover:scale-105 transition-all duration-300
-                            shadow-lg hover:shadow-lime-400/30
+                            shadow-lg
                             disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                     >
                         {hasMintPass ? (
@@ -333,13 +332,13 @@ export default function MintSection(): React.JSX.Element {
                         ) : (
                             <>
                                 <div>
-                                    <p className="font-bangers text-4xl text-lime-400">{contractData?.totalMinted?.toLocaleString() || "0"}</p>
-                                    <p className="font-righteous text-white/60 text-base">Minted</p>
+                                    <p className="font-bangers text-4xl text-theme-primary">{contractData?.totalMinted?.toLocaleString() || "0"}</p>
+                                    <p className="font-righteous text-theme-subtle text-base">Minted</p>
                                 </div>
-                                <div className="text-white/30 text-3xl self-center">/</div>
+                                <div className="text-theme-subtle text-3xl self-center">/</div>
                                 <div>
-                                    <p className="font-bangers text-4xl text-white/80">{contractData?.supply?.toLocaleString() || "0"}</p>
-                                    <p className="font-righteous text-white/60 text-base">Supply</p>
+                                    <p className="font-bangers text-4xl text-theme-muted">{contractData?.supply?.toLocaleString() || "0"}</p>
+                                    <p className="font-righteous text-theme-subtle text-base">Supply</p>
                                 </div>
                             </>
                         )}
@@ -349,7 +348,7 @@ export default function MintSection(): React.JSX.Element {
 
             {/* Mint Modal */}
             <Dialog open={mintStatus !== 'idle'} onOpenChange={(open) => !open && (mintStatus === 'success' || mintStatus === 'error') && closeModal()}>
-                <DialogContent className="bg-black/95 border-2 border-lime-400 rounded-2xl max-w-md">
+                <DialogContent className="bg-theme-card border-2 border-theme rounded-2xl max-w-md">
                     <DialogHeader className="text-center">
                         {/* Pending State - Waiting for wallet */}
                         {mintStatus === 'pending' && (
@@ -357,10 +356,10 @@ export default function MintSection(): React.JSX.Element {
                                 <div className="flex justify-center mb-4">
                                     <LoadingSpinner size="lg" />
                                 </div>
-                                <DialogTitle className="font-bangers text-3xl text-lime-400">
+                                <DialogTitle className="font-bangers text-3xl text-theme-primary">
                                     Confirm Transaction
                                 </DialogTitle>
-                                <DialogDescription className="font-righteous text-white/70 text-base mt-2">
+                                <DialogDescription className="font-righteous text-theme-muted text-base mt-2">
                                     Confirm the transaction in your wallet to mint your Freg
                                 </DialogDescription>
                             </>
@@ -372,10 +371,10 @@ export default function MintSection(): React.JSX.Element {
                                 <div className="flex justify-center mb-4">
                                     <LoadingSpinner size="lg" />
                                 </div>
-                                <DialogTitle className="font-bangers text-3xl text-lime-400">
+                                <DialogTitle className="font-bangers text-3xl text-theme-primary">
                                     Minting...
                                 </DialogTitle>
-                                <DialogDescription className="font-righteous text-white/70 text-base mt-2">
+                                <DialogDescription className="font-righteous text-theme-muted text-base mt-2">
                                     Your Freg is being minted. Please wait...
                                 </DialogDescription>
                             </>
@@ -385,12 +384,12 @@ export default function MintSection(): React.JSX.Element {
                         {mintStatus === 'success' && (
                             <>
                                 <div className="flex justify-center mb-4">
-                                    <CheckCircle className="w-16 h-16 text-lime-400" />
+                                    <CheckCircle className="w-16 h-16 text-theme-primary" />
                                 </div>
-                                <DialogTitle className="font-bangers text-3xl text-lime-400 text-center">
+                                <DialogTitle className="font-bangers text-3xl text-theme-primary text-center">
                                     Success!
                                 </DialogTitle>
-                                <DialogDescription className="font-righteous text-white/70 text-base mt-2 text-center">
+                                <DialogDescription className="font-righteous text-theme-muted text-base mt-2 text-center">
                                     Freg #{mintedKitty?.tokenId ?? '?'} has been minted!
                                 </DialogDescription>
                             </>
@@ -405,7 +404,7 @@ export default function MintSection(): React.JSX.Element {
                                 <DialogTitle className="font-bangers text-3xl text-red-400">
                                     Error
                                 </DialogTitle>
-                                <DialogDescription className="font-righteous text-white/70 text-base mt-2">
+                                <DialogDescription className="font-righteous text-theme-muted text-base mt-2">
                                     {errorMessage}
                                 </DialogDescription>
                             </>
@@ -436,7 +435,7 @@ export default function MintSection(): React.JSX.Element {
                                 onClick={closeModal}
                                 className={`font-bangers text-xl px-8 py-3 rounded-xl ${
                                     mintStatus === 'success'
-                                        ? "bg-lime-500 hover:bg-lime-400 text-black"
+                                        ? "btn-theme-primary"
                                         : "bg-red-500 hover:bg-red-400 text-white"
                                 }`}
                             >

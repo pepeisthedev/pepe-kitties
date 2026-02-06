@@ -20,7 +20,7 @@ export default function Section({
             className={cn(
                 "h-full flex flex-col",
                 "relative overflow-hidden",
-                "bg-black/40",
+                "bg-theme-surface",
                 className
             )}
         >

@@ -119,7 +119,7 @@ export default function KittyRenderer({
       {/* Loading placeholder */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-200 animate-pulse rounded-lg">
-          <div className="w-8 h-8 border-3 border-lime-400 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-3 spinner-theme rounded-full animate-spin" />
         </div>
       )}
 

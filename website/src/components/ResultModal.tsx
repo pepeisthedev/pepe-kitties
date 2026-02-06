@@ -67,7 +67,7 @@ export default function ResultModal({
               onClick={onClose}
               className={`font-bangers text-xl px-8 py-3 rounded-xl ${
                 success
-                  ? "bg-lime-500 hover:bg-lime-400 text-black"
+                  ? "btn-theme-primary"
                   : "bg-red-500 hover:bg-red-400 text-white"
               }`}
             >

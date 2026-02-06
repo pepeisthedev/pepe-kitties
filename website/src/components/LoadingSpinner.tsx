@@ -18,10 +18,10 @@ export default function LoadingSpinner({
   return (
     <div className="flex flex-col items-center justify-center gap-3">
       <div
-        className={`${sizeClasses[size]} border-lime-400 border-t-transparent rounded-full animate-spin`}
+        className={`${sizeClasses[size]} spinner-theme rounded-full animate-spin`}
       />
       {message && (
-        <p className="font-righteous text-white/70 text-sm animate-pulse">
+        <p className="font-righteous text-theme-muted text-sm animate-pulse">
           {message}
         </p>
       )}

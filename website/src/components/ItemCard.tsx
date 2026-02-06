@@ -24,30 +24,6 @@ interface ItemCardProps {
   size?: "sm" | "md" | "lg"
 }
 
-const ITEM_COLORS: Record<number, string> = {
-  [ITEM_TYPES.COLOR_CHANGE]: "border-lime-400/50 bg-black/30",
-  [ITEM_TYPES.HEAD_REROLL]: "border-lime-400/50 bg-black/30",
-  [ITEM_TYPES.BRONZE_SKIN]: "border-amber-600/50 bg-black/30",
-  [ITEM_TYPES.METAL_SKIN]: "border-gray-400/50 bg-black/30",
-  [ITEM_TYPES.GOLD_SKIN]: "border-yellow-400/50 bg-black/30",
-  [ITEM_TYPES.TREASURE_CHEST]: "border-lime-400/50 bg-black/30",
-  [ITEM_TYPES.BEAD_PUNK]: "border-purple-400/50 bg-black/30",
-  [ITEM_TYPES.DIAMOND_SKIN]: "border-cyan-400/50 bg-black/30",
-  [ITEM_TYPES.SPECIAL_DICE]: "border-cyan-400/50 bg-black/30",
-}
-
-const ITEM_SELECTED_COLORS: Record<number, string> = {
-  [ITEM_TYPES.COLOR_CHANGE]: "ring-lime-400",
-  [ITEM_TYPES.HEAD_REROLL]: "ring-lime-400",
-  [ITEM_TYPES.BRONZE_SKIN]: "ring-amber-600",
-  [ITEM_TYPES.METAL_SKIN]: "ring-gray-400",
-  [ITEM_TYPES.GOLD_SKIN]: "ring-yellow-400",
-  [ITEM_TYPES.TREASURE_CHEST]: "ring-lime-400",
-  [ITEM_TYPES.BEAD_PUNK]: "ring-purple-400",
-  [ITEM_TYPES.DIAMOND_SKIN]: "ring-cyan-400",
-  [ITEM_TYPES.SPECIAL_DICE]: "ring-cyan-400",
-}
-
 export default function ItemCard({
   tokenId,
   itemType,
@@ -60,8 +36,6 @@ export default function ItemCard({
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const imgSrc = ITEM_IMAGES[itemType] || `/items/${itemType}.svg`
-  const colorClass = ITEM_COLORS[itemType] || "border-yellow-400/50 bg-black/30"
-  const selectedRingClass = ITEM_SELECTED_COLORS[itemType] || "ring-yellow-400"
   const name = itemName || ITEM_TYPE_NAMES[itemType] || "Unknown Item"
   const description = ITEM_TYPE_DESCRIPTIONS[itemType] || ""
 
@@ -86,9 +60,8 @@ export default function ItemCard({
     <button
       onClick={onClick}
       className={`
-        relative ${sizeClass.padding} rounded-xl border-2 transition-all duration-200
-        ${colorClass}
-        ${selected ? `ring-2 ${selectedRingClass}` : "hover:border-lime-400"}
+        relative ${sizeClass.padding} rounded-xl transition-all duration-200
+        ${selected ? "border-2 border-theme ring-2 ring-theme scale-105" : "border-0 hover:scale-102"}
         ${onClick ? "cursor-pointer" : "cursor-default"}
       `}
     >
@@ -96,7 +69,7 @@ export default function ItemCard({
       <div className={`${sizeClass.icon} mx-auto mb-2 relative`}>
         {isLoading && !hasError && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-700/50 rounded animate-pulse">
-            <div className="w-4 h-4 border-2 border-lime-400 border-t-transparent rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 spinner-theme rounded-full animate-spin" />
           </div>
         )}
         <img
@@ -113,21 +86,21 @@ export default function ItemCard({
       </div>
 
       {/* Item name */}
-      <p className={`font-bangers ${sizeClass.name} text-white text-center`}>{name}</p>
+      <p className={`font-bangers ${sizeClass.name} text-theme text-center`}>{name}</p>
 
       {/* Token ID */}
-      <p className={`font-righteous ${sizeClass.id} text-white/50 text-center`}>#{tokenId}</p>
+      <p className={`font-righteous ${sizeClass.id} text-theme-subtle text-center`}>#{tokenId}</p>
 
       {/* Description */}
       {showDescription && description && (
-        <p className="font-righteous text-xs text-white/60 text-center mt-2">
+        <p className="font-righteous text-xs text-theme-subtle text-center mt-2">
           {description}
         </p>
       )}
 
       {/* Selection indicator */}
       {selected && (
-        <div className="absolute -top-2 -right-2 w-6 h-6 bg-lime-400 rounded-full flex items-center justify-center">
+        <div className="absolute -top-2 -right-2 w-6 h-6 bg-theme-primary rounded-full flex items-center justify-center">
           <span className="text-black font-bold text-sm">✓</span>
         </div>
       )}

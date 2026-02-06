@@ -5,11 +5,10 @@ import MintSection from "./MintSection"
 import MyKittiesSection from "./MyKittiesSection"
 import UseItemsSection from "./UseItemsSection"
 import TreasureChestSection from "./TreasureChestSection"
-import AboutSection from "./AboutSection"
 import AdminSection from "./AdminSection"
 import { useIsOwner } from "../hooks"
 
-export type SectionId = "landing" | "mint" | "my-kitties" | "use-items" | "treasure-chests" | "about" | "admin"
+export type SectionId = "landing" | "mint" | "my-kitties" | "use-items" | "treasure-chests" | "admin"
 
 export default function MainPage(): React.JSX.Element {
     const [activeSection, setActiveSection] = useState<SectionId>("landing")
@@ -27,8 +26,6 @@ export default function MainPage(): React.JSX.Element {
                 return <UseItemsSection />
             case "treasure-chests":
                 return <TreasureChestSection />
-            case "about":
-                return <AboutSection />
             case "admin":
                 return isOwner ? <AdminSection /> : <MintSection />
             default:
