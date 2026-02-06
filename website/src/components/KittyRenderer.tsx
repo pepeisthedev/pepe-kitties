@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react"
 interface KittyRendererProps {
   bodyColor: string
   background?: number  // 0 = use bodyColor, 1+ = special background
-  body?: number        // 0 = use base colorable skin, 1+ = special skin (Diamond=1, Metal=2)
+  body?: number        // 0 = use base colorable skin, 1+ = special skin (Bronze=1, Diamond=2, Metal=3, Gold=4)
   head?: number
   mouth?: number
   stomach?: number
@@ -47,7 +47,8 @@ export default function KittyRenderer({
   }
 
   // Simplified trait system:
-  // body=0 means use base colorable skin (skin/1.svg), body>0 means special skin (Diamond=1→skin/2, Metal=2→skin/3)
+  // body=0 means use base colorable skin (skin/1.svg), body>0 means special skin
+  // Contract mapping: Bronze=1, Diamond=2, Metal=3, Gold=4 → directly maps to skin/{body}.svg
   // Stomach always renders now
   const hasSpecialBody = body > 0
 
@@ -134,7 +135,7 @@ export default function KittyRenderer({
       {/* Body - special skin or color-based */}
       {hasSpecialBody ? (
         <img
-          src={`${FROGZ_PATH}/skin/${body + 1}.svg`}
+          src={`${FROGZ_PATH}/skin/${body}.svg`}
           alt={`Special Skin ${body}`}
           className="absolute inset-0 w-full h-full object-contain"
         />
