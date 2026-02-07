@@ -3,14 +3,14 @@ import { ITEM_TYPES, ITEM_TYPE_NAMES, ITEM_TYPE_DESCRIPTIONS } from "../config/c
 
 // Map item types to their image paths
 const ITEM_IMAGES: Record<number, string> = {
-  [ITEM_TYPES.COLOR_CHANGE]: "/items/1.svg",
-  [ITEM_TYPES.HEAD_REROLL]: "/items/2.svg",
+  [ITEM_TYPES.COLOR_CHANGE]: "/items/ink.svg",
+  [ITEM_TYPES.HEAD_REROLL]: "/items/dice3.svg",
   [ITEM_TYPES.BRONZE_SKIN]: "/items/3.svg",
   [ITEM_TYPES.METAL_SKIN]: "/items/4.svg",
-  [ITEM_TYPES.GOLD_SKIN]: "/items/5.svg",
-  [ITEM_TYPES.TREASURE_CHEST]: "/items/6.svg",
+  [ITEM_TYPES.GOLD_SKIN]: "/items/goldskin.svg",
+  [ITEM_TYPES.TREASURE_CHEST]: "/items/chest.svg",
   [ITEM_TYPES.BEAD_PUNK]: "/beadpunks.png",
-  [ITEM_TYPES.DIAMOND_SKIN]: "/items/8.svg",
+  [ITEM_TYPES.DIAMOND_SKIN]: "/items/diamond.svg",
   [ITEM_TYPES.SPECIAL_DICE]: "/items/100.svg",
 }
 

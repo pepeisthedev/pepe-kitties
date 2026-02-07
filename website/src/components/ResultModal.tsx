@@ -10,6 +10,7 @@ import {
 import { Button } from "./ui/button"
 import { CheckCircle, XCircle } from "lucide-react"
 import LoadingSpinner from "./LoadingSpinner"
+import { useTheme } from "../context/ThemeContext"
 
 interface ResultModalProps {
   isOpen: boolean
@@ -30,9 +31,16 @@ export default function ResultModal({
   loading = false,
   children,
 }: ResultModalProps): React.JSX.Element {
+  const { theme } = useTheme()
+
+  const bgClass = theme === 'dark' ? 'bg-black/95' : 'bg-[#f5c89a]'
+  const borderClass = theme === 'dark' ? 'border-lime-400' : 'border-orange-700'
+  const successColor = theme === 'dark' ? 'text-lime-400' : 'text-orange-700'
+  const descColor = theme === 'dark' ? 'text-white/70' : 'text-orange-900/70'
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && !loading && onClose()}>
-      <DialogContent className="bg-black/95 border-2 border-lime-400 rounded-2xl max-w-md">
+      <DialogContent className={`${bgClass} border-2 ${borderClass} rounded-2xl max-w-md`}>
         <DialogHeader className="text-center">
           <div className="flex justify-center mb-4">
             {loading ? (
@@ -40,20 +48,20 @@ export default function ResultModal({
                 <LoadingSpinner size="lg" />
               </div>
             ) : success ? (
-              <CheckCircle className="w-16 h-16 text-lime-400" />
+              <CheckCircle className={`w-16 h-16 ${successColor}`} />
             ) : (
               <XCircle className="w-16 h-16 text-red-400" />
             )}
           </div>
           <DialogTitle
             className={`font-bangers text-3xl text-center ${
-              loading ? "text-lime-400" : success ? "text-lime-400" : "text-red-400"
+              loading ? successColor : success ? successColor : "text-red-400"
             }`}
           >
             {title}
           </DialogTitle>
           {description && (
-            <DialogDescription className="font-righteous text-white/70 text-base mt-2 text-center">
+            <DialogDescription className={`font-righteous ${descColor} text-base mt-2 text-center`}>
               {description}
             </DialogDescription>
           )}
