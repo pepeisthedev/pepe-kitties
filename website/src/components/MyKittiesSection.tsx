@@ -1,16 +1,163 @@
-import React, { useState, useCallback } from "react"
+import React, { useState, useCallback, useEffect } from "react"
 import { flushSync } from "react-dom"
 import { useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
-import { useOwnedKitties, useUnclaimedKitties, useOwnedItems, useContracts } from "../hooks"
+import { useOwnedKitties, useUnclaimedKitties, useOwnedItems, useContracts, Kitty } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import KittyRenderer from "./KittyRenderer"
 import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
-import { ITEM_TYPE_NAMES } from "../config/contracts"
+import { ITEM_TYPE_NAMES, getItemConfig, ITEMS } from "../config/contracts"
 import { Gift, LayoutGrid, Rows } from "lucide-react"
+
+// Trait names loaded from traits.json
+interface TraitInfo {
+    fileName: string
+    name: string
+    description?: string
+}
+
+interface TraitsConfig {
+    head: TraitInfo[]
+    mouth: TraitInfo[]
+    stomach: TraitInfo[]
+    skin: TraitInfo[]
+    background: TraitInfo[]
+}
+
+// Get trait name by index (1-indexed in contract)
+const getTraitName = (traitsConfig: TraitsConfig | null, traitType: keyof TraitsConfig, index: number): string => {
+    if (!traitsConfig || index === 0) return "None"
+    const traits = traitsConfig[traitType]
+    if (!traits || index > traits.length) {
+        // Check from_items for special traits
+        if (traitType === 'head' && index > 19) {
+            const itemHead = ITEMS.find(item => item.category === 'head' && item.traitFileName === `${index - 19}.svg`)
+            return itemHead?.name || `Special #${index - 19}`
+        }
+        if (traitType === 'skin' && index > 1) {
+            const itemSkin = ITEMS.find(item => item.category === 'skin' && item.traitFileName === `${index}.svg`)
+            return itemSkin?.name || `Special #${index}`
+        }
+        return `#${index}`
+    }
+    return traits[index - 1]?.name || `#${index}`
+}
+
+// Carousel Card component with flip support
+interface CarouselCardProps {
+    kitty: Kitty
+    isSelected: boolean
+    isFlipped: boolean
+    hasClaimable: boolean
+    onClick: () => void
+    traitsConfig: TraitsConfig | null
+}
+
+function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, traitsConfig }: CarouselCardProps) {
+    return (
+        <div
+            className="flex-shrink-0 w-40"
+            style={{ perspective: '1000px' }}
+        >
+            <div
+                onClick={onClick}
+                className="relative cursor-pointer transition-transform duration-500"
+                style={{
+                    transformStyle: 'preserve-3d',
+                    transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+                }}
+            >
+                {/* Front */}
+                <Card
+                    className={`bg-transparent rounded-2xl transition-all ${
+                        isSelected
+                            ? "border-2 border-theme ring-2 ring-theme scale-105"
+                            : "border-0 hover:scale-105"
+                    }`}
+                    style={{ backfaceVisibility: 'hidden' }}
+                >
+                    <CardContent className="p-3 relative">
+                        {hasClaimable && (
+                            <div className="absolute top-1 right-1 z-10">
+                                <div className="bg-theme-primary rounded-full p-1 animate-pulse">
+                                    <Gift className="w-3 h-3 text-theme-button-text" />
+                                </div>
+                            </div>
+                        )}
+                        <div className="overflow-hidden rounded-lg bg-white mb-2" style={{ aspectRatio: '617.49 / 644.18' }}>
+                            <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
+                        </div>
+                        <p className="font-bangers text-sm text-theme-primary text-center">
+                            #{kitty.tokenId}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                {/* Back - Metadata */}
+                <Card
+                    className="bg-theme-card border-2 border-theme rounded-2xl absolute inset-0"
+                    style={{
+                        backfaceVisibility: 'hidden',
+                        transform: 'rotateY(180deg)'
+                    }}
+                >
+                    <CardContent className="p-3 w-full h-full flex flex-col">
+                        <p className="font-bangers text-sm text-theme-primary text-center mb-1">
+                            #{kitty.tokenId}
+                        </p>
+                        <div className="flex-1 space-y-1 text-[10px] overflow-hidden pr-1">
+                            <div className="flex justify-between gap-1">
+                                <span className="font-righteous text-theme-muted shrink-0">Head:</span>
+                                <span className="font-bangers text-theme-primary text-right">
+                                    {getTraitName(traitsConfig, 'head', kitty.head)}
+                                </span>
+                            </div>
+                            <div className="flex justify-between gap-1">
+                                <span className="font-righteous text-theme-muted shrink-0">Mouth:</span>
+                                <span className="font-bangers text-theme-primary text-right">
+                                    {getTraitName(traitsConfig, 'mouth', kitty.mouth)}
+                                </span>
+                            </div>
+                            {/* Belly only shown for default skin */}
+                            {kitty.body === 0 && (
+                                <div className="flex justify-between gap-1">
+                                    <span className="font-righteous text-theme-muted shrink-0">Belly:</span>
+                                    <span className="font-bangers text-theme-primary text-right">
+                                        {getTraitName(traitsConfig, 'stomach', kitty.stomach)}
+                                    </span>
+                                </div>
+                            )}
+                            {/* Skin type - only show if special skin */}
+                            {kitty.body > 0 && (
+                                <div className="flex justify-between gap-1">
+                                    <span className="font-righteous text-theme-muted shrink-0">Skin:</span>
+                                    <span className="font-bangers text-theme-primary text-right">
+                                        {getTraitName(traitsConfig, 'skin', kitty.body)}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="flex justify-between items-center gap-1">
+                                <span className="font-righteous text-theme-muted shrink-0">Color:</span>
+                                <div className="flex items-center gap-0.5">
+                                    <div
+                                        className="w-3 h-3 rounded border border-white/30 shrink-0"
+                                        style={{ backgroundColor: kitty.bodyColor }}
+                                    />
+                                    <span className="font-mono text-theme-primary text-[8px]">
+                                        {kitty.bodyColor}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    )
+}
 
 export default function MyKittiesSection(): React.JSX.Element {
     const { isConnected } = useAppKitAccount()
@@ -24,6 +171,16 @@ export default function MyKittiesSection(): React.JSX.Element {
     const [showModal, setShowModal] = useState(false)
     const [modalData, setModalData] = useState<{ success: boolean; message: string; itemType?: number; itemTokenId?: number }>({ success: false, message: "" })
     const [viewMode, setViewMode] = useState<'grid' | 'carousel'>('grid')
+    const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set())
+    const [traitsConfig, setTraitsConfig] = useState<TraitsConfig | null>(null)
+
+    // Load traits config for name lookups
+    useEffect(() => {
+        fetch('/frogz/default/traits.json')
+            .then(res => res.json())
+            .then(data => setTraitsConfig(data))
+            .catch(err => console.error('Failed to load traits config:', err))
+    }, [])
 
     // Check if a kitty can claim an item
     const canClaim = (tokenId: number) => unclaimedIds.includes(tokenId)
@@ -100,7 +257,23 @@ export default function MyKittiesSection(): React.JSX.Element {
     }, [contracts, selectedKittyId, selectedCanClaim, refetchKitties, refetchUnclaimed, refetchItems])
 
     const handleKittyClick = (tokenId: number) => {
-        setSelectedKittyId(selectedKittyId === tokenId ? null : tokenId)
+        const canClaimItem = canClaim(tokenId)
+
+        if (canClaimItem) {
+            // Unclaimed: select for claiming
+            setSelectedKittyId(selectedKittyId === tokenId ? null : tokenId)
+        } else {
+            // Already claimed: flip the card to show metadata
+            setFlippedCards(prev => {
+                const newSet = new Set(prev)
+                if (newSet.has(tokenId)) {
+                    newSet.delete(tokenId)
+                } else {
+                    newSet.add(tokenId)
+                }
+                return newSet
+            })
+        }
     }
 
     // Count how many kitties can claim
@@ -208,35 +381,115 @@ export default function MyKittiesSection(): React.JSX.Element {
                             {kitties.map((kitty) => {
                                 const hasClaimable = canClaim(kitty.tokenId)
                                 const isSelected = selectedKittyId === kitty.tokenId
+                                const isFlipped = flippedCards.has(kitty.tokenId)
 
                                 return (
-                                    <Card
+                                    <div
                                         key={kitty.tokenId}
-                                        onClick={() => handleKittyClick(kitty.tokenId)}
-                                        className={`bg-transparent rounded-2xl transition-all cursor-pointer ${
-                                            isSelected
-                                                ? "border-2 border-theme ring-2 ring-theme scale-105"
-                                                : "border-0 hover:scale-102"
-                                        }`}
+                                        className="perspective-1000"
+                                        style={{ perspective: '1000px' }}
                                     >
-                                        <CardContent className="p-4 relative">
-                                            {/* Claimable indicator */}
-                                            {hasClaimable && (
-                                                <div className="absolute top-2 right-2 z-10">
-                                                    <div className="bg-theme-primary rounded-full p-1.5 animate-pulse">
-                                                        <Gift className="w-4 h-4 text-theme-button-text" />
-                                                    </div>
-                                                </div>
-                                            )}
+                                        <div
+                                            onClick={() => handleKittyClick(kitty.tokenId)}
+                                            className={`relative cursor-pointer transition-transform duration-500 transform-style-preserve-3d ${
+                                                isFlipped ? 'rotate-y-180' : ''
+                                            }`}
+                                            style={{
+                                                transformStyle: 'preserve-3d',
+                                                transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+                                            }}
+                                        >
+                                            {/* Front - Freg Image */}
+                                            <Card
+                                                className={`bg-transparent rounded-2xl transition-all backface-hidden ${
+                                                    isSelected
+                                                        ? "border-2 border-theme ring-2 ring-theme scale-105"
+                                                        : "border-0 hover:scale-102"
+                                                }`}
+                                                style={{ backfaceVisibility: 'hidden' }}
+                                            >
+                                                <CardContent className="p-4 relative">
+                                                    {/* Claimable indicator */}
+                                                    {hasClaimable && (
+                                                        <div className="absolute top-2 right-2 z-10">
+                                                            <div className="bg-theme-primary rounded-full p-1.5 animate-pulse">
+                                                                <Gift className="w-4 h-4 text-theme-button-text" />
+                                                            </div>
+                                                        </div>
+                                                    )}
 
-                                            <div className="overflow-hidden rounded-lg bg-white mb-3" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                                <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
-                                            </div>
-                                            <p className="font-bangers text-lg text-theme-primary text-center">
-                                                #{kitty.tokenId}
-                                            </p>
-                                        </CardContent>
-                                    </Card>
+                                                    <div className="overflow-hidden rounded-lg bg-white mb-3" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                        <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
+                                                    </div>
+                                                    <p className="font-bangers text-lg text-theme-primary text-center">
+                                                        #{kitty.tokenId}
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+
+                                            {/* Back - Metadata */}
+                                            <Card
+                                                className="bg-theme-card border-2 border-theme rounded-2xl absolute inset-0 backface-hidden"
+                                                style={{
+                                                    backfaceVisibility: 'hidden',
+                                                    transform: 'rotateY(180deg)'
+                                                }}
+                                            >
+                                                <CardContent className="p-4 w-full h-full flex flex-col">
+                                                    <p className="font-bangers text-lg text-theme-primary text-center mb-2">
+                                                        #{kitty.tokenId}
+                                                    </p>
+                                                    <div className="flex-1 space-y-1.5 text-xs overflow-hidden pr-1">
+                                                        <div className="flex justify-between gap-2">
+                                                            <span className="font-righteous text-theme-muted shrink-0">Head:</span>
+                                                            <span className="font-bangers text-theme-primary text-right">
+                                                                {getTraitName(traitsConfig, 'head', kitty.head)}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between gap-2">
+                                                            <span className="font-righteous text-theme-muted shrink-0">Mouth:</span>
+                                                            <span className="font-bangers text-theme-primary text-right">
+                                                                {getTraitName(traitsConfig, 'mouth', kitty.mouth)}
+                                                            </span>
+                                                        </div>
+                                                        {/* Belly only shown for default skin (special skins cover the belly) */}
+                                                        {kitty.body === 0 && (
+                                                            <div className="flex justify-between gap-2">
+                                                                <span className="font-righteous text-theme-muted shrink-0">Belly:</span>
+                                                                <span className="font-bangers text-theme-primary text-right">
+                                                                    {getTraitName(traitsConfig, 'stomach', kitty.stomach)}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {/* Skin type - only show if special skin */}
+                                                        {kitty.body > 0 && (
+                                                            <div className="flex justify-between gap-2">
+                                                                <span className="font-righteous text-theme-muted shrink-0">Skin:</span>
+                                                                <span className="font-bangers text-theme-primary text-right">
+                                                                    {getTraitName(traitsConfig, 'skin', kitty.body)}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex justify-between items-center gap-2">
+                                                            <span className="font-righteous text-theme-muted shrink-0">Color:</span>
+                                                            <div className="flex items-center gap-1">
+                                                                <div
+                                                                    className="w-4 h-4 rounded border border-white/30 shrink-0"
+                                                                    style={{ backgroundColor: kitty.bodyColor }}
+                                                                />
+                                                                <span className="font-mono text-theme-primary text-[10px]">
+                                                                    {kitty.bodyColor}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-[10px] text-theme-subtle text-center mt-2 font-righteous">
+                                                        Click to flip back
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+                                        </div>
+                                    </div>
                                 )
                             })}
                         </div>
@@ -255,38 +508,17 @@ export default function MyKittiesSection(): React.JSX.Element {
                                     }}
                                 >
                                     {/* Duplicate items for seamless loop */}
-                                    {[...kitties, ...kitties].map((kitty, index) => {
-                                        const hasClaimable = canClaim(kitty.tokenId)
-                                        const isSelected = selectedKittyId === kitty.tokenId
-
-                                        return (
-                                            <Card
-                                                key={`row1-${kitty.tokenId}-${index}`}
-                                                onClick={() => handleKittyClick(kitty.tokenId)}
-                                                className={`bg-transparent rounded-2xl transition-all cursor-pointer flex-shrink-0 w-40 ${
-                                                    isSelected
-                                                        ? "border-2 border-theme ring-2 ring-theme scale-105"
-                                                        : "border-0 hover:scale-105"
-                                                }`}
-                                            >
-                                                <CardContent className="p-3 relative">
-                                                    {hasClaimable && (
-                                                        <div className="absolute top-1 right-1 z-10">
-                                                            <div className="bg-theme-primary rounded-full p-1 animate-pulse">
-                                                                <Gift className="w-3 h-3 text-theme-button-text" />
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    <div className="overflow-hidden rounded-lg bg-white mb-2" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                                        <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
-                                                    </div>
-                                                    <p className="font-bangers text-sm text-theme-primary text-center">
-                                                        #{kitty.tokenId}
-                                                    </p>
-                                                </CardContent>
-                                            </Card>
-                                        )
-                                    })}
+                                    {[...kitties, ...kitties].map((kitty, index) => (
+                                        <CarouselCard
+                                            key={`row1-${kitty.tokenId}-${index}`}
+                                            kitty={kitty}
+                                            isSelected={selectedKittyId === kitty.tokenId}
+                                            isFlipped={flippedCards.has(kitty.tokenId)}
+                                            hasClaimable={canClaim(kitty.tokenId)}
+                                            onClick={() => handleKittyClick(kitty.tokenId)}
+                                            traitsConfig={traitsConfig}
+                                        />
+                                    ))}
                                 </div>
                             </div>
 
@@ -300,38 +532,17 @@ export default function MyKittiesSection(): React.JSX.Element {
                                     }}
                                 >
                                     {/* Duplicate items for seamless loop, reversed order */}
-                                    {[...kitties].reverse().concat([...kitties].reverse()).map((kitty, index) => {
-                                        const hasClaimable = canClaim(kitty.tokenId)
-                                        const isSelected = selectedKittyId === kitty.tokenId
-
-                                        return (
-                                            <Card
-                                                key={`row2-${kitty.tokenId}-${index}`}
-                                                onClick={() => handleKittyClick(kitty.tokenId)}
-                                                className={`bg-transparent rounded-2xl transition-all cursor-pointer flex-shrink-0 w-40 ${
-                                                    isSelected
-                                                        ? "border-2 border-theme ring-2 ring-theme scale-105"
-                                                        : "border-0 hover:scale-105"
-                                                }`}
-                                            >
-                                                <CardContent className="p-3 relative">
-                                                    {hasClaimable && (
-                                                        <div className="absolute top-1 right-1 z-10">
-                                                            <div className="bg-theme-primary rounded-full p-1 animate-pulse">
-                                                                <Gift className="w-3 h-3 text-theme-button-text" />
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    <div className="overflow-hidden rounded-lg bg-white mb-2" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                                        <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
-                                                    </div>
-                                                    <p className="font-bangers text-sm text-theme-primary text-center">
-                                                        #{kitty.tokenId}
-                                                    </p>
-                                                </CardContent>
-                                            </Card>
-                                        )
-                                    })}
+                                    {[...kitties].reverse().concat([...kitties].reverse()).map((kitty, index) => (
+                                        <CarouselCard
+                                            key={`row2-${kitty.tokenId}-${index}`}
+                                            kitty={kitty}
+                                            isSelected={selectedKittyId === kitty.tokenId}
+                                            isFlipped={flippedCards.has(kitty.tokenId)}
+                                            hasClaimable={canClaim(kitty.tokenId)}
+                                            onClick={() => handleKittyClick(kitty.tokenId)}
+                                            traitsConfig={traitsConfig}
+                                        />
+                                    ))}
                                 </div>
                             </div>
 
