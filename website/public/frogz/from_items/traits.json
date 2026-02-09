@@ -6,6 +6,7 @@
   ],
   "mouth": [],
   "skin": [
+    { "fileName": "1.svg", "name": "Gold" },
     { "fileName": "2.svg", "name": "Diamond" },
     { "fileName": "3.svg", "name": "Metal" },
     { "fileName": "4.svg", "name": "Skeleton" }
