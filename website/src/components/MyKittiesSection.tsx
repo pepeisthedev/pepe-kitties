@@ -59,27 +59,34 @@ interface CarouselCardProps {
 function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, traitsConfig }: CarouselCardProps) {
     return (
         <div
-            className="flex-shrink-0 w-40"
-            style={{ perspective: '1000px' }}
+            className={`flex-shrink-0 w-40 cursor-pointer transition-transform ${
+                isSelected ? "scale-105" : "hover:scale-105"
+            }`}
+            onClick={onClick}
         >
+            {/* Flip container - only wraps the image area */}
             <div
-                onClick={onClick}
-                className="relative cursor-pointer transition-transform duration-500"
-                style={{
-                    transformStyle: 'preserve-3d',
-                    transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
-                }}
+                className="relative"
+                style={{ perspective: '1000px' }}
             >
-                {/* Front */}
-                <Card
-                    className={`bg-transparent rounded-2xl transition-all ${
-                        isSelected
-                            ? "border-2 border-theme ring-2 ring-theme scale-105"
-                            : "border-0 hover:scale-105"
-                    }`}
-                    style={{ backfaceVisibility: 'hidden' }}
+                <div
+                    className="relative transition-transform duration-500"
+                    style={{
+                        transformStyle: 'preserve-3d',
+                        transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+                    }}
                 >
-                    <CardContent className="p-3 relative">
+                    {/* Front - Freg Image */}
+                    <div
+                        className={`overflow-hidden rounded-xl bg-white ${
+                            isSelected ? "ring-2 ring-theme" : ""
+                        }`}
+                        style={{
+                            aspectRatio: '617.49 / 644.18',
+                            backfaceVisibility: 'hidden'
+                        }}
+                    >
+                        <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
                         {hasClaimable && (
                             <div className="absolute top-1 right-1 z-10">
                                 <div className="bg-theme-primary rounded-full p-1 animate-pulse">
@@ -87,74 +94,72 @@ function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, tra
                                 </div>
                             </div>
                         )}
-                        <div className="overflow-hidden rounded-lg bg-white mb-2" style={{ aspectRatio: '617.49 / 644.18' }}>
-                            <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
-                        </div>
-                        <p className="font-bangers text-sm text-theme-primary text-center">
-                            #{kitty.tokenId}
-                        </p>
-                    </CardContent>
-                </Card>
+                    </div>
 
-                {/* Back - Metadata */}
-                <Card
-                    className="bg-theme-card border-2 border-theme rounded-2xl absolute inset-0"
-                    style={{
-                        backfaceVisibility: 'hidden',
-                        transform: 'rotateY(180deg)'
-                    }}
-                >
-                    <CardContent className="p-3 w-full h-full flex flex-col">
+                    {/* Back - Metadata */}
+                    <div
+                        className="absolute inset-0 bg-theme-card border-2 border-theme rounded-xl p-2 flex flex-col"
+                        style={{
+                            backfaceVisibility: 'hidden',
+                            transform: 'rotateY(180deg)'
+                        }}
+                    >
                         <p className="font-bangers text-sm text-theme-primary text-center mb-1">
                             #{kitty.tokenId}
                         </p>
-                        <div className="flex-1 space-y-1 text-[10px] overflow-hidden pr-1">
+                        <div className="flex-1 space-y-0.5 text-[9px] min-w-0">
                             <div className="flex justify-between gap-1">
-                                <span className="font-righteous text-theme-muted shrink-0">Head:</span>
-                                <span className="font-bangers text-theme-primary text-right">
+                                <span className="font-righteous text-theme-muted">Head:</span>
+                                <span className="font-bangers text-theme-primary truncate pr-1">
                                     {getTraitName(traitsConfig, 'head', kitty.head)}
                                 </span>
                             </div>
                             <div className="flex justify-between gap-1">
-                                <span className="font-righteous text-theme-muted shrink-0">Mouth:</span>
-                                <span className="font-bangers text-theme-primary text-right">
+                                <span className="font-righteous text-theme-muted">Mouth:</span>
+                                <span className="font-bangers text-theme-primary truncate pr-1">
                                     {getTraitName(traitsConfig, 'mouth', kitty.mouth)}
                                 </span>
                             </div>
-                            {/* Belly only shown for default skin */}
                             {kitty.body === 0 && (
                                 <div className="flex justify-between gap-1">
-                                    <span className="font-righteous text-theme-muted shrink-0">Belly:</span>
-                                    <span className="font-bangers text-theme-primary text-right">
+                                    <span className="font-righteous text-theme-muted">Belly:</span>
+                                    <span className="font-bangers text-theme-primary truncate pr-1">
                                         {getTraitName(traitsConfig, 'stomach', kitty.stomach)}
                                     </span>
                                 </div>
                             )}
-                            {/* Skin type - only show if special skin */}
                             {kitty.body > 0 && (
                                 <div className="flex justify-between gap-1">
-                                    <span className="font-righteous text-theme-muted shrink-0">Skin:</span>
-                                    <span className="font-bangers text-theme-primary text-right">
+                                    <span className="font-righteous text-theme-muted">Skin:</span>
+                                    <span className="font-bangers text-theme-primary truncate pr-1">
                                         {getTraitName(traitsConfig, 'skin', kitty.body)}
                                     </span>
                                 </div>
                             )}
                             <div className="flex justify-between items-center gap-1">
-                                <span className="font-righteous text-theme-muted shrink-0">Color:</span>
-                                <div className="flex items-center gap-0.5">
+                                <span className="font-righteous text-theme-muted">Color:</span>
+                                <div className="flex items-center gap-0.5 min-w-0">
                                     <div
-                                        className="w-3 h-3 rounded border border-white/30 shrink-0"
+                                        className="w-2.5 h-2.5 rounded border border-white/30 shrink-0"
                                         style={{ backgroundColor: kitty.bodyColor }}
                                     />
-                                    <span className="font-mono text-theme-primary text-[8px]">
+                                    <span className="font-mono text-theme-primary text-[8px] truncate">
                                         {kitty.bodyColor}
                                     </span>
                                 </div>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                        <p className="text-[8px] text-theme-subtle text-center font-righteous">
+                            Click to flip
+                        </p>
+                    </div>
+                </div>
             </div>
+
+            {/* Token ID - outside flip area */}
+            <p className="font-bangers text-sm text-theme-primary text-center mt-1">
+                #{kitty.tokenId}
+            </p>
         </div>
     )
 }
@@ -386,29 +391,34 @@ export default function MyKittiesSection(): React.JSX.Element {
                                 return (
                                     <div
                                         key={kitty.tokenId}
-                                        className="perspective-1000"
-                                        style={{ perspective: '1000px' }}
+                                        className={`cursor-pointer transition-transform ${
+                                            isSelected ? "scale-105" : "hover:scale-102"
+                                        }`}
+                                        onClick={() => handleKittyClick(kitty.tokenId)}
                                     >
+                                        {/* Flip container - only wraps the image area */}
                                         <div
-                                            onClick={() => handleKittyClick(kitty.tokenId)}
-                                            className={`relative cursor-pointer transition-transform duration-500 transform-style-preserve-3d ${
-                                                isFlipped ? 'rotate-y-180' : ''
-                                            }`}
-                                            style={{
-                                                transformStyle: 'preserve-3d',
-                                                transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
-                                            }}
+                                            className="relative"
+                                            style={{ perspective: '1000px' }}
                                         >
-                                            {/* Front - Freg Image */}
-                                            <Card
-                                                className={`bg-transparent rounded-2xl transition-all backface-hidden ${
-                                                    isSelected
-                                                        ? "border-2 border-theme ring-2 ring-theme scale-105"
-                                                        : "border-0 hover:scale-102"
-                                                }`}
-                                                style={{ backfaceVisibility: 'hidden' }}
+                                            <div
+                                                className="relative transition-transform duration-500"
+                                                style={{
+                                                    transformStyle: 'preserve-3d',
+                                                    transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+                                                }}
                                             >
-                                                <CardContent className="p-4 relative">
+                                                {/* Front - Freg Image */}
+                                                <div
+                                                    className={`overflow-hidden rounded-xl bg-white ${
+                                                        isSelected ? "ring-2 ring-theme" : ""
+                                                    }`}
+                                                    style={{
+                                                        aspectRatio: '617.49 / 644.18',
+                                                        backfaceVisibility: 'hidden'
+                                                    }}
+                                                >
+                                                    <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
                                                     {/* Claimable indicator */}
                                                     {hasClaimable && (
                                                         <div className="absolute top-2 right-2 z-10">
@@ -417,78 +427,72 @@ export default function MyKittiesSection(): React.JSX.Element {
                                                             </div>
                                                         </div>
                                                     )}
+                                                </div>
 
-                                                    <div className="overflow-hidden rounded-lg bg-white mb-3" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                                        <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
-                                                    </div>
-                                                    <p className="font-bangers text-lg text-theme-primary text-center">
+                                                {/* Back - Metadata */}
+                                                <div
+                                                    className="absolute inset-0 bg-theme-card border-2 border-theme rounded-xl p-3 flex flex-col"
+                                                    style={{
+                                                        backfaceVisibility: 'hidden',
+                                                        transform: 'rotateY(180deg)'
+                                                    }}
+                                                >
+                                                    <p className="font-bangers text-base text-theme-primary text-center mb-1">
                                                         #{kitty.tokenId}
                                                     </p>
-                                                </CardContent>
-                                            </Card>
-
-                                            {/* Back - Metadata */}
-                                            <Card
-                                                className="bg-theme-card border-2 border-theme rounded-2xl absolute inset-0 backface-hidden"
-                                                style={{
-                                                    backfaceVisibility: 'hidden',
-                                                    transform: 'rotateY(180deg)'
-                                                }}
-                                            >
-                                                <CardContent className="p-4 w-full h-full flex flex-col">
-                                                    <p className="font-bangers text-lg text-theme-primary text-center mb-2">
-                                                        #{kitty.tokenId}
-                                                    </p>
-                                                    <div className="flex-1 space-y-1.5 text-xs overflow-hidden pr-1">
+                                                    <div className="flex-1 space-y-1 text-[11px] min-w-0 pr-1">
                                                         <div className="flex justify-between gap-2">
-                                                            <span className="font-righteous text-theme-muted shrink-0">Head:</span>
-                                                            <span className="font-bangers text-theme-primary text-right">
+                                                            <span className="font-righteous text-theme-muted">Head:</span>
+                                                            <span className="font-bangers text-theme-primary truncate pr-1">
                                                                 {getTraitName(traitsConfig, 'head', kitty.head)}
                                                             </span>
                                                         </div>
                                                         <div className="flex justify-between gap-2">
-                                                            <span className="font-righteous text-theme-muted shrink-0">Mouth:</span>
-                                                            <span className="font-bangers text-theme-primary text-right">
+                                                            <span className="font-righteous text-theme-muted">Mouth:</span>
+                                                            <span className="font-bangers text-theme-primary truncate pr-1">
                                                                 {getTraitName(traitsConfig, 'mouth', kitty.mouth)}
                                                             </span>
                                                         </div>
-                                                        {/* Belly only shown for default skin (special skins cover the belly) */}
                                                         {kitty.body === 0 && (
                                                             <div className="flex justify-between gap-2">
-                                                                <span className="font-righteous text-theme-muted shrink-0">Belly:</span>
-                                                                <span className="font-bangers text-theme-primary text-right">
+                                                                <span className="font-righteous text-theme-muted">Belly:</span>
+                                                                <span className="font-bangers text-theme-primary truncate pr-1">
                                                                     {getTraitName(traitsConfig, 'stomach', kitty.stomach)}
                                                                 </span>
                                                             </div>
                                                         )}
-                                                        {/* Skin type - only show if special skin */}
                                                         {kitty.body > 0 && (
                                                             <div className="flex justify-between gap-2">
-                                                                <span className="font-righteous text-theme-muted shrink-0">Skin:</span>
-                                                                <span className="font-bangers text-theme-primary text-right">
+                                                                <span className="font-righteous text-theme-muted">Skin:</span>
+                                                                <span className="font-bangers text-theme-primary truncate pr-1">
                                                                     {getTraitName(traitsConfig, 'skin', kitty.body)}
                                                                 </span>
                                                             </div>
                                                         )}
                                                         <div className="flex justify-between items-center gap-2">
-                                                            <span className="font-righteous text-theme-muted shrink-0">Color:</span>
-                                                            <div className="flex items-center gap-1">
+                                                            <span className="font-righteous text-theme-muted">Color:</span>
+                                                            <div className="flex items-center gap-1 min-w-0">
                                                                 <div
-                                                                    className="w-4 h-4 rounded border border-white/30 shrink-0"
+                                                                    className="w-3 h-3 rounded border border-white/30 shrink-0"
                                                                     style={{ backgroundColor: kitty.bodyColor }}
                                                                 />
-                                                                <span className="font-mono text-theme-primary text-[10px]">
+                                                                <span className="font-mono text-theme-primary text-[9px] truncate">
                                                                     {kitty.bodyColor}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <p className="text-[10px] text-theme-subtle text-center mt-2 font-righteous">
-                                                        Click to flip back
+                                                    <p className="text-[9px] text-theme-subtle text-center mt-1 font-righteous">
+                                                        Click to flip
                                                     </p>
-                                                </CardContent>
-                                            </Card>
+                                                </div>
+                                            </div>
                                         </div>
+
+                                        {/* Token ID - outside flip area */}
+                                        <p className="font-bangers text-lg text-theme-primary text-center mt-2">
+                                            #{kitty.tokenId}
+                                        </p>
                                     </div>
                                 )
                             })}
