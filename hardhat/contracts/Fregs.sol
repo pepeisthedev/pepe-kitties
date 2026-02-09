@@ -166,13 +166,15 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             '"}'
         ));
 
-        // Belly: always shown (removed special body check)
-        attrs = string(abi.encodePacked(
-            attrs,
-            ',{"trait_type": "Belly","value": "',
-            svgRenderer.meta(TRAIT_BELLY, belly[tokenId]),
-            '"}'
-        ));
+        // Belly: only shown when using default body (special skins cover the belly)
+        if (body[tokenId] == 0) {
+            attrs = string(abi.encodePacked(
+                attrs,
+                ',{"trait_type": "Belly","value": "',
+                svgRenderer.meta(TRAIT_BELLY, belly[tokenId]),
+                '"}'
+            ));
+        }
 
         return attrs;
     }

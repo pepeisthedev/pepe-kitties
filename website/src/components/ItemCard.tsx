@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from "react"
-import { ITEM_TYPES, ITEM_TYPE_NAMES, ITEM_TYPE_DESCRIPTIONS } from "../config/contracts"
+import { ITEM_TYPE_NAMES, ITEM_TYPE_DESCRIPTIONS, getItemConfig } from "../config/contracts"
 
-// Map item types to their image paths
-const ITEM_IMAGES: Record<number, string> = {
-  [ITEM_TYPES.COLOR_CHANGE]: "/items/ink.svg",
-  [ITEM_TYPES.HEAD_REROLL]: "/items/dice3.svg",
-  [ITEM_TYPES.BRONZE_SKIN]: "/items/3.svg",
-  [ITEM_TYPES.METAL_SKIN]: "/items/4.svg",
-  [ITEM_TYPES.GOLD_SKIN]: "/items/goldskin.svg",
-  [ITEM_TYPES.TREASURE_CHEST]: "/items/chest.svg",
-  [ITEM_TYPES.BEAD_PUNK]: "/beadpunks.png",
-  [ITEM_TYPES.DIAMOND_SKIN]: "/items/diamond.svg",
-  [ITEM_TYPES.SPECIAL_DICE]: "/items/100.svg",
+// Get item image path from items.json config
+function getItemImagePath(itemType: number): string {
+  const config = getItemConfig(itemType)
+  if (config?.svgFile) {
+    return `/items/${config.svgFile}`
+  }
+  // Fallback to item type number
+  return `/items/${itemType}.svg`
 }
 
 interface ItemCardProps {
@@ -35,7 +32,7 @@ export default function ItemCard({
 }: ItemCardProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
-  const imgSrc = ITEM_IMAGES[itemType] || `/items/${itemType}.svg`
+  const imgSrc = getItemImagePath(itemType)
   const name = itemName || ITEM_TYPE_NAMES[itemType] || "Unknown Item"
   const description = ITEM_TYPE_DESCRIPTIONS[itemType] || ""
 

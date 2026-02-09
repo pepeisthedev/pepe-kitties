@@ -1,0 +1,154 @@
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "Color Change",
+      "description": "Change your Freg's body color to any hex color",
+      "category": "utility",
+      "svgFile": "ink.svg",
+      "isClaimable": true,
+      "claimWeight": 4000,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 2,
+      "name": "Head Reroll",
+      "description": "Use this item to reroll your Freg's head trait",
+      "category": "utility",
+      "svgFile": "dice3.svg",
+      "isClaimable": true,
+      "claimWeight": 3000,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 3,
+      "name": "Bronze Skin",
+      "description": "Apply a bronze skin to your Freg",
+      "category": "skin",
+      "svgFile": "3.svg",
+      "targetTraitType": 1,
+      "traitFileName": "1.svg",
+      "isClaimable": true,
+      "claimWeight": 1500,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 4,
+      "name": "Metal Skin",
+      "description": "Apply a metallic skin to your Freg",
+      "category": "skin",
+      "svgFile": "4.svg",
+      "targetTraitType": 1,
+      "traitFileName": "3.svg",
+      "isClaimable": true,
+      "claimWeight": 1000,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 5,
+      "name": "Gold Skin",
+      "description": "Apply a golden skin to your Freg",
+      "category": "skin",
+      "svgFile": "goldskin.svg",
+      "targetTraitType": 1,
+      "traitFileName": "4.svg",
+      "isClaimable": true,
+      "claimWeight": 500,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 6,
+      "name": "Treasure Chest",
+      "description": "Burn this chest to claim ETH rewards",
+      "category": "special",
+      "svgFile": "chest.svg",
+      "isClaimable": true,
+      "claimWeight": 50,
+      "maxSupply": 5,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 7,
+      "name": "Bead Punk",
+      "description": "A rare Bead Punk NFT",
+      "category": "external",
+      "svgFile": "beadpunks.svg",
+      "isClaimable": true,
+      "claimWeight": 100,
+      "isOwnerMintable": false
+    },
+    {
+      "id": 8,
+      "name": "Diamond Skin",
+      "description": "Apply a dazzling diamond skin to your Freg",
+      "category": "skin",
+      "svgFile": "diamond.svg",
+      "targetTraitType": 1,
+      "traitFileName": "2.svg",
+      "isClaimable": false,
+      "claimWeight": 0,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 9,
+      "name": "Hoodie",
+      "description": "A cozy hoodie for your Freg",
+      "category": "head",
+      "svgFile": "hoodie.svg",
+      "targetTraitType": 2,
+      "traitFileName": "2.svg",
+      "isClaimable": true,
+      "claimWeight": 500,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 10,
+      "name": "Frogsuit",
+      "description": "Transform your Freg into a frog",
+      "category": "head",
+      "svgFile": "frog.svg",
+      "targetTraitType": 2,
+      "traitFileName": "3.svg",
+      "isClaimable": true,
+      "claimWeight": 500,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 100,
+      "name": "Special Dice",
+      "description": "Roll for a random special trait on your Freg",
+      "category": "special",
+      "svgFile": "100.svg",
+      "isClaimable": false,
+      "claimWeight": 0,
+      "isOwnerMintable": true
+    }
+  ],
+  "categories": {
+    "utility": {
+      "description": "Items that modify your Freg without applying a specific trait"
+    },
+    "skin": {
+      "description": "Special skins that replace the body trait (targetTraitType: 1)",
+      "traitType": 1
+    },
+    "head": {
+      "description": "Special heads that replace the head trait (targetTraitType: 2)",
+      "traitType": 2,
+      "traitValueOffset": "baseHeadCount"
+    },
+    "special": {
+      "description": "Special items with unique behaviors"
+    },
+    "external": {
+      "description": "External NFT rewards"
+    }
+  },
+  "traitTypes": {
+    "0": "background",
+    "1": "body",
+    "2": "head",
+    "3": "mouth",
+    "4": "belly"
+  }
+}

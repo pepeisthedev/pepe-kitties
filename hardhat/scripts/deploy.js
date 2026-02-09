@@ -52,6 +52,7 @@ const WEBSITE_ABI_PATH = path.join(__dirname, "../../website/src/assets/abis");
 // Path to the frogz SVG folder
 const FROGZ_PATH = path.join(__dirname, "../../website/public/frogz");
 const DEFAULT_TRAITS_PATH = path.join(FROGZ_PATH, "default");
+const FROM_ITEMS_PATH = path.join(FROGZ_PATH, "from_items");
 const TRAITS_JSON_PATH = path.join(DEFAULT_TRAITS_PATH, "traits.json");
 
 // Path to the items SVG folder
@@ -59,6 +60,12 @@ const ITEMS_PATH = path.join(__dirname, "../../website/public/items");
 
 // Path to deployment status file
 const DEPLOYMENT_STATUS_PATH = path.join(__dirname, "../deployment-status.json");
+
+// Path to from_items traits.json (for special items configuration)
+const FROM_ITEMS_TRAITS_JSON_PATH = path.join(FROM_ITEMS_PATH, "traits.json");
+
+// Path to items.json (single source of truth for all items)
+const ITEMS_JSON_PATH = path.join(ITEMS_PATH, "items.json");
 
 // ============ LOAD TRAITS FROM JSON ============
 function loadTraitsConfig() {
@@ -73,6 +80,70 @@ function loadTraitsConfig() {
         traitNames[traitType] = traits.map(t => t.name);
     }
     return { traitsConfig, traitNames };
+}
+
+// Load items.json - single source of truth for all items
+function loadItemsConfig() {
+    if (!fs.existsSync(ITEMS_JSON_PATH)) {
+        console.log("  ⚠️  items/items.json not found");
+        return null;
+    }
+    return JSON.parse(fs.readFileSync(ITEMS_JSON_PATH, "utf8"));
+}
+
+// Build all item configurations from items.json
+function buildItemConfigs(itemsConfig) {
+    if (!itemsConfig?.items) return { configs: {}, traitMappings: [] };
+
+    const configs = {};
+    const traitMappings = []; // Will be populated after we know base trait counts
+
+    for (const item of itemsConfig.items) {
+        configs[item.id] = {
+            name: item.name,
+            description: item.description,
+            category: item.category,
+            targetTraitType: item.targetTraitType,
+            traitFileName: item.traitFileName,
+            isClaimable: item.isClaimable,
+            claimWeight: item.claimWeight,
+            isOwnerMintable: item.isOwnerMintable
+        };
+    }
+
+    return { configs, items: itemsConfig.items };
+}
+
+// Build trait item mappings from items.json
+// Maps item IDs to trait values based on category and traitFileName
+function buildTraitItemMappings(itemsConfig, baseTraitCounts) {
+    if (!itemsConfig?.items) return [];
+
+    const mappings = [];
+
+    for (const item of itemsConfig.items) {
+        if (!item.traitFileName || item.targetTraitType === undefined) continue;
+
+        const fileNumber = parseInt(item.traitFileName.replace('.svg', ''));
+        let traitValue;
+
+        if (item.category === 'skin') {
+            // Skin: traitFileName directly maps to trait value
+            traitValue = fileNumber;
+            console.log(`    Skin mapping: ${item.name} (id ${item.id}) → trait value ${traitValue}`);
+        } else if (item.category === 'head') {
+            // Head: baseHeadCount + fileNumber
+            const baseHeadCount = baseTraitCounts?.head || 19;
+            traitValue = baseHeadCount + fileNumber;
+            console.log(`    Head mapping: ${item.name} (id ${item.id}) → trait value ${traitValue} (base ${baseHeadCount} + file ${fileNumber})`);
+        } else {
+            continue;
+        }
+
+        mappings.push({ itemId: item.id, traitValue, category: item.category });
+    }
+
+    return mappings;
 }
 
 // ============ DEPLOYMENT STATUS ============
@@ -218,12 +289,82 @@ async function deployBody(svgPartWriter, traitsConfig) {
 }
 
 async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], deploymentStatus = null) {
-    const folderPath = path.join(DEFAULT_TRAITS_PATH, folderName);
-    if (!fs.existsSync(folderPath)) return null;
+    // Skin uses from_items folder only (with explicit typeIds matching fileNames)
+    // Head uses default + from_items (from_items use explicit typeIds: baseCount + fileNumber)
+    // Other traits use default folder only
 
-    const files = fs.readdirSync(folderPath)
-        .filter(f => f.endsWith('.svg'))
-        .sort((a, b) => parseInt(a.replace('.svg', '')) - parseInt(b.replace('.svg', '')));
+    let allFiles = [];
+    let useExplicitTypeIds = false; // For skin folder, typeIds must match fileNames
+    let baseTraitCount = 0; // Track base trait count for head offset calculation
+
+    if (folderName === 'skin') {
+        // Skin: only from from_items, use explicit typeIds matching fileNames
+        // This ensures FregsItems mappings align with deployed traits
+        const folderPath = path.join(FROM_ITEMS_PATH, folderName);
+        if (!fs.existsSync(folderPath)) {
+            console.log(`    ⚠️  Folder not found: ${folderPath}`);
+            return null;
+        }
+        allFiles = fs.readdirSync(folderPath)
+            .filter(f => f.endsWith('.svg'))
+            .map(f => ({
+                file: f,
+                path: path.join(folderPath, f),
+                typeId: parseInt(f.replace('.svg', '')) // Extract typeId from fileName (2.svg → 2)
+            }));
+        useExplicitTypeIds = true;
+    } else if (folderName === 'head') {
+        // Head: default + from_items
+        // Default heads use sequential IDs (1, 2, 3...)
+        // from_items heads use explicit typeIds: baseHeadCount + fileNumber
+        const defaultPath = path.join(DEFAULT_TRAITS_PATH, folderName);
+        const fromItemsPath = path.join(FROM_ITEMS_PATH, folderName);
+
+        if (fs.existsSync(defaultPath)) {
+            const defaultFiles = fs.readdirSync(defaultPath)
+                .filter(f => f.endsWith('.svg'))
+                .sort((a, b) => parseInt(a.replace('.svg', '')) - parseInt(b.replace('.svg', '')));
+            baseTraitCount = defaultFiles.length;
+            allFiles = defaultFiles.map((f, index) => ({
+                file: f,
+                path: path.join(defaultPath, f),
+                source: 'default',
+                typeId: index + 1 // Sequential: 1, 2, 3...
+            }));
+        }
+        if (fs.existsSync(fromItemsPath)) {
+            const fromItemsFiles = fs.readdirSync(fromItemsPath)
+                .filter(f => f.endsWith('.svg'))
+                .sort((a, b) => parseInt(a.replace('.svg', '')) - parseInt(b.replace('.svg', '')))
+                .map(f => ({
+                    file: f,
+                    path: path.join(fromItemsPath, f),
+                    source: 'from_items',
+                    typeId: baseTraitCount + parseInt(f.replace('.svg', '')) // baseCount + fileNumber
+                }));
+            allFiles = allFiles.concat(fromItemsFiles);
+        }
+        useExplicitTypeIds = true; // Use explicit typeIds for all heads
+    } else {
+        // Other traits: only from default
+        const folderPath = path.join(DEFAULT_TRAITS_PATH, folderName);
+        if (!fs.existsSync(folderPath)) {
+            console.log(`    ⚠️  Folder not found: ${folderPath}`);
+            return null;
+        }
+        allFiles = fs.readdirSync(folderPath)
+            .filter(f => f.endsWith('.svg'))
+            .map(f => ({ file: f, path: path.join(folderPath, f) }));
+    }
+
+    // Sort by typeId if using explicit IDs, otherwise by filename
+    if (useExplicitTypeIds) {
+        allFiles.sort((a, b) => a.typeId - b.typeId);
+    } else {
+        allFiles.sort((a, b) => parseInt(a.file.replace('.svg', '')) - parseInt(b.file.replace('.svg', '')));
+    }
+
+    const files = allFiles;
 
     if (files.length === 0) return null;
 
@@ -234,11 +375,11 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
     const deployedTraits = {};
 
     for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const filePath = path.join(folderPath, file);
-        // Create unique prefix: folder + file number (e.g., 'head1', 'stomach2', 'mouth1')
-        const fileNum = file.replace('.svg', '');
-        const classPrefix = `${folderName}${fileNum}`;
+        const fileObj = files[i];
+        const fileName = fileObj.file;
+        const filePath = fileObj.path;
+        // Create unique prefix: folder + index (e.g., 'head1', 'head20' for from_items)
+        const classPrefix = `${folderName}${i + 1}`;
         const svgData = processSvgFile(filePath, classPrefix);
 
         const totalChunks = Math.ceil(svgData.length / chunkSize);
@@ -252,15 +393,17 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
 
         const SVGRenderer = await ethers.getContractFactory("SVGRenderer");
         const traitName = traitNames[i] || `Type ${i + 1}`;
-        const renderer = await deployContract(SVGRenderer, [addresses], `${folderName}/${file}`);
+        const source = fileObj.source || 'default';
+        const renderer = await deployContract(SVGRenderer, [addresses], `${folderName}/${fileName} (${source})`);
         const rendererAddress = await renderer.getAddress();
         svgRendererAddresses.push(rendererAddress);
-        console.log(`    ${file} deployed (${totalChunks} chunks) - "${traitName}"`);
+        console.log(`    ${fileName} from ${source} deployed (${totalChunks} chunks) - "${traitName}"`);
 
         // Track deployed trait
-        deployedTraits[file] = {
-            routerId: i + 1, // 1-indexed in router
+        deployedTraits[fileName] = {
+            routerId: useExplicitTypeIds ? fileObj.typeId : i + 1, // Explicit typeId for skin, 1-indexed for others
             name: traitName,
+            source: source,
             rendererAddress: rendererAddress
         };
     }
@@ -269,14 +412,29 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
     const SVGRouter = await ethers.getContractFactory("SVGRouter");
     const router = await deployContract(SVGRouter, [], `${folderName} router`);
 
-    await sendTx(router.setRenderContractsBatch(svgRendererAddresses));
+    if (useExplicitTypeIds) {
+        // For skin: use explicit typeIds matching fileNames
+        const typeIds = files.map(f => f.typeId);
+        console.log(`    Using explicit typeIds: [${typeIds.join(', ')}]`);
+        await sendTx(router.setRenderContractsBatchWithTypeIds(typeIds, svgRendererAddresses));
 
-    // Set trait names if provided
-    if (traitNames.length > 0) {
-        // Only set names for the number of files we actually deployed
-        const namesToSet = traitNames.slice(0, files.length);
-        await sendTx(router.setTraitNamesBatch(namesToSet));
-        console.log(`    Set ${namesToSet.length} trait names`);
+        // Set trait names with explicit typeIds
+        for (let i = 0; i < files.length; i++) {
+            const traitName = traitNames[i] || `Type ${files[i].typeId}`;
+            await sendTx(router.setTraitName(files[i].typeId, traitName));
+        }
+        console.log(`    Set ${files.length} trait names with explicit typeIds`);
+    } else {
+        // For other traits: use sequential IDs (1, 2, 3...)
+        await sendTx(router.setRenderContractsBatch(svgRendererAddresses));
+
+        // Set trait names if provided
+        if (traitNames.length > 0) {
+            // Only set names for the number of files we actually deployed
+            const namesToSet = traitNames.slice(0, files.length);
+            await sendTx(router.setTraitNamesBatch(namesToSet));
+            console.log(`    Set ${namesToSet.length} trait names`);
+        }
     }
 
     const routerAddress = await router.getAddress();
@@ -376,14 +534,16 @@ async function deployArt(deploymentStatus) {
     }
 
     // Deploy base trait folders (changed 'belly' to 'stomach')
-    const traitFolders = ['head', 'mouth', 'stomach'];
+    const traitFolders = ['head', 'mouth', 'stomach', 'skin'];
     for (const folder of traitFolders) {
         const names = traitNames[folder] || [];
         const address = await deployTraitFolder(folder, svgPartWriter, names, deploymentStatus);
         if (address) {
             artAddresses[folder] = address;
             const folderPath = path.join(DEFAULT_TRAITS_PATH, folder);
-            baseTraitCounts[folder] = names.length || fs.readdirSync(folderPath).filter(f => f.endsWith('.svg')).length;
+            if (folder !== 'skin') { // skin uses from_items, not default
+                baseTraitCounts[folder] = names.length || fs.readdirSync(folderPath).filter(f => f.endsWith('.svg')).length;
+            }
         }
     }
 
@@ -502,6 +662,27 @@ async function main() {
         console.log("\n--- Skipping Mint Pass minting (not localhost) ---");
     }
 
+    // ============ Configure Item Configs from items.json ============
+    // Note: This happens before art deployment, so we'll configure trait mappings after art is deployed
+    console.log("\n--- Loading Item Config from items.json ---");
+    const itemsConfig = loadItemsConfig();
+    let itemConfigs = null;
+    if (itemsConfig) {
+        // Build and configure item names and descriptions
+        const { configs } = buildItemConfigs(itemsConfig);
+        itemConfigs = configs;
+
+        const itemTypeIds = Object.keys(configs).map(Number);
+        const names = itemTypeIds.map(id => configs[id].name);
+        const descriptions = itemTypeIds.map(id => configs[id].description);
+
+        console.log(`  Configuring ${itemTypeIds.length} item configs from items.json...`);
+        await sendTx(fregsItems.setBuiltInItemConfigsBatch(itemTypeIds, names, descriptions));
+        console.log("  Item configs set!");
+    } else {
+        console.log("  ⚠️  No items/items.json found, skipping item config");
+    }
+
     // ============ Configure BeadPunks ============
     if (beadPunksAddress && beadPunksAddress !== "0x0000000000000000000000000000000000000000") {
         console.log("\n--- Configuring BeadPunks ---");
@@ -566,7 +747,8 @@ async function main() {
     console.log("Setting art contracts on SVG Renderer...");
     await sendTx(svgRenderer.setAllContracts(
         artAddresses.background || ethers.ZeroAddress,  // background (0=color rect, 1+=special)
-        artAddresses.body || ethers.ZeroAddress,        // body (0=color, 1+=special skins)
+        artAddresses.body || ethers.ZeroAddress,        // body (colorable skin via BodyRenderer)
+        artAddresses.skin || ethers.ZeroAddress,        // skin (special skins: Bronze=1, Diamond=2, Metal=3)
         artAddresses.head || ethers.ZeroAddress,        // head (all heads in one router)
         artAddresses.mouth || ethers.ZeroAddress,       // mouth (all mouths in one router)
         artAddresses.stomach || ethers.ZeroAddress      // stomach (all stomachs in one router)
@@ -594,6 +776,21 @@ async function main() {
         console.log("Setting SVG Renderer on FregsItems...");
         await sendTx(fregsItems.setSVGRenderer(artAddresses.items));
         console.log("SVG Renderer set on FregsItems!");
+    }
+
+    // Configure trait item mappings (skin and head) - needs base trait counts from art deployment
+    if (itemsConfig) {
+        console.log("\n--- Configuring Trait Item Mappings ---");
+        const traitMappings = buildTraitItemMappings(itemsConfig, artAddresses.baseTraitCounts);
+
+        if (traitMappings.length > 0) {
+            const allItemTypes = traitMappings.map(m => m.itemId);
+            const allTraitValues = traitMappings.map(m => m.traitValue);
+
+            console.log(`  Configuring ${allItemTypes.length} trait item mappings...`);
+            await sendTx(fregsItems.setTraitItemMappingsBatch(allItemTypes, allTraitValues));
+            console.log("  Trait item mappings configured!");
+        }
     }
 
     // ============ Copy ABIs to Website ============
@@ -696,9 +893,10 @@ async function main() {
     if (beadPunksAddress) {
         console.log("  BeadPunks:       ", beadPunksAddress, isTestnet ? "(Mock)" : "(Mainnet)");
     }
-    console.log("\nArt Contracts (Simplified - 5 unified routers):");
+    console.log("\nArt Contracts (6 unified routers):");
     console.log("  Background:        ", artAddresses.background || "Not deployed (uses color rect)");
     console.log("  Body:              ", artAddresses.body || "Not deployed");
+    console.log("  Skin:              ", artAddresses.skin || "Not deployed");
     console.log("  Head:              ", artAddresses.head || "Not deployed");
     console.log("  Mouth:             ", artAddresses.mouth || "Not deployed");
     console.log("  Stomach:           ", artAddresses.stomach || "Not deployed");

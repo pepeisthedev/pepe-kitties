@@ -14,10 +14,10 @@ interface KittyRendererProps {
 
 // Paths to SVG assets
 const FROGZ_PATH = "/frogz/default"
-const ADDED_PATH = "/frogz/added"
+const FROM_ITEMS_PATH = "/frogz/from_items"
 
 // Base trait counts - heads with IDs above this are item heads (stored in added/head folder)
-const BASE_HEAD_COUNT = 21
+const BASE_HEAD_COUNT = 19
 
 // Cache for original SVG content to avoid repeated fetches
 const svgCache: { body: string | null; background: string | null } = {
@@ -49,7 +49,7 @@ export default function KittyRenderer({
   // Simplified trait system:
   // body=0 means use base colorable skin (skin/1.svg), body>0 means special skin
   // Contract mapping: Bronze=1, Diamond=2, Metal=3, Gold=4 → directly maps to skin/{body}.svg
-  // Stomach always renders now
+  // Stomach only renders for default body (special skins cover the belly area)
   const hasSpecialBody = body > 0
 
   // Fetch body SVG and replace color
@@ -135,7 +135,7 @@ export default function KittyRenderer({
       {/* Body - special skin or color-based */}
       {hasSpecialBody ? (
         <img
-          src={`${FROGZ_PATH}/skin/${body}.svg`}
+          src={`${FROM_ITEMS_PATH}/skin/${body}.svg`}
           alt={`Special Skin ${body}`}
           className="absolute inset-0 w-full h-full object-contain"
         />
@@ -149,8 +149,8 @@ export default function KittyRenderer({
         )
       )}
 
-      {/* Stomach - always renders now */}
-      {!hideTraits && (
+      {/* Stomach - only renders for default body (special skins cover the belly) */}
+      {!hideTraits && !hasSpecialBody && (
         <img
           src={`${FROGZ_PATH}/stomach/${stomach}.svg`}
           alt={`Stomach ${stomach}`}
@@ -159,10 +159,10 @@ export default function KittyRenderer({
       )}
 
       {/* Head - each head trait includes eyes in its SVG
-          Base heads (1-21) are in default/head/, item heads (22+) are in added/head/ */}
+          Base heads (1-19) are in default/head/, item heads (20+) are in from_items/head/ */}
       {head > BASE_HEAD_COUNT ? (
         <img
-          src={`${ADDED_PATH}/head/${head - BASE_HEAD_COUNT}.svg`}
+          src={`${FROM_ITEMS_PATH}/head/${head - BASE_HEAD_COUNT}.svg`}
           alt={`Head ${head}`}
           className="absolute inset-0 w-full h-full object-contain"
         />

@@ -10,7 +10,7 @@ import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
 import KittyRenderer from "./KittyRenderer"
 import ItemCard from "./ItemCard"
-import { ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES } from "../config/contracts"
+import { ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, getItemsByCategory } from "../config/contracts"
 import { Wand2, Palette } from "lucide-react"
 
 // Convert HSL to Hex
@@ -45,16 +45,24 @@ const generatePalette = (hue: number): string[] => {
     return variations.map(v => hslToHex(hue, v.s, v.l))
 }
 
-// Check if item is a dynamic special trait item (not one of the built-in types)
+// Check if item is a skin item (from items.json category)
+const isSkinItem = (itemType: number): boolean => {
+    const config = getItemConfig(itemType)
+    return config?.category === 'skin'
+}
+
+// Check if item is a head item (from items.json category)
+const isHeadItem = (itemType: number): boolean => {
+    const config = getItemConfig(itemType)
+    return config?.category === 'head'
+}
+
+// Check if item is a dynamic special trait item (not one of the utility/special types)
 const isDynamicTraitItem = (item: Item): boolean => {
-    const builtInTypes = [
-        ITEM_TYPES.COLOR_CHANGE,
-        ITEM_TYPES.HEAD_REROLL,
-        ITEM_TYPES.TREASURE_CHEST,
-        ITEM_TYPES.BEAD_PUNK,
-        ITEM_TYPES.SPECIAL_DICE,
-    ]
-    return !builtInTypes.includes(item.itemType) && item.targetTraitType !== undefined
+    const config = getItemConfig(item.itemType)
+    if (!config) return false
+    // Utility and special items are handled separately
+    return config.category !== 'utility' && config.category !== 'special' && config.category !== 'external'
 }
 
 // Get description for an item (dynamic or static)
@@ -95,28 +103,31 @@ export default function UseItemsSection(): React.JSX.Element {
 
     const isValidHexColor = (color: string): boolean => /^#[0-9A-Fa-f]{6}$/.test(color)
 
-    // Get confirmation message based on item type
+    // Get confirmation message based on item type/category
     const getConfirmMessage = () => {
         if (!selectedItem) return ""
-        switch (selectedItem.itemType) {
-            case ITEM_TYPES.COLOR_CHANGE:
-                return "Are you sure you want to change the color of this Pepe?"
-            case ITEM_TYPES.HEAD_REROLL:
-                return "Are you sure you want to re-roll the head trait? This will randomly change the head."
-            case ITEM_TYPES.SPECIAL_DICE:
-                return "Are you sure you want to roll the Special Dice? This will randomly apply a special trait!"
-            default:
-                // Dynamic trait items (skins, heads, etc.)
-                if (isDynamicTraitItem(selectedItem)) {
-                    if (selectedItem.targetTraitType === TRAIT_TYPES.HEAD) {
-                        return `Are you sure you want to apply ${selectedItem.name}? This will change the head.`
-                    }
-                    if (selectedItem.targetTraitType === TRAIT_TYPES.BODY) {
-                        return `Are you sure you want to apply ${selectedItem.name}? This will apply a special body skin.`
-                    }
-                }
-                return `Are you sure you want to use ${selectedItem.name}?`
+        const config = getItemConfig(selectedItem.itemType)
+
+        // Utility items have specific messages
+        if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) {
+            return "Are you sure you want to change the color of this Pepe?"
         }
+        if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) {
+            return "Are you sure you want to re-roll the head trait? This will randomly change the head."
+        }
+        if (selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE) {
+            return "Are you sure you want to roll the Special Dice? This will randomly apply a special trait!"
+        }
+
+        // Category-based messages
+        if (config?.category === 'skin') {
+            return `Are you sure you want to apply ${selectedItem.name}? This will apply a special body skin.`
+        }
+        if (config?.category === 'head') {
+            return `Are you sure you want to apply ${selectedItem.name}? This will change your Freg's head.`
+        }
+
+        return `Are you sure you want to use ${selectedItem.name}?`
     }
 
     const handleApplyClick = () => {
@@ -210,14 +221,12 @@ export default function UseItemsSection(): React.JSX.Element {
                 tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId)
             } else if (selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE) {
                 tx = await contract.useSpecialDice(selectedItem.tokenId, selectedKitty.tokenId)
-            } else if (
-                selectedItem.itemType === ITEM_TYPES.BRONZE_SKIN ||
-                selectedItem.itemType === ITEM_TYPES.METAL_SKIN ||
-                selectedItem.itemType === ITEM_TYPES.GOLD_SKIN ||
-                selectedItem.itemType === ITEM_TYPES.DIAMOND_SKIN
-            ) {
-                // Skin items
+            } else if (isSkinItem(selectedItem.itemType)) {
+                // Skin items (Bronze, Metal, Gold, Diamond, etc.)
                 tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId)
+            } else if (isHeadItem(selectedItem.itemType)) {
+                // Head trait items (Hoodie, Frogsuit, etc.)
+                tx = await contract.useHeadTraitItem(selectedItem.tokenId, selectedKitty.tokenId)
             } else if (isDynamicTraitItem(selectedItem)) {
                 // Dynamic trait items (skins, heads, etc.)
                 tx = await contract.useDynamicTraitItem(selectedItem.tokenId, selectedKitty.tokenId)
@@ -239,10 +248,8 @@ export default function UseItemsSection(): React.JSX.Element {
                 }
             } else if (
                 selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE ||
-                selectedItem.itemType === ITEM_TYPES.BRONZE_SKIN ||
-                selectedItem.itemType === ITEM_TYPES.METAL_SKIN ||
-                selectedItem.itemType === ITEM_TYPES.GOLD_SKIN ||
-                selectedItem.itemType === ITEM_TYPES.DIAMOND_SKIN ||
+                isSkinItem(selectedItem.itemType) ||
+                isHeadItem(selectedItem.itemType) ||
                 isDynamicTraitItem(selectedItem)
             ) {
                 // Parse the trait event to update the correct trait
@@ -285,14 +292,7 @@ export default function UseItemsSection(): React.JSX.Element {
 
     return (
         <Section id="use-items">
-            <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-theme-primary mb-4">
-                    USE ITEMS
-                </h2>
-                <p className="font-righteous text-xl md:text-2xl text-theme-muted max-w-2xl mx-auto">
-                    Select a Freg and an item to combine them!
-                </p>
-            </div>
+      
 
             {!isConnected ? (
                 <Card className="bg-theme-card border-4 border-theme rounded-3xl">

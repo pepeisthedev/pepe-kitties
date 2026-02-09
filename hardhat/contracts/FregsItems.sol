@@ -38,6 +38,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     uint256 public constant TREASURE_CHEST = 6;
     uint256 public constant BEAD_PUNK = 7;      // External NFT reward
     uint256 public constant DIAMOND_SKIN = 8;
+    uint256 public constant HOODIE = 9;
+    uint256 public constant FROGSUIT = 10;
 
     // Special dice item (reserved ID)
     uint256 public constant SPECIAL_DICE = 100;
@@ -64,6 +66,14 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     // Special trait max variants for dice rolls
     mapping(uint256 => uint256) public specialTraitMaxVariants;  // traitType => maxVariantId
+
+    // Dynamic skin item type to trait value mapping (configured at deployment)
+    // Maps item type (BRONZE_SKIN, DIAMOND_SKIN, etc.) to the actual trait value in skinContract
+    mapping(uint256 => uint256) public skinItemToTraitValue;
+
+    // Dynamic head item type to trait value mapping (configured at deployment)
+    // Maps item type (HOODIE, FROGSUIT, etc.) to the actual trait value in headContract
+    mapping(uint256 => uint256) public headItemToTraitValue;
 
     IFregs public fregs;
     ISVGItemsRenderer public svgRenderer;
@@ -93,6 +103,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     uint256 public diamondSkinWeight = 0;     // 0% - owner mint only for now
     uint256 public beadPunkWeight = 100;      // 1% - rare external NFT (only when available)
     uint256 public treasureChestWeight = 50;  // 0.5% - ultra rare, max 5 ever
+    uint256 public hoodieWeight = 500;        // 5% - uncommon claimable head item
+    uint256 public frogsuitWeight = 500;      // 5% - uncommon claimable head item
 
     // Events
     event ItemClaimed(
@@ -220,40 +232,18 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function _getItemName(uint256 _itemType) internal view returns (string memory) {
-        // Built-in items
-        if (_itemType == COLOR_CHANGE) return "Color Change";
-        if (_itemType == HEAD_REROLL) return "Head Reroll";
-        if (_itemType == BRONZE_SKIN) return "Bronze Skin";
-        if (_itemType == METAL_SKIN) return "Metal Skin";
-        if (_itemType == GOLD_SKIN) return "Gold Skin";
-        if (_itemType == TREASURE_CHEST) return "Treasure Chest";
-        if (_itemType == SPECIAL_DICE) return "Special Dice";
-        if (_itemType == DIAMOND_SKIN) return "Diamond Skin";
-
-        // Dynamic items
+        // Check itemTypeConfigs first (works for both built-in and dynamic items)
         if (bytes(itemTypeConfigs[_itemType].name).length > 0) {
             return itemTypeConfigs[_itemType].name;
         }
-
         return "Unknown";
     }
 
     function _getItemDescription(uint256 _itemType) internal view returns (string memory) {
-        // Built-in items
-        if (_itemType == COLOR_CHANGE) return "Change your Freg's body color to any hex color";
-        if (_itemType == HEAD_REROLL) return "Use this item to reroll your Freg's head trait";
-        if (_itemType == BRONZE_SKIN) return "Apply a bronze skin to your Freg";
-        if (_itemType == METAL_SKIN) return "Apply a metal skin to your Freg";
-        if (_itemType == GOLD_SKIN) return "Apply a golden skin to your Freg";
-        if (_itemType == TREASURE_CHEST) return "Burn this chest to claim ETH rewards";
-        if (_itemType == SPECIAL_DICE) return "Roll for a random special trait on your Freg";
-        if (_itemType == DIAMOND_SKIN) return "Apply a diamond skin to your Freg";
-
-        // Dynamic items
+        // Check itemTypeConfigs first (works for both built-in and dynamic items)
         if (bytes(itemTypeConfigs[_itemType].description).length > 0) {
             return itemTypeConfigs[_itemType].description;
         }
-
         return "Unknown item";
     }
 
@@ -274,7 +264,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
         // Calculate total weight (only include special items if available)
         uint256 totalWeight = colorChangeWeight + headRerollWeight + bronzeSkinWeight +
-                              metalSkinWeight + goldSkinWeight + diamondSkinWeight;
+                              metalSkinWeight + goldSkinWeight + diamondSkinWeight +
+                              hoodieWeight + frogsuitWeight;
         if (hasBeadPunks) {
             totalWeight += beadPunkWeight;
         }
@@ -337,7 +328,17 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
                         if (rand < cumulative) {
                             newItemType = GOLD_SKIN;
                         } else {
-                            newItemType = DIAMOND_SKIN;
+                            cumulative += diamondSkinWeight;
+                            if (rand < cumulative) {
+                                newItemType = DIAMOND_SKIN;
+                            } else {
+                                cumulative += hoodieWeight;
+                                if (rand < cumulative) {
+                                    newItemType = HOODIE;
+                                } else {
+                                    newItemType = FROGSUIT;
+                                }
+                            }
                         }
                     }
                 }
@@ -402,12 +403,9 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             "Not a special skin item"
         );
 
-        // Determine body type (maps to skin SVG files: skin/1.svg, skin/2.svg, etc.)
-        uint256 bodyValue;
-        if (iType == BRONZE_SKIN) bodyValue = 1;
-        else if (iType == DIAMOND_SKIN) bodyValue = 2;  // skin/2.svg
-        else if (iType == METAL_SKIN) bodyValue = 3;    // skin/3.svg
-        else bodyValue = 4; // GOLD_SKIN
+        // Get body value from dynamic mapping (configured at deployment to match traits.json)
+        uint256 bodyValue = skinItemToTraitValue[iType];
+        require(bodyValue > 0, "Skin item not configured");
 
         _burn(itemTokenId);
         fregs.setTrait(fregId, TRAIT_BODY, bodyValue, msg.sender);
@@ -430,6 +428,23 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         fregs.setTrait(fregId, config.targetTraitType, config.traitValue, msg.sender);
 
         emit SpecialTraitItemUsed(itemTokenId, fregId, msg.sender, config.targetTraitType, config.traitValue);
+    }
+
+    // Use a head trait item (Hoodie, Frogsuit, etc.)
+    function useHeadTraitItem(uint256 itemTokenId, uint256 fregId) external nonReentrant {
+        require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
+        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
+
+        uint256 iType = itemType[itemTokenId];
+
+        // Get head value from dynamic mapping (configured at deployment to match traits.json)
+        uint256 headValue = headItemToTraitValue[iType];
+        require(headValue > 0, "Head item not configured");
+
+        _burn(itemTokenId);
+        fregs.setTrait(fregId, TRAIT_HEAD, headValue, msg.sender);
+
+        emit SpecialTraitItemUsed(itemTokenId, fregId, msg.sender, TRAIT_HEAD, headValue);
     }
 
     // Use special dice for random trait
@@ -485,17 +500,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     // Owner mint function for minting any item type to any address
     function ownerMint(address to, uint256 _itemType, uint256 amount) external onlyOwner {
         require(amount > 0, "Amount must be greater than 0");
-        require(
-            _itemType == COLOR_CHANGE ||
-            _itemType == HEAD_REROLL ||
-            _itemType == BRONZE_SKIN ||
-            _itemType == METAL_SKIN ||
-            _itemType == GOLD_SKIN ||
-            _itemType == DIAMOND_SKIN ||
-            _itemType == SPECIAL_DICE ||
-            bytes(itemTypeConfigs[_itemType].name).length > 0,
-            "Invalid item type"
-        );
+        // Item type must be configured (have a name set via setBuiltInItemConfig or addItemType)
+        require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Item type not configured");
 
         uint256 startTokenId = _tokenIdCounter;
         _safeMint(to, amount);
@@ -587,6 +593,56 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         fregs = IFregs(_fregs);
     }
 
+    // Configure skin item type to trait value mapping (must match traits.json fileNames)
+    function setSkinItemTraitValue(uint256 itemType_, uint256 traitValue) external onlyOwner {
+        skinItemToTraitValue[itemType_] = traitValue;
+    }
+
+    // Configure head item type to trait value mapping (must match traits.json)
+    function setHeadItemTraitValue(uint256 itemType_, uint256 traitValue) external onlyOwner {
+        headItemToTraitValue[itemType_] = traitValue;
+    }
+
+    // Batch configure trait item mappings (skin and head) at once
+    function setTraitItemMappingsBatch(
+        uint256[] calldata itemTypes,
+        uint256[] calldata traitValues
+    ) external onlyOwner {
+        require(itemTypes.length == traitValues.length, "Length mismatch");
+        for (uint256 i = 0; i < itemTypes.length; i++) {
+            uint256 iType = itemTypes[i];
+            // Determine if it's a skin or head item based on item type constant
+            if (iType == BRONZE_SKIN || iType == METAL_SKIN || iType == GOLD_SKIN || iType == DIAMOND_SKIN) {
+                skinItemToTraitValue[iType] = traitValues[i];
+            } else if (iType == HOODIE || iType == FROGSUIT) {
+                headItemToTraitValue[iType] = traitValues[i];
+            }
+        }
+    }
+
+    // Configure a built-in item type's name and description
+    function setBuiltInItemConfig(
+        uint256 itemTypeId,
+        string calldata name,
+        string calldata description
+    ) external onlyOwner {
+        itemTypeConfigs[itemTypeId].name = name;
+        itemTypeConfigs[itemTypeId].description = description;
+    }
+
+    // Batch configure multiple built-in items at once
+    function setBuiltInItemConfigsBatch(
+        uint256[] calldata itemTypeIds,
+        string[] calldata names,
+        string[] calldata descriptions
+    ) external onlyOwner {
+        require(itemTypeIds.length == names.length && names.length == descriptions.length, "Length mismatch");
+        for (uint256 i = 0; i < itemTypeIds.length; i++) {
+            itemTypeConfigs[itemTypeIds[i]].name = names[i];
+            itemTypeConfigs[itemTypeIds[i]].description = descriptions[i];
+        }
+    }
+
     function setSVGRenderer(address _svgRenderer) external onlyOwner {
         svgRenderer = ISVGItemsRenderer(_svgRenderer);
     }
@@ -605,6 +661,11 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     function setTreasureChestWeight(uint256 _weight) external onlyOwner {
         treasureChestWeight = _weight;
+    }
+
+    function setHeadItemWeights(uint256 _hoodie, uint256 _frogsuit) external onlyOwner {
+        hoodieWeight = _hoodie;
+        frogsuitWeight = _frogsuit;
     }
 
     function setRarityWeights(

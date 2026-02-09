@@ -1,0 +1,13 @@
+{
+  "background": [],
+  "head": [
+    { "fileName": "2.svg", "name": "Hoodie" },
+    { "fileName": "3.svg", "name": "Frogsuit" }
+  ],
+  "mouth": [],
+  "skin": [
+    { "fileName": "2.svg", "name": "Diamond" },
+    { "fileName": "3.svg", "name": "Metal" }
+  ],
+  "stomach": []
+}

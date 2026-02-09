@@ -1,6 +1,7 @@
 import FregsABI from "../assets/abis/Fregs.json"
 import FregsItemsABI from "../assets/abis/FregsItems.json"
 import FregsMintPassABI from "../assets/abis/FregsMintPass.json"
+import itemsData from "../../public/items/items.json"
 
 // Contract addresses from environment variables
 export const FREGS_ADDRESS = import.meta.env.VITE_FREGS_ADDRESS as string
@@ -10,18 +11,31 @@ export const FREGS_MINTPASS_ADDRESS = import.meta.env.VITE_FREGS_MINTPASS_ADDRES
 // Export ABIs
 export { FregsABI, FregsItemsABI, FregsMintPassABI }
 
-// Item type constants (must match FregsItems.sol)
-export const ITEM_TYPES = {
-  COLOR_CHANGE: 1,
-  HEAD_REROLL: 2,
-  BRONZE_SKIN: 3,
-  METAL_SKIN: 4,
-  GOLD_SKIN: 5,
-  TREASURE_CHEST: 6,
-  BEAD_PUNK: 7,
-  DIAMOND_SKIN: 8,
-  SPECIAL_DICE: 100,
-} as const
+// Item configuration loaded from items.json (single source of truth)
+export interface ItemConfig {
+  id: number
+  name: string
+  description: string
+  category: string
+  svgFile?: string
+  targetTraitType?: number
+  traitFileName?: string
+  isClaimable: boolean
+  claimWeight: number
+  isOwnerMintable: boolean
+  maxSupply?: number
+}
+
+// Load items from items.json
+export const ITEMS: ItemConfig[] = itemsData.items as ItemConfig[]
+
+// Build ITEM_TYPES lookup from items.json
+export const ITEM_TYPES = ITEMS.reduce((acc, item) => {
+  // Create key from name (e.g., "Color Change" -> "COLOR_CHANGE")
+  const key = item.name.toUpperCase().replace(/\s+/g, '_')
+  acc[key] = item.id
+  return acc
+}, {} as Record<string, number>)
 
 // Trait type constants (must match Fregs.sol - simplified system)
 export const TRAIT_TYPES = {
@@ -32,28 +46,24 @@ export const TRAIT_TYPES = {
   STOMACH: 4,
 } as const
 
-// Item type names for display
-export const ITEM_TYPE_NAMES: Record<number, string> = {
-  [ITEM_TYPES.COLOR_CHANGE]: "Color Change",
-  [ITEM_TYPES.HEAD_REROLL]: "Head Reroll",
-  [ITEM_TYPES.BRONZE_SKIN]: "Bronze Skin",
-  [ITEM_TYPES.METAL_SKIN]: "Metal Skin",
-  [ITEM_TYPES.GOLD_SKIN]: "Gold Skin",
-  [ITEM_TYPES.TREASURE_CHEST]: "Treasure Chest",
-  [ITEM_TYPES.BEAD_PUNK]: "Bead Punk",
-  [ITEM_TYPES.DIAMOND_SKIN]: "Diamond Skin",
-  [ITEM_TYPES.SPECIAL_DICE]: "Special Dice",
+// Build item type names from items.json
+export const ITEM_TYPE_NAMES: Record<number, string> = ITEMS.reduce((acc, item) => {
+  acc[item.id] = item.name
+  return acc
+}, {} as Record<number, string>)
+
+// Build item descriptions from items.json
+export const ITEM_TYPE_DESCRIPTIONS: Record<number, string> = ITEMS.reduce((acc, item) => {
+  acc[item.id] = item.description
+  return acc
+}, {} as Record<number, string>)
+
+// Helper to get item config by ID
+export function getItemConfig(itemId: number): ItemConfig | undefined {
+  return ITEMS.find(item => item.id === itemId)
 }
 
-// Item descriptions
-export const ITEM_TYPE_DESCRIPTIONS: Record<number, string> = {
-  [ITEM_TYPES.COLOR_CHANGE]: "Change your Freg's body color",
-  [ITEM_TYPES.HEAD_REROLL]: "Reroll your Freg's head trait",
-  [ITEM_TYPES.BRONZE_SKIN]: "Give your Freg a bronze skin",
-  [ITEM_TYPES.METAL_SKIN]: "Give your Freg a shiny metal skin",
-  [ITEM_TYPES.GOLD_SKIN]: "Give your Freg a luxurious gold skin",
-  [ITEM_TYPES.TREASURE_CHEST]: "Burn to claim ETH rewards",
-  [ITEM_TYPES.BEAD_PUNK]: "A rare Bead Punk NFT!",
-  [ITEM_TYPES.DIAMOND_SKIN]: "Give your Freg a dazzling diamond skin",
-  [ITEM_TYPES.SPECIAL_DICE]: "Roll the dice for a random special trait!",
+// Helper to get items by category
+export function getItemsByCategory(category: string): ItemConfig[] {
+  return ITEMS.filter(item => item.category === category)
 }

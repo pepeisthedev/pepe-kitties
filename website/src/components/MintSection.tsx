@@ -160,12 +160,7 @@ export default function MintSection(): React.JSX.Element {
 
     return (
         <Section id="mint" wide>
-            <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-theme-primary mb-4">
-                    MINT YOUR FREG
-                </h2>
-            </div>
-
+       
             <div className="grid md:grid-cols-2 gap-8 items-stretch min-h-[500px]">
                 {/* NFT Preview */}
                 <div className="flex items-center justify-center">

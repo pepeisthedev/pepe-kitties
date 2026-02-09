@@ -15,8 +15,8 @@ const SVG_RENDERER_ADDRESS = process.env.VITE_SVG_RENDERER_ADDRESS || "";
 
 // Paths
 const FROGZ_PATH = path.join(__dirname, "../../website/public/frogz");
-const ADDED_TRAITS_PATH = path.join(FROGZ_PATH, "added");
-const ADDED_TRAITS_JSON = path.join(ADDED_TRAITS_PATH, "traits.json");
+const FROM_ITEMS_PATH = path.join(FROGZ_PATH, "from_items");
+const FROM_ITEMS_TRAITS_JSON = path.join(FROM_ITEMS_PATH, "traits.json");
 const DEPLOYMENT_STATUS_PATH = path.join(__dirname, "../deployment-status.json");
 
 // Trait type constants (must match contracts)
@@ -61,10 +61,10 @@ function saveDeploymentStatus(status) {
 }
 
 function loadAddedTraitsConfig() {
-    if (!fs.existsSync(ADDED_TRAITS_JSON)) {
-        throw new Error(`Added traits config not found at: ${ADDED_TRAITS_JSON}`);
+    if (!fs.existsSync(FROM_ITEMS_TRAITS_JSON)) {
+        throw new Error(`Added traits config not found at: ${FROM_ITEMS_TRAITS_JSON}`);
     }
-    return JSON.parse(fs.readFileSync(ADDED_TRAITS_JSON, "utf8"));
+    return JSON.parse(fs.readFileSync(FROM_ITEMS_TRAITS_JSON, "utf8"));
 }
 
 // ============ HELPERS ============
@@ -118,7 +118,7 @@ async function main() {
 
     // Load added traits config
     const addedTraitsConfig = loadAddedTraitsConfig();
-    console.log("\nLoaded added traits from:", ADDED_TRAITS_JSON);
+    console.log("\nLoaded added traits from:", FROM_ITEMS_TRAITS_JSON);
 
     // Deploy SVGPartWriter
     console.log("\n--- Getting SVGPartWriter ---");
@@ -152,7 +152,7 @@ async function main() {
             console.log(`\n  Deploying ${fileName} (${name})...`);
 
             // Deploy the SVG
-            const svgPath = path.join(ADDED_TRAITS_PATH, traitType, fileName);
+            const svgPath = path.join(FROM_ITEMS_PATH, traitType, fileName);
             if (!fs.existsSync(svgPath)) {
                 console.error(`    ❌ SVG not found: ${svgPath}`);
                 continue;
@@ -308,8 +308,8 @@ async function main() {
 
     console.log("\n" + "=".repeat(60));
     console.log("\nTo add more special items:");
-    console.log("  1. Add SVG files to website/public/frogz/added/<traitType>/");
-    console.log("  2. Update website/public/frogz/added/traits.json");
+    console.log("  1. Add SVG files to website/public/frogz/from_items/<traitType>/");
+    console.log("  2. Update website/public/frogz/from_items/traits.json");
     console.log("  3. Run this script again");
     console.log("\n" + "=".repeat(60));
 }

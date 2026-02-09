@@ -3,7 +3,9 @@ const fs = require("fs");
 const path = require("path");
 
 // Path to the frogz SVG folder (relative to this script)
-const FROGZ_PATH = path.join(__dirname, "../../../website/public/frogz");
+const FROGZ_BASE_PATH = path.join(__dirname, "../../../website/public/frogz");
+const FROGZ_PATH = path.join(FROGZ_BASE_PATH, "default");
+const FROM_ITEMS_PATH = path.join(FROGZ_BASE_PATH, "from_items");
 // Path to the items SVG folder
 const ITEMS_PATH = path.join(__dirname, "../../../website/public/items");
 
@@ -155,24 +157,73 @@ async function deploySvg(svgFilePath, svgPartWriter) {
 
 /**
  * Deploy all SVGs from a trait folder and create a router
+ * For 'skin' folder, uses from_items/ (special skins) - base skin handled by BodyRenderer
+ * For 'head' folder, combines default/ and from_items/
+ *
+ * IMPORTANT: For skin folder, typeIds match the fileName (e.g., 2.svg → typeId 2)
+ * This ensures the contract mappings align with traits.json
  */
 async function deployTraitFolder(folderName, svgPartWriter) {
     const folderPath = path.join(FROGZ_PATH, folderName);
+    const fromItemsFolder = path.join(FROM_ITEMS_PATH, folderName);
 
-    if (!fs.existsSync(folderPath)) {
-        console.log(`⚠️  Folder ${folderName} does not exist, skipping...`);
-        return null;
+    let files = [];
+    let useExplicitTypeIds = false; // For skin folder, use explicit IDs matching fileName
+
+    if (folderName === 'skin') {
+        // Skin folder: only deploy from from_items/ (special skins)
+        // Base colorable skin is handled by BodyRenderer, not the skin router
+        // TypeIds must match fileName (e.g., 2.svg → typeId 2) for contract compatibility
+        if (!fs.existsSync(fromItemsFolder)) {
+            console.log(`⚠️  Folder from_items/${folderName} does not exist, skipping...`);
+            return null;
+        }
+        files = fs.readdirSync(fromItemsFolder)
+            .filter(f => f.endsWith('.svg'))
+            .map(f => ({
+                file: f,
+                path: path.join(fromItemsFolder, f),
+                source: 'from_items',
+                typeId: parseInt(f.replace('.svg', '')) // Extract typeId from fileName
+            }));
+        useExplicitTypeIds = true;
+    } else if (folderName === 'head') {
+        // Head folder: combine default/ and from_items/
+        if (fs.existsSync(folderPath)) {
+            files = fs.readdirSync(folderPath)
+                .filter(f => f.endsWith('.svg'))
+                .map(f => ({ file: f, path: path.join(folderPath, f), source: 'default' }));
+        }
+        if (fs.existsSync(fromItemsFolder)) {
+            const fromItemsFiles = fs.readdirSync(fromItemsFolder)
+                .filter(f => f.endsWith('.svg'))
+                .map(f => {
+                    // from_items heads get IDs after base heads (e.g., 1.svg becomes ID 20 if 19 base heads)
+                    return { file: f, path: path.join(fromItemsFolder, f), source: 'from_items' };
+                });
+            files = files.concat(fromItemsFiles);
+        }
+    } else {
+        // Other folders: only deploy from default/
+        if (!fs.existsSync(folderPath)) {
+            console.log(`⚠️  Folder ${folderName} does not exist, skipping...`);
+            return null;
+        }
+        files = fs.readdirSync(folderPath)
+            .filter(f => f.endsWith('.svg'))
+            .map(f => ({ file: f, path: path.join(folderPath, f), source: 'default' }));
     }
 
-    // Get all SVG files in the folder
-    const files = fs.readdirSync(folderPath)
-        .filter(f => f.endsWith('.svg'))
-        .sort((a, b) => {
-            // Sort numerically by filename (1.svg, 2.svg, 3.svg, etc.)
-            const numA = parseInt(a.replace('.svg', ''));
-            const numB = parseInt(b.replace('.svg', ''));
-            return numA - numB;
-        });
+    // Sort: default files by number, then from_items files by number
+    files.sort((a, b) => {
+        // Default files come first
+        if (a.source !== b.source) {
+            return a.source === 'default' ? -1 : 1;
+        }
+        const numA = parseInt(a.file.replace('.svg', ''));
+        const numB = parseInt(b.file.replace('.svg', ''));
+        return numA - numB;
+    });
 
     if (files.length === 0) {
         console.log(`⚠️  No SVG files found in ${folderName}, skipping...`);
@@ -181,20 +232,29 @@ async function deployTraitFolder(folderName, svgPartWriter) {
 
     console.log(`\n${'='.repeat(60)}`);
     console.log(`🎨 Deploying ${folderName.toUpperCase()} traits (${files.length} SVGs)`);
+    if (useExplicitTypeIds) {
+        console.log(`ℹ️  Using explicit typeIds matching fileNames`);
+    }
     console.log(`${'='.repeat(60)}`);
 
     const svgRendererAddresses = [];
+    const typeIds = []; // For explicit typeId mapping
     let totalContracts = 0;
 
     for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const filePath = path.join(folderPath, file);
+        const { file, path: filePath, source, typeId } = files[i];
 
-        console.log(`\n📦 Deploying ${folderName}/${file} (${i + 1}/${files.length})...`);
+        console.log(`\n📦 Deploying ${folderName}/${file} from ${source} (${i + 1}/${files.length})...`);
+        if (useExplicitTypeIds) {
+            console.log(`   TypeId: ${typeId}`);
+        }
 
         try {
             const { address, chunkCount } = await deploySvg(filePath, svgPartWriter);
             svgRendererAddresses.push(address);
+            if (useExplicitTypeIds) {
+                typeIds.push(typeId);
+            }
             totalContracts += chunkCount;
             console.log(`✅ ${folderName}/${file} deployed at: ${address} (${chunkCount} contracts)`);
         } catch (error) {
@@ -218,15 +278,30 @@ async function deployTraitFolder(folderName, svgPartWriter) {
         }
     }
 
-    // Add all SVG addresses to the router in batch
-    console.log(`📋 Adding ${svgRendererAddresses.length} SVGs to router in batch...`);
-    try {
-        const tx = await svgRouter.setRenderContractsBatch(svgRendererAddresses);
-        const receipt = await tx.wait();
-        console.log(`✅ All ${folderName} SVGs added! Gas used: ${receipt.gasUsed}`);
-    } catch (error) {
-        console.error(`❌ Failed to configure router:`, error);
-        throw error;
+    // Add SVG addresses to the router
+    if (useExplicitTypeIds) {
+        // Use explicit typeIds for skin folder - typeIds match fileNames
+        console.log(`📋 Adding ${svgRendererAddresses.length} SVGs to router with explicit typeIds...`);
+        console.log(`   TypeIds: [${typeIds.join(', ')}]`);
+        try {
+            const tx = await svgRouter.setRenderContractsBatchWithTypeIds(typeIds, svgRendererAddresses);
+            const receipt = await tx.wait();
+            console.log(`✅ All ${folderName} SVGs added with explicit typeIds! Gas used: ${receipt.gasUsed}`);
+        } catch (error) {
+            console.error(`❌ Failed to configure router:`, error);
+            throw error;
+        }
+    } else {
+        // Use sequential IDs (1, 2, 3...) for other folders
+        console.log(`📋 Adding ${svgRendererAddresses.length} SVGs to router in batch...`);
+        try {
+            const tx = await svgRouter.setRenderContractsBatch(svgRendererAddresses);
+            const receipt = await tx.wait();
+            console.log(`✅ All ${folderName} SVGs added! Gas used: ${receipt.gasUsed}`);
+        } catch (error) {
+            console.error(`❌ Failed to configure router:`, error);
+            throw error;
+        }
     }
 
     const routerAddress = await svgRouter.getAddress();
@@ -235,7 +310,8 @@ async function deployTraitFolder(folderName, svgPartWriter) {
     return {
         routerAddress,
         svgCount: files.length,
-        contractCount: totalContracts
+        contractCount: totalContracts,
+        typeIds: useExplicitTypeIds ? typeIds : null // Return typeIds for reference
     };
 }
 

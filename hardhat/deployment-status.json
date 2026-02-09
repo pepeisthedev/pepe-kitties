@@ -1,0 +1,227 @@
+{
+  "network": "localhost",
+  "lastUpdated": "2026-02-09T18:53:20.417Z",
+  "contracts": {
+    "fregs": "0x10FcD639d832188e94c50eD1C4C3A9F6403a0a64",
+    "fregsItems": "0x0b4868Dbdfb981a4b26eE5d670739Bc03b16cd9c",
+    "fregsMintPass": "0xA96658Fc034490F0E537bAC43ba48efE0B1C57e3",
+    "svgRenderer": "0x8257e37b4dD462c82E6Defbd08022E3b56E65E59",
+    "svgPartWriter": "0xdfFe9af87e026FF2B3d3790583C73c2E4dcDbb50",
+    "beadPunks": "0x1b53D58fFC6e69e6589a1A42eDf363584c0760f7"
+  },
+  "routers": {
+    "background": "0xD64616714b1E53643E1F97c8cCA235EAC2247BBa",
+    "body": "0xBb06D281b902c72D5287b5F673bc29cCBac26154",
+    "head": "0x341804B0b998C95974A6966068324E75B833d7Fd",
+    "mouth": "0x55C6E3A8AF3387BBFDA9d45f46D88b6768d9FC2F",
+    "stomach": "0x774b2952C41eBd59D8063d168bF8b840902D2c89",
+    "items": "0xdCD30bb19eD2DCe7A37500C5D2A20A399C9227d0",
+    "skin": "0x48ec1e89629aC937F32835A60da72613871bC8Ac"
+  },
+  "defaultTraits": {
+    "background": {
+      "1.svg": {
+        "routerId": 1,
+        "name": "Default",
+        "source": "default",
+        "rendererAddress": "0x20Ddc87Bf62eF5983bDfd7c1a8a98D4711af01D9"
+      }
+    },
+    "head": {
+      "1.svg": {
+        "routerId": 1,
+        "name": "None",
+        "source": "default",
+        "rendererAddress": "0x1e011a7Fe24AA92b2623eB6efEE51E640A109236"
+      },
+      "2.svg": {
+        "routerId": 21,
+        "name": "Type 20",
+        "source": "from_items",
+        "rendererAddress": "0x0defc29DA52800F541Bb07ad264D7eD5735e4CfA"
+      },
+      "3.svg": {
+        "routerId": 22,
+        "name": "Type 21",
+        "source": "from_items",
+        "rendererAddress": "0xc8Cfa1a751B29803e9dd39f860f9Fbe0330bA1c5"
+      },
+      "4.svg": {
+        "routerId": 4,
+        "name": "Cap",
+        "source": "default",
+        "rendererAddress": "0x6AA07Bb485297f35f55233b62078119f04aF9871"
+      },
+      "5.svg": {
+        "routerId": 5,
+        "name": "Headband",
+        "source": "default",
+        "rendererAddress": "0x9c1234656b683873bCA7e0e57194e07103325c39"
+      },
+      "6.svg": {
+        "routerId": 6,
+        "name": "Beanie",
+        "source": "default",
+        "rendererAddress": "0x477e39e34454122237Ef0388C24897344f10f7D3"
+      },
+      "7.svg": {
+        "routerId": 7,
+        "name": "Sunglasses",
+        "source": "default",
+        "rendererAddress": "0xB46b0722Cca1d1da7F20937a3d6f34Ff0753e1Fa"
+      },
+      "8.svg": {
+        "routerId": 8,
+        "name": "Crown",
+        "source": "default",
+        "rendererAddress": "0xc511a94eD6dA43ECcf89235A929D98DD782dC203"
+      },
+      "9.svg": {
+        "routerId": 9,
+        "name": "Halo",
+        "source": "default",
+        "rendererAddress": "0x6718b9232B15d61C602a7C60acfF41606c129Abb"
+      },
+      "10.svg": {
+        "routerId": 10,
+        "name": "Devil Horns",
+        "source": "default",
+        "rendererAddress": "0x79C29972195808E156674B1407D6D0d8516a72bD"
+      },
+      "11.svg": {
+        "routerId": 11,
+        "name": "Mohawk",
+        "source": "default",
+        "rendererAddress": "0xdD0AEF74980C0d8Ac8b547c80E93895E11fE9Cbe"
+      },
+      "12.svg": {
+        "routerId": 12,
+        "name": "Top Hat",
+        "source": "default",
+        "rendererAddress": "0x6EbEAd7C5bc68c80d63B31fC815761aB3BeCd75A"
+      },
+      "13.svg": {
+        "routerId": 13,
+        "name": "Wizard Hat",
+        "source": "default",
+        "rendererAddress": "0x68e79dAe32faEfad3F2ac8fD07a5fb9F58B78299"
+      },
+      "14.svg": {
+        "routerId": 14,
+        "name": "Antenna",
+        "source": "default",
+        "rendererAddress": "0x1c4FAb98628EddcFB5733083D2445CDFec45A749"
+      },
+      "15.svg": {
+        "routerId": 15,
+        "name": "Bow",
+        "source": "default",
+        "rendererAddress": "0x312FE7eE216A8184839e281e53342C07eF1fFA60"
+      },
+      "16.svg": {
+        "routerId": 16,
+        "name": "Chef Hat",
+        "source": "default",
+        "rendererAddress": "0x882AA2Cc4400A232e612B6204a84caa2591AB4B9"
+      },
+      "17.svg": {
+        "routerId": 17,
+        "name": "VR Headset",
+        "source": "default",
+        "rendererAddress": "0x2298d5c26daBB9C7Bb634d5BDe9Aaef5b6436b03"
+      },
+      "18.svg": {
+        "routerId": 18,
+        "name": "Flower Crown",
+        "source": "default",
+        "rendererAddress": "0x21ff94fB478420982CC91F6a7236864EE1939a51"
+      },
+      "19.svg": {
+        "routerId": 19,
+        "name": "Ninja Mask",
+        "source": "default",
+        "rendererAddress": "0x5DaAced60F47CF16d01761b3f5B04C9676c33DE1"
+      }
+    },
+    "mouth": {
+      "1.svg": {
+        "routerId": 1,
+        "name": "Cigarette",
+        "source": "default",
+        "rendererAddress": "0x62524304ADf1656A83d00e0284ccDBb45e8F8955"
+      },
+      "2.svg": {
+        "routerId": 2,
+        "name": "Pipe",
+        "source": "default",
+        "rendererAddress": "0x6863fc291F586531E9F4002998c18300776f0D7d"
+      },
+      "3.svg": {
+        "routerId": 3,
+        "name": "Tongue",
+        "source": "default",
+        "rendererAddress": "0x13Ff96b3824F5c0D44987c090c9A68d9526cfb88"
+      },
+      "4.svg": {
+        "routerId": 4,
+        "name": "Smile",
+        "source": "default",
+        "rendererAddress": "0xa1CEaa23ba5f43549b0B516bcf6E21929050Ef02"
+      },
+      "5.svg": {
+        "routerId": 5,
+        "name": "Frown",
+        "source": "default",
+        "rendererAddress": "0x6EAd3C5D75604D2dCbef84c8187a2033E89C6A51"
+      },
+      "6.svg": {
+        "routerId": 6,
+        "name": "Grin",
+        "source": "default",
+        "rendererAddress": "0xDfc11aC506fA7B0a7f2A59266d543c414C04A8cE"
+      }
+    },
+    "skin": {
+      "2.svg": {
+        "routerId": 2,
+        "name": "Base",
+        "source": "default",
+        "rendererAddress": "0xB3ddbB84bd3A0d0d092b1758358957B76F42A0b8"
+      },
+      "3.svg": {
+        "routerId": 3,
+        "name": "Type 2",
+        "source": "default",
+        "rendererAddress": "0x5905aEa5b66D2274963379aC54c962266440Aa2C"
+      }
+    },
+    "stomach": {
+      "1.svg": {
+        "routerId": 1,
+        "name": "ETH",
+        "source": "default",
+        "rendererAddress": "0x2598896fcD18013d49059139529b2C417F633303"
+      },
+      "2.svg": {
+        "routerId": 2,
+        "name": "Thug Life",
+        "source": "default",
+        "rendererAddress": "0x93607468544843Dc65c5aEA5B9647B8c57A3D74E"
+      },
+      "3.svg": {
+        "routerId": 3,
+        "name": "Heart",
+        "source": "default",
+        "rendererAddress": "0xF0B91CF28218fd5E5AC89eCc42E24476dba98e97"
+      }
+    }
+  },
+  "addedTraits": {
+    "background": {},
+    "head": {},
+    "mouth": {},
+    "skin": {},
+    "stomach": {}
+  },
+  "itemTypes": {}
+}

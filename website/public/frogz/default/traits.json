@@ -15,15 +15,13 @@
     { "fileName": "10.svg", "name": "Devil Horns", "description": "Devilish horns" },
     { "fileName": "11.svg", "name": "Mohawk", "description": "Punk mohawk" },
     { "fileName": "12.svg", "name": "Top Hat", "description": "Fancy top hat" },
-    { "fileName": "13.svg", "name": "Pirate Hat", "description": "Pirate hat" },
-    { "fileName": "14.svg", "name": "Wizard Hat", "description": "Magical wizard hat" },
-    { "fileName": "15.svg", "name": "Antenna", "description": "Alien antenna" },
-    { "fileName": "16.svg", "name": "Bow", "description": "Cute bow" },
-    { "fileName": "17.svg", "name": "Chef Hat", "description": "Chef hat" },
-    { "fileName": "18.svg", "name": "VR Headset", "description": "VR headset" },
-    { "fileName": "19.svg", "name": "Propeller Hat", "description": "Propeller hat" },
-    { "fileName": "20.svg", "name": "Flower Crown", "description": "Beautiful flower crown" },
-    { "fileName": "21.svg", "name": "Ninja Mask", "description": "Stealthy ninja mask" }
+    { "fileName": "13.svg", "name": "Wizard Hat", "description": "Magical wizard hat" },
+    { "fileName": "14.svg", "name": "Antenna", "description": "Alien antenna" },
+    { "fileName": "15.svg", "name": "Bow", "description": "Cute bow" },
+    { "fileName": "16.svg", "name": "Chef Hat", "description": "Chef hat" },
+    { "fileName": "17.svg", "name": "VR Headset", "description": "VR headset" },
+    { "fileName": "18.svg", "name": "Flower Crown", "description": "Beautiful flower crown" },
+    { "fileName": "19.svg", "name": "Ninja Mask", "description": "Stealthy ninja mask" }
   ],
   "mouth": [
     { "fileName": "1.svg", "name": "Cigarette", "description": "Smoking cigarette" },
@@ -34,9 +32,7 @@
     { "fileName": "6.svg", "name": "Grin", "description": "Big grin" }
   ],
   "skin": [
-    { "fileName": "1.svg", "name": "Base", "description": "Base colorable skin" },
-    { "fileName": "2.svg", "name": "Diamond", "description": "Dazzling diamond skin" },
-    { "fileName": "3.svg", "name": "Metal", "description": "Metallic skin" }
+    { "fileName": "1.svg", "name": "Base", "description": "Base colorable skin" }
   ],
   "stomach": [
     { "fileName": "1.svg", "name": "ETH", "description": "Ethereum logo on belly" },

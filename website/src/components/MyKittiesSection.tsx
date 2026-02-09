@@ -107,13 +107,7 @@ export default function MyKittiesSection(): React.JSX.Element {
 
     return (
         <Section id="my-kitties">
-            <div className="text-center mb-12">
-                <h2 className="font-bangers text-5xl md:text-7xl text-theme-primary mb-4">
-                    MY FREGS
-                </h2>
-
-            </div>
-
+       
             {!isConnected ? (
                 <Card className="bg-theme-card border-4 border-theme rounded-3xl">
                     <CardContent className="p-12 text-center">

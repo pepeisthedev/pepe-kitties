@@ -806,6 +806,19 @@
   },
   {
     "inputs": [],
+    "name": "FROGSUIT",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "GOLD_SKIN",
     "outputs": [
       {
@@ -820,6 +833,19 @@
   {
     "inputs": [],
     "name": "HEAD_REROLL",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "HOODIE",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1185,6 +1211,19 @@
   },
   {
     "inputs": [],
+    "name": "frogsuitWeight",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "getActiveChestSupply",
     "outputs": [
       {
@@ -1372,8 +1411,40 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "headItemToTraitValue",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "headRerollWeight",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "hoodieWeight",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1785,6 +1856,52 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "itemTypeId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "description",
+        "type": "string"
+      }
+    ],
+    "name": "setBuiltInItemConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "itemTypeIds",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "names",
+        "type": "string[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "descriptions",
+        "type": "string[]"
+      }
+    ],
+    "name": "setBuiltInItemConfigsBatch",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "_amount",
         "type": "uint256"
       }
@@ -1803,6 +1920,42 @@
       }
     ],
     "name": "setFregs",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "itemType_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "traitValue",
+        "type": "uint256"
+      }
+    ],
+    "name": "setHeadItemTraitValue",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_hoodie",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_frogsuit",
+        "type": "uint256"
+      }
+    ],
+    "name": "setHeadItemWeights",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1862,6 +2015,42 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "itemType_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "traitValue",
+        "type": "uint256"
+      }
+    ],
+    "name": "setSkinItemTraitValue",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "itemTypes",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "traitValues",
+        "type": "uint256[]"
+      }
+    ],
+    "name": "setTraitItemMappingsBatch",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "traitType",
         "type": "uint256"
       },
@@ -1900,6 +2089,25 @@
     "name": "setTreasureChestWeight",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "skinItemToTraitValue",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -2176,6 +2384,24 @@
       }
     ],
     "name": "useHeadReroll",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      }
+    ],
+    "name": "useHeadTraitItem",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
