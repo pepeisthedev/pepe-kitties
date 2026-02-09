@@ -10,7 +10,7 @@ import KittyRenderer from "./KittyRenderer"
 import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
 import { ITEM_TYPE_NAMES } from "../config/contracts"
-import { Gift } from "lucide-react"
+import { Gift, LayoutGrid, Rows } from "lucide-react"
 
 export default function MyKittiesSection(): React.JSX.Element {
     const { isConnected } = useAppKitAccount()
@@ -23,6 +23,7 @@ export default function MyKittiesSection(): React.JSX.Element {
     const [isClaiming, setIsClaiming] = useState(false)
     const [showModal, setShowModal] = useState(false)
     const [modalData, setModalData] = useState<{ success: boolean; message: string; itemType?: number; itemTokenId?: number }>({ success: false, message: "" })
+    const [viewMode, setViewMode] = useState<'grid' | 'carousel'>('grid')
 
     // Check if a kitty can claim an item
     const canClaim = (tokenId: number) => unclaimedIds.includes(tokenId)
@@ -173,43 +174,180 @@ export default function MyKittiesSection(): React.JSX.Element {
                         </div>
                     )}
 
-                    {/* Kitties Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {kitties.map((kitty) => {
-                            const hasClaimable = canClaim(kitty.tokenId)
-                            const isSelected = selectedKittyId === kitty.tokenId
-
-                            return (
-                                <Card
-                                    key={kitty.tokenId}
-                                    onClick={() => handleKittyClick(kitty.tokenId)}
-                                    className={`bg-transparent rounded-2xl transition-all cursor-pointer ${
-                                        isSelected
-                                            ? "border-2 border-theme ring-2 ring-theme scale-105"
-                                            : "border-0 hover:scale-102"
-                                    }`}
-                                >
-                                    <CardContent className="p-4 relative">
-                                        {/* Claimable indicator */}
-                                        {hasClaimable && (
-                                            <div className="absolute top-2 right-2 z-10">
-                                                <div className="bg-theme-primary rounded-full p-1.5 animate-pulse">
-                                                    <Gift className="w-4 h-4 text-theme-button-text" />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div className="overflow-hidden rounded-lg bg-white mb-3" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                            <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
-                                        </div>
-                                        <p className="font-bangers text-lg text-theme-primary text-center">
-                                            #{kitty.tokenId}
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            )
-                        })}
+                    {/* View Toggle */}
+                    <div className="flex justify-end mb-4">
+                        <div className="flex bg-theme-card rounded-lg p-1 gap-1">
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={`p-2 rounded-md transition-all ${
+                                    viewMode === 'grid'
+                                        ? 'bg-theme-primary text-theme-button-text'
+                                        : 'text-theme-muted hover:text-theme-primary'
+                                }`}
+                                title="Grid View"
+                            >
+                                <LayoutGrid className="w-5 h-5" />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('carousel')}
+                                className={`p-2 rounded-md transition-all ${
+                                    viewMode === 'carousel'
+                                        ? 'bg-theme-primary text-theme-button-text'
+                                        : 'text-theme-muted hover:text-theme-primary'
+                                }`}
+                                title="Carousel View"
+                            >
+                                <Rows className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
+
+                    {/* Grid View */}
+                    {viewMode === 'grid' && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            {kitties.map((kitty) => {
+                                const hasClaimable = canClaim(kitty.tokenId)
+                                const isSelected = selectedKittyId === kitty.tokenId
+
+                                return (
+                                    <Card
+                                        key={kitty.tokenId}
+                                        onClick={() => handleKittyClick(kitty.tokenId)}
+                                        className={`bg-transparent rounded-2xl transition-all cursor-pointer ${
+                                            isSelected
+                                                ? "border-2 border-theme ring-2 ring-theme scale-105"
+                                                : "border-0 hover:scale-102"
+                                        }`}
+                                    >
+                                        <CardContent className="p-4 relative">
+                                            {/* Claimable indicator */}
+                                            {hasClaimable && (
+                                                <div className="absolute top-2 right-2 z-10">
+                                                    <div className="bg-theme-primary rounded-full p-1.5 animate-pulse">
+                                                        <Gift className="w-4 h-4 text-theme-button-text" />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="overflow-hidden rounded-lg bg-white mb-3" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
+                                            </div>
+                                            <p className="font-bangers text-lg text-theme-primary text-center">
+                                                #{kitty.tokenId}
+                                            </p>
+                                        </CardContent>
+                                    </Card>
+                                )
+                            })}
+                        </div>
+                    )}
+
+                    {/* Carousel View */}
+                    {viewMode === 'carousel' && (
+                        <div className="overflow-hidden py-4">
+                            {/* Row 1 - scrolls left to right */}
+                            <div className="relative mb-6">
+                                <div
+                                    className="flex gap-4 animate-scroll-left"
+                                    style={{
+                                        width: 'max-content',
+                                        animation: `scroll-left ${Math.max(20, kitties.length * 3)}s linear infinite`
+                                    }}
+                                >
+                                    {/* Duplicate items for seamless loop */}
+                                    {[...kitties, ...kitties].map((kitty, index) => {
+                                        const hasClaimable = canClaim(kitty.tokenId)
+                                        const isSelected = selectedKittyId === kitty.tokenId
+
+                                        return (
+                                            <Card
+                                                key={`row1-${kitty.tokenId}-${index}`}
+                                                onClick={() => handleKittyClick(kitty.tokenId)}
+                                                className={`bg-transparent rounded-2xl transition-all cursor-pointer flex-shrink-0 w-40 ${
+                                                    isSelected
+                                                        ? "border-2 border-theme ring-2 ring-theme scale-105"
+                                                        : "border-0 hover:scale-105"
+                                                }`}
+                                            >
+                                                <CardContent className="p-3 relative">
+                                                    {hasClaimable && (
+                                                        <div className="absolute top-1 right-1 z-10">
+                                                            <div className="bg-theme-primary rounded-full p-1 animate-pulse">
+                                                                <Gift className="w-3 h-3 text-theme-button-text" />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    <div className="overflow-hidden rounded-lg bg-white mb-2" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                        <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
+                                                    </div>
+                                                    <p className="font-bangers text-sm text-theme-primary text-center">
+                                                        #{kitty.tokenId}
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Row 2 - scrolls right to left */}
+                            <div className="relative">
+                                <div
+                                    className="flex gap-4 animate-scroll-right"
+                                    style={{
+                                        width: 'max-content',
+                                        animation: `scroll-right ${Math.max(20, kitties.length * 3)}s linear infinite`
+                                    }}
+                                >
+                                    {/* Duplicate items for seamless loop, reversed order */}
+                                    {[...kitties].reverse().concat([...kitties].reverse()).map((kitty, index) => {
+                                        const hasClaimable = canClaim(kitty.tokenId)
+                                        const isSelected = selectedKittyId === kitty.tokenId
+
+                                        return (
+                                            <Card
+                                                key={`row2-${kitty.tokenId}-${index}`}
+                                                onClick={() => handleKittyClick(kitty.tokenId)}
+                                                className={`bg-transparent rounded-2xl transition-all cursor-pointer flex-shrink-0 w-40 ${
+                                                    isSelected
+                                                        ? "border-2 border-theme ring-2 ring-theme scale-105"
+                                                        : "border-0 hover:scale-105"
+                                                }`}
+                                            >
+                                                <CardContent className="p-3 relative">
+                                                    {hasClaimable && (
+                                                        <div className="absolute top-1 right-1 z-10">
+                                                            <div className="bg-theme-primary rounded-full p-1 animate-pulse">
+                                                                <Gift className="w-3 h-3 text-theme-button-text" />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    <div className="overflow-hidden rounded-lg bg-white mb-2" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                        <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
+                                                    </div>
+                                                    <p className="font-bangers text-sm text-theme-primary text-center">
+                                                        #{kitty.tokenId}
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* CSS for carousel animations */}
+                            <style>{`
+                                @keyframes scroll-left {
+                                    0% { transform: translateX(0); }
+                                    100% { transform: translateX(-50%); }
+                                }
+                                @keyframes scroll-right {
+                                    0% { transform: translateX(-50%); }
+                                    100% { transform: translateX(0); }
+                                }
+                            `}</style>
+                        </div>
+                    )}
                 </>
             )}
 
