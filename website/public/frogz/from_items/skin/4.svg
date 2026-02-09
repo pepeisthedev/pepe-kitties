@@ -1,0 +1,17 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 617.49 644.18'>
+  <defs>
+    <style>.skeleton-cls-1{fill:#f5f5f5;stroke:#333;stroke-width:2;}.skeleton-cls-2{fill:#e0e0e0;}.skeleton-cls-3{fill:#333;}</style>
+  </defs>
+  <g id='skeleton-body-placeholder'>
+    <!-- Placeholder skeleton body - will be replaced with actual art -->
+    <ellipse class='skeleton-cls-1' cx='308' cy='400' rx='200' ry='180'/>
+    <ellipse class='skeleton-cls-2' cx='308' cy='380' rx='150' ry='120'/>
+    <!-- Ribs placeholder -->
+    <rect class='skeleton-cls-3' x='220' y='320' width='180' height='8' rx='4'/>
+    <rect class='skeleton-cls-3' x='230' y='345' width='160' height='8' rx='4'/>
+    <rect class='skeleton-cls-3' x='240' y='370' width='140' height='8' rx='4'/>
+    <rect class='skeleton-cls-3' x='250' y='395' width='120' height='8' rx='4'/>
+    <!-- Placeholder text -->
+    <text x='308' y='500' text-anchor='middle' font-size='24' fill='#999'>SKELETON PLACEHOLDER</text>
+  </g>
+</svg>

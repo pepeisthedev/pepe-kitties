@@ -10,7 +10,7 @@ import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
 import KittyRenderer from "./KittyRenderer"
 import ItemCard from "./ItemCard"
-import { ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, getItemsByCategory } from "../config/contracts"
+import { ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, getItemsByCategory, checkItemIncompatibility } from "../config/contracts"
 import { Wand2, Palette } from "lucide-react"
 
 // Convert HSL to Hex
@@ -287,8 +287,17 @@ export default function UseItemsSection(): React.JSX.Element {
         }
     }, [contracts, selectedKitty, selectedItem, newColor, refetchKitties, refetchItems])
 
+    // Check for incompatibility between selected item and freg
+    const incompatibility = React.useMemo(() => {
+        if (!selectedKitty || !selectedItem) return { incompatible: false, reason: "" }
+        const config = getItemConfig(selectedItem.itemType)
+        if (!config) return { incompatible: false, reason: "" }
+        return checkItemIncompatibility(config, selectedKitty.body, selectedKitty.head)
+    }, [selectedKitty, selectedItem])
+
     const canApply = selectedKitty && selectedItem &&
-        (selectedItem.itemType !== ITEM_TYPES.COLOR_CHANGE || isValidHexColor(newColor))
+        (selectedItem.itemType !== ITEM_TYPES.COLOR_CHANGE || isValidHexColor(newColor)) &&
+        !incompatibility.incompatible
 
     return (
         <Section id="use-items">
@@ -516,6 +525,15 @@ export default function UseItemsSection(): React.JSX.Element {
                                         />
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Incompatibility Warning */}
+                        {incompatibility.incompatible && (
+                            <div className="bg-red-900/50 border-2 border-red-500 rounded-xl p-4 mb-4">
+                                <p className="font-bangers text-red-400 text-center text-lg">
+                                    {incompatibility.reason}
+                                </p>
                             </div>
                         )}
 

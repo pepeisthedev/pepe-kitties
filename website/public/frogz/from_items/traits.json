@@ -7,7 +7,8 @@
   "mouth": [],
   "skin": [
     { "fileName": "2.svg", "name": "Diamond" },
-    { "fileName": "3.svg", "name": "Metal" }
+    { "fileName": "3.svg", "name": "Metal" },
+    { "fileName": "4.svg", "name": "Skeleton" }
   ],
   "stomach": []
 }

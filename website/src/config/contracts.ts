@@ -24,6 +24,8 @@ export interface ItemConfig {
   claimWeight: number
   isOwnerMintable: boolean
   maxSupply?: number
+  incompatibleWithSkins?: number[]  // Body trait values that make this item unusable
+  incompatibleWithHeads?: number[]  // Head trait values that make this item unusable
 }
 
 // Load items from items.json
@@ -66,4 +68,41 @@ export function getItemConfig(itemId: number): ItemConfig | undefined {
 // Helper to get items by category
 export function getItemsByCategory(category: string): ItemConfig[] {
   return ITEMS.filter(item => item.category === category)
+}
+
+// Base head count for calculating head trait values from fileNames
+export const BASE_HEAD_COUNT = 19
+
+// Check if an item is incompatible with a freg's current traits
+export function checkItemIncompatibility(
+  itemConfig: ItemConfig,
+  fregBody: number,
+  fregHead: number
+): { incompatible: boolean; reason: string } {
+  // Check if item is incompatible with freg's current skin
+  if (itemConfig.incompatibleWithSkins?.includes(fregBody)) {
+    return {
+      incompatible: true,
+      reason: "Skeleton fregs don't wear clothes!"
+    }
+  }
+
+  // Check if item is incompatible with freg's current head
+  if (itemConfig.incompatibleWithHeads?.includes(fregHead)) {
+    return {
+      incompatible: true,
+      reason: "Skeleton fregs don't wear clothes!"
+    }
+  }
+
+  return { incompatible: false, reason: "" }
+}
+
+// Get skeleton skin trait value (4 from traitFileName)
+export function getSkeletonSkinTraitValue(): number {
+  const skeletonItem = ITEMS.find(item => item.name === "Skeleton Skin")
+  if (skeletonItem?.traitFileName) {
+    return parseInt(skeletonItem.traitFileName.replace('.svg', ''))
+  }
+  return 4 // Default fallback
 }

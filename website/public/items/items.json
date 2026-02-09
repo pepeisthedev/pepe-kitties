@@ -51,7 +51,7 @@
       "category": "skin",
       "svgFile": "goldskin.svg",
       "targetTraitType": 1,
-      "traitFileName": "4.svg",
+      "traitFileName": "5.svg",
       "isClaimable": true,
       "claimWeight": 500,
       "isOwnerMintable": true
@@ -99,7 +99,8 @@
       "traitFileName": "2.svg",
       "isClaimable": true,
       "claimWeight": 500,
-      "isOwnerMintable": true
+      "isOwnerMintable": true,
+      "incompatibleWithSkins": [4]
     },
     {
       "id": 10,
@@ -111,7 +112,21 @@
       "traitFileName": "3.svg",
       "isClaimable": true,
       "claimWeight": 500,
-      "isOwnerMintable": true
+      "isOwnerMintable": true,
+      "incompatibleWithSkins": [4]
+    },
+    {
+      "id": 11,
+      "name": "Skeleton Skin",
+      "description": "Transform your Freg into a spooky skeleton",
+      "category": "skin",
+      "svgFile": "skeleton.svg",
+      "targetTraitType": 1,
+      "traitFileName": "4.svg",
+      "isClaimable": false,
+      "claimWeight": 0,
+      "isOwnerMintable": true,
+      "incompatibleWithHeads": [21, 22]
     },
     {
       "id": 100,

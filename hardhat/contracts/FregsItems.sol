@@ -14,6 +14,8 @@ interface IFregs {
     function setTrait(uint256 tokenId, uint256 traitType, uint256 traitValue, address sender) external;
     function setBodyColor(uint256 tokenId, string memory _color, address sender) external;
     function totalMinted() external view returns (uint256);
+    function body(uint256 tokenId) external view returns (uint256);
+    function head(uint256 tokenId) external view returns (uint256);
 }
 
 interface ISVGItemsRenderer {
@@ -40,9 +42,13 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     uint256 public constant DIAMOND_SKIN = 8;
     uint256 public constant HOODIE = 9;
     uint256 public constant FROGSUIT = 10;
+    uint256 public constant SKELETON_SKIN = 11;
 
     // Special dice item (reserved ID)
     uint256 public constant SPECIAL_DICE = 100;
+
+    // Skeleton skin trait value (set during deployment, matches traitFileName 4.svg)
+    uint256 public skeletonSkinTraitValue;
 
     // Trait type constants (must match Fregs.sol) - simplified
     uint256 public constant TRAIT_BACKGROUND = 0;
@@ -399,13 +405,24 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
         uint256 iType = itemType[itemTokenId];
         require(
-            iType == BRONZE_SKIN || iType == METAL_SKIN || iType == GOLD_SKIN || iType == DIAMOND_SKIN,
+            iType == BRONZE_SKIN || iType == METAL_SKIN || iType == GOLD_SKIN || iType == DIAMOND_SKIN || iType == SKELETON_SKIN,
             "Not a special skin item"
         );
 
         // Get body value from dynamic mapping (configured at deployment to match traits.json)
         uint256 bodyValue = skinItemToTraitValue[iType];
         require(bodyValue > 0, "Skin item not configured");
+
+        // Skeleton skin cannot be applied to fregs wearing hoodie or frogsuit
+        if (iType == SKELETON_SKIN) {
+            uint256 currentHead = fregs.head(fregId);
+            uint256 hoodieHead = headItemToTraitValue[HOODIE];
+            uint256 frogsuitHead = headItemToTraitValue[FROGSUIT];
+            require(
+                currentHead != hoodieHead && currentHead != frogsuitHead,
+                "Skeleton fregs don't wear clothes"
+            );
+        }
 
         _burn(itemTokenId);
         fregs.setTrait(fregId, TRAIT_BODY, bodyValue, msg.sender);
@@ -440,6 +457,13 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         // Get head value from dynamic mapping (configured at deployment to match traits.json)
         uint256 headValue = headItemToTraitValue[iType];
         require(headValue > 0, "Head item not configured");
+
+        // Hoodie and Frogsuit cannot be applied to skeleton fregs
+        if (iType == HOODIE || iType == FROGSUIT) {
+            uint256 currentBody = fregs.body(fregId);
+            uint256 skeletonBody = skinItemToTraitValue[SKELETON_SKIN];
+            require(currentBody != skeletonBody, "Skeleton fregs don't wear clothes");
+        }
 
         _burn(itemTokenId);
         fregs.setTrait(fregId, TRAIT_HEAD, headValue, msg.sender);
@@ -612,7 +636,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         for (uint256 i = 0; i < itemTypes.length; i++) {
             uint256 iType = itemTypes[i];
             // Determine if it's a skin or head item based on item type constant
-            if (iType == BRONZE_SKIN || iType == METAL_SKIN || iType == GOLD_SKIN || iType == DIAMOND_SKIN) {
+            if (iType == BRONZE_SKIN || iType == METAL_SKIN || iType == GOLD_SKIN || iType == DIAMOND_SKIN || iType == SKELETON_SKIN) {
                 skinItemToTraitValue[iType] = traitValues[i];
             } else if (iType == HOODIE || iType == FROGSUIT) {
                 headItemToTraitValue[iType] = traitValues[i];

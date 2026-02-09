@@ -884,6 +884,19 @@
   },
   {
     "inputs": [],
+    "name": "SKELETON_SKIN",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "SPECIAL_DICE",
     "outputs": [
       {
@@ -2089,6 +2102,19 @@
     "name": "setTreasureChestWeight",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "skeletonSkinTraitValue",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
