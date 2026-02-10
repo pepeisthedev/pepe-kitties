@@ -1,7 +1,7 @@
 import FregsABI from "../assets/abis/Fregs.json"
 import FregsItemsABI from "../assets/abis/FregsItems.json"
 import FregsMintPassABI from "../assets/abis/FregsMintPass.json"
-import itemsData from "../../public/items/items.json"
+import itemsData from "./items.json"
 
 // Contract addresses from environment variables
 export const FREGS_ADDRESS = import.meta.env.VITE_FREGS_ADDRESS as string

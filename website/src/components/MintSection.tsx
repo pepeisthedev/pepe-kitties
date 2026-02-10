@@ -161,10 +161,10 @@ export default function MintSection(): React.JSX.Element {
     return (
         <Section id="mint" wide>
        
-            <div className="grid md:grid-cols-2 gap-8 items-stretch min-h-[500px]">
+            <div className="grid md:grid-cols-2 gap-4 xl:gap-8 items-center">
                 {/* NFT Preview */}
                 <div className="flex items-center justify-center">
-                    <div className="w-full max-w-lg relative rounded-3xl overflow-hidden" style={{ aspectRatio: '617.49 / 644.18' }}>
+                    <div className="w-full max-w-xs md:max-w-[380px] xl:max-w-lg relative rounded-3xl overflow-hidden" style={{ aspectRatio: '617.49 / 644.18' }}>
                         <KittyRenderer
                             bodyColor={skinColor}
                             hideTraits
@@ -175,20 +175,20 @@ export default function MintSection(): React.JSX.Element {
                 </div>
 
                 {/* Mint Controls */}
-                <div className="space-y-8 flex flex-col justify-center">
+                <div className="space-y-2 xl:space-y-6 flex flex-col justify-center">
                     {/* Price Display */}
                     <div className="text-center">
-                        <p className="font-righteous text-theme-muted text-lg mb-2">Price</p>
-                        <div className="font-bangers text-5xl text-theme-primary">
+                        <p className="font-righteous text-theme-muted text-xs xl:text-lg mb-0.5">Price</p>
+                        <div className="font-bangers text-2xl xl:text-5xl text-theme-primary">
                             {dataLoading ? (
                                 <LoadingSpinner size="sm" />
                             ) : hasMintPass ? (
-                                <div className="flex flex-col items-center gap-2">
+                                <div className="flex flex-col items-center gap-0.5">
                                     <div className="flex items-center gap-2">
-                                        <Gift className="w-8 h-8" />
+                                        <Gift className="w-5 h-5 xl:w-8 xl:h-8" />
                                         <span>FREE</span>
                                     </div>
-                                    <span className="text-base text-theme-subtle font-righteous">
+                                    <span className="text-xs xl:text-base text-theme-subtle font-righteous">
                                         with Mint Pass ({mintPassCount} remaining)
                                     </span>
                                 </div>
@@ -200,20 +200,20 @@ export default function MintSection(): React.JSX.Element {
 
                     {/* Skin Color Selector */}
                     <div>
-                        <div className="flex items-center justify-center gap-2 mb-4">
-                            <Palette className="w-5 h-5 text-theme-primary" />
-                            <p className="font-righteous text-theme-muted text-lg">Select Skin Color</p>
+                        <div className="flex items-center justify-center gap-2 mb-1 xl:mb-4">
+                            <Palette className="w-4 h-4 xl:w-5 xl:h-5 text-theme-primary" />
+                            <p className="font-righteous text-theme-muted text-xs xl:text-lg">Select Skin Color</p>
                         </div>
 
                         {/* Hue Slider */}
-                        <div className="mb-4">
+                        <div className="mb-1 xl:mb-4">
                             <input
                                 type="range"
                                 min="0"
                                 max="360"
                                 value={hue}
                                 onChange={(e) => setHue(Number(e.target.value))}
-                                className="w-full h-4 rounded-full appearance-none cursor-pointer"
+                                className="w-full h-2.5 xl:h-4 rounded-full appearance-none cursor-pointer"
                                 style={{
                                     background: `linear-gradient(to right,
                                         hsl(0, 100%, 50%),
@@ -229,33 +229,43 @@ export default function MintSection(): React.JSX.Element {
                             <style>{`
                                 input[type="range"]::-webkit-slider-thumb {
                                     appearance: none;
-                                    width: 24px;
-                                    height: 24px;
+                                    width: 18px;
+                                    height: 18px;
                                     border-radius: 50%;
                                     background: white;
                                     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
                                     cursor: pointer;
                                 }
                                 input[type="range"]::-moz-range-thumb {
-                                    width: 24px;
-                                    height: 24px;
+                                    width: 18px;
+                                    height: 18px;
                                     border-radius: 50%;
                                     background: white;
                                     border: none;
                                     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
                                     cursor: pointer;
                                 }
+                                @media (min-width: 1280px) {
+                                    input[type="range"]::-webkit-slider-thumb {
+                                        width: 24px;
+                                        height: 24px;
+                                    }
+                                    input[type="range"]::-moz-range-thumb {
+                                        width: 24px;
+                                        height: 24px;
+                                    }
+                                }
                             `}</style>
                         </div>
 
                         {/* Color Palette */}
-                        <div className="grid grid-cols-6 gap-3 mb-6">
+                        <div className="grid grid-cols-6 gap-1.5 xl:gap-3 mb-2 xl:mb-6">
                             {paletteColors.map((hex, index) => (
                                 <button
                                     key={`${hue}-${index}`}
                                     onClick={() => setSkinColor(hex)}
                                     className={`
-                                        aspect-square rounded-lg transition-all duration-200 min-h-[48px]
+                                        aspect-square rounded-md xl:rounded-lg transition-all duration-200 min-h-[32px] xl:min-h-[48px]
                                         hover:scale-110 hover:z-10 relative
                                         ${skinColor === hex
                                             ? "ring-2 ring-white scale-110 z-10"
@@ -269,9 +279,9 @@ export default function MintSection(): React.JSX.Element {
                         </div>
 
                         {/* Hex Input */}
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 xl:gap-4">
                             <div
-                                className="w-16 h-16 rounded-xl flex-shrink-0"
+                                className="w-10 h-10 xl:w-16 xl:h-16 rounded-lg xl:rounded-xl flex-shrink-0"
                                 style={{ backgroundColor: isValidHexColor(skinColor) ? skinColor : "#000000" }}
                             />
                             <Input
@@ -280,7 +290,7 @@ export default function MintSection(): React.JSX.Element {
                                 onChange={(e) => handleColorInput(e.target.value)}
                                 placeholder="#7CB342"
                                 className={`
-                                    font-mono text-2xl bg-transparent border-0 border-b-2 rounded-none px-0
+                                    font-mono text-lg xl:text-2xl bg-transparent border-0 border-b-2 rounded-none px-0
                                     focus-visible:ring-0 focus-visible:ring-offset-0
                                     ${isValidHexColor(skinColor)
                                         ? "border-theme-primary text-theme-primary"
@@ -291,7 +301,7 @@ export default function MintSection(): React.JSX.Element {
                             />
                         </div>
                         {!isValidHexColor(skinColor) && skinColor.length > 0 && (
-                            <p className="text-red-400 text-xs mt-2 font-righteous">
+                            <p className="text-red-400 text-xs mt-1 font-righteous">
                                 Enter valid hex color (e.g., #7CB342)
                             </p>
                         )}
@@ -301,7 +311,7 @@ export default function MintSection(): React.JSX.Element {
                     <Button
                         onClick={handleMint}
                         disabled={(isConnected && !isValidHexColor(skinColor)) || mintStatus !== 'idle'}
-                        className="w-full py-7 rounded-2xl font-bangers text-2xl
+                        className="w-full py-3 xl:py-7 rounded-xl xl:rounded-2xl font-bangers text-lg xl:text-2xl
                             btn-theme-primary
                             transform hover:scale-105 transition-all duration-300
                             shadow-lg
@@ -309,31 +319,31 @@ export default function MintSection(): React.JSX.Element {
                     >
                         {hasMintPass ? (
                             <>
-                                <Gift className="w-6 h-6 mr-2" />
+                                <Gift className="w-5 h-5 xl:w-6 xl:h-6 mr-2" />
                                 {isConnected ? "MINT FREE!" : "CONNECT TO MINT"}
                             </>
                         ) : (
                             <>
-                                <Sparkles className="w-6 h-6 mr-2" />
+                                <Sparkles className="w-5 h-5 xl:w-6 xl:h-6 mr-2" />
                                 {isConnected ? `MINT (${contractData?.mintPrice || "0"} ETH)` : "CONNECT TO MINT"}
                             </>
                         )}
                     </Button>
 
                     {/* Stats - inline */}
-                    <div className="flex justify-center gap-12 text-center pt-6">
+                    <div className="flex justify-center gap-6 xl:gap-12 text-center pt-1 xl:pt-6">
                         {dataLoading ? (
                             <LoadingSpinner size="sm" />
                         ) : (
                             <>
                                 <div>
-                                    <p className="font-bangers text-4xl text-theme-primary">{contractData?.totalMinted?.toLocaleString() || "0"}</p>
-                                    <p className="font-righteous text-theme-subtle text-base">Minted</p>
+                                    <p className="font-bangers text-xl xl:text-4xl text-theme-primary">{contractData?.totalMinted?.toLocaleString() || "0"}</p>
+                                    <p className="font-righteous text-theme-subtle text-xs xl:text-base">Minted</p>
                                 </div>
-                                <div className="text-theme-subtle text-3xl self-center">/</div>
+                                <div className="text-theme-subtle text-xl xl:text-3xl self-center">/</div>
                                 <div>
-                                    <p className="font-bangers text-4xl text-theme-muted">{contractData?.supply?.toLocaleString() || "0"}</p>
-                                    <p className="font-righteous text-theme-subtle text-base">Supply</p>
+                                    <p className="font-bangers text-xl xl:text-4xl text-theme-muted">{contractData?.supply?.toLocaleString() || "0"}</p>
+                                    <p className="font-righteous text-theme-subtle text-xs xl:text-base">Supply</p>
                                 </div>
                             </>
                         )}
