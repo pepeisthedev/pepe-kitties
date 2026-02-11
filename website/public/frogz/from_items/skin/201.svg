@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Neon Skin Placeholder - Replace with actual freg skin artwork -->
+  <defs>
+    <linearGradient id="neonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF00FF"/>
+      <stop offset="33%" style="stop-color:#00FFFF"/>
+      <stop offset="66%" style="stop-color:#00FF00"/>
+      <stop offset="100%" style="stop-color:#FF00FF"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <circle cx="50" cy="50" r="45" fill="#111" stroke="url(#neonGrad)" stroke-width="4" filter="url(#glow)"/>
+  <text x="50" y="55" text-anchor="middle" font-size="12" fill="#00FFFF" font-weight="bold" filter="url(#glow)">NEON</text>
+  <text x="50" y="90" text-anchor="middle" font-size="8" fill="#666">PLACEHOLDER</text>
+</svg>

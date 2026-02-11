@@ -170,26 +170,7 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "color",
-        "type": "string"
-      }
-    ],
-    "name": "FregMinted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "buyer",
+        "name": "player",
         "type": "address"
       },
       {
@@ -199,7 +180,7 @@
         "type": "uint256"
       }
     ],
-    "name": "MintPassPurchased",
+    "name": "CoinBurned",
     "type": "event"
   },
   {
@@ -218,7 +199,39 @@
         "type": "uint256"
       }
     ],
-    "name": "MintedFromCoin",
+    "name": "CoinsMinted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "itemType",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "weight",
+        "type": "uint256"
+      }
+    ],
+    "name": "ItemPrizeAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "itemType",
+        "type": "uint256"
+      }
+    ],
+    "name": "ItemPrizeRemoved",
     "type": "event"
   },
   {
@@ -238,6 +251,37 @@
       }
     ],
     "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "won",
+        "type": "bool"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "prizeType",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "itemType",
+        "type": "uint256"
+      }
+    ],
+    "name": "SpinResult",
     "type": "event"
   },
   {
@@ -334,8 +378,33 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "loseWeight",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "mintPassWeight",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalItemWeight",
+        "type": "uint256"
+      }
+    ],
+    "name": "WeightsUpdated",
+    "type": "event"
+  },
+  {
     "inputs": [],
-    "name": "MINT_PASS",
+    "name": "FREG_COIN",
     "outputs": [
       {
         "internalType": "uint256",
@@ -344,6 +413,63 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "PRIZE_ITEM",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "PRIZE_MINTPASS",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "PRIZE_NONE",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "itemType",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "weight",
+        "type": "uint256"
+      }
+    ],
+    "name": "addItemPrize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -360,6 +486,19 @@
       }
     ],
     "name": "airdrop",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address[]",
+        "name": "recipients",
+        "type": "address[]"
+      }
+    ],
+    "name": "airdropOne",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -460,12 +599,41 @@
   },
   {
     "inputs": [],
-    "name": "fregCoinContract",
+    "name": "getAllItemPrizes",
     "outputs": [
       {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
+        "internalType": "uint256[]",
+        "name": "itemTypes",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "weights",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "index",
+        "type": "uint256"
+      }
+    ],
+    "name": "getItemPrize",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "itemType",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "weight",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -473,12 +641,38 @@
   },
   {
     "inputs": [],
-    "name": "fregs",
+    "name": "getItemPrizesCount",
     "outputs": [
       {
-        "internalType": "contract IFregs",
+        "internalType": "uint256",
         "name": "",
-        "type": "address"
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getTotalWeight",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getWinChance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -509,65 +703,45 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "maxMintPasses",
-    "outputs": [
+    "inputs": [
       {
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
       }
     ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
+    "name": "itemPrizes",
+    "outputs": [
       {
-        "internalType": "string",
-        "name": "_color",
-        "type": "string"
-      }
-    ],
-    "name": "mintFreg",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string[]",
-        "name": "_colors",
-        "type": "string[]"
-      }
-    ],
-    "name": "mintFregBatch",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "itemType",
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "weight",
         "type": "uint256"
       }
     ],
-    "name": "mintFromCoin",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "mintPassPrice",
+    "name": "itemsContract",
+    "outputs": [
+      {
+        "internalType": "contract IFregsItems",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "loseWeight",
     "outputs": [
       {
         "internalType": "uint256",
@@ -580,12 +754,12 @@
   },
   {
     "inputs": [],
-    "name": "mintPassSaleActive",
+    "name": "mintPassContract",
     "outputs": [
       {
-        "internalType": "bool",
+        "internalType": "contract IFregsMintPass",
         "name": "",
-        "type": "bool"
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -593,7 +767,7 @@
   },
   {
     "inputs": [],
-    "name": "mintPassesRemaining",
+    "name": "mintPassWeight",
     "outputs": [
       {
         "internalType": "uint256",
@@ -652,13 +826,13 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "itemType",
         "type": "uint256"
       }
     ],
-    "name": "purchaseMintPass",
+    "name": "removeItemPrize",
     "outputs": [],
-    "stateMutability": "payable",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -756,11 +930,24 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_fregCoin",
+        "name": "_items",
         "type": "address"
       }
     ],
-    "name": "setFregCoinContract",
+    "name": "setItemsContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_weight",
+        "type": "uint256"
+      }
+    ],
+    "name": "setLoseWeight",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -769,11 +956,11 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_fregs",
+        "name": "_mintPass",
         "type": "address"
       }
     ],
-    "name": "setFregs",
+    "name": "setMintPassContract",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -782,37 +969,11 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_max",
+        "name": "_weight",
         "type": "uint256"
       }
     ],
-    "name": "setMaxMintPasses",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_price",
-        "type": "uint256"
-      }
-    ],
-    "name": "setMintPassPrice",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bool",
-        "name": "_active",
-        "type": "bool"
-      }
-    ],
-    "name": "setMintPassSaleActive",
+    "name": "setMintPassWeight",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -826,6 +987,13 @@
       }
     ],
     "name": "setURI",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "spin",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -864,7 +1032,7 @@
   },
   {
     "inputs": [],
-    "name": "totalMinted",
+    "name": "totalItemWeight",
     "outputs": [
       {
         "internalType": "uint256",
@@ -892,6 +1060,24 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "itemType",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newWeight",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateItemPrizeWeight",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
       }
@@ -905,26 +1091,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "withdraw",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "withdrawAll",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   }
 ]

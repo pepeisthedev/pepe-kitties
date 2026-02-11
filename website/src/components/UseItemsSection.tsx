@@ -323,8 +323,8 @@ export default function UseItemsSection(): React.JSX.Element {
                                 <LoadingSpinner message="Loading kitties..." />
                             </div>
                         ) : kitties.length === 0 ? (
-                            <p className="text-white/50 text-center py-8 font-righteous">
-                                No kitties owned
+                            <p className="text-center py-8 font-righteous">
+                                No fregs owned
                             </p>
                         ) : (
                             <div className="grid grid-cols-4 gap-4">
@@ -362,7 +362,7 @@ export default function UseItemsSection(): React.JSX.Element {
                             </div>
                         ) : usableItems.length === 0 ? (
                             <p className="text-theme-subtle text-center py-8 font-righteous">
-                                No items available
+                                No items owned
                             </p>
                         ) : (
                             <div className="grid grid-cols-4 gap-4">

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Neon Skin Item Icon -->
+  <defs>
+    <linearGradient id="neonItemGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF00FF"/>
+      <stop offset="25%" style="stop-color:#00FFFF"/>
+      <stop offset="50%" style="stop-color:#00FF00"/>
+      <stop offset="75%" style="stop-color:#FFFF00"/>
+      <stop offset="100%" style="stop-color:#FF00FF"/>
+    </linearGradient>
+    <filter id="neonGlow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Dark background for neon effect -->
+  <rect width="100" height="100" fill="#111" rx="10"/>
+  <!-- Freg silhouette with neon outline -->
+  <ellipse cx="50" cy="55" rx="35" ry="38" fill="#1a1a1a" stroke="url(#neonItemGrad)" stroke-width="3" filter="url(#neonGlow)"/>
+  <!-- Glowing eyes -->
+  <circle cx="38" cy="45" r="8" fill="#111" stroke="#00FFFF" stroke-width="2" filter="url(#neonGlow)"/>
+  <circle cx="62" cy="45" r="8" fill="#111" stroke="#FF00FF" stroke-width="2" filter="url(#neonGlow)"/>
+  <circle cx="38" cy="45" r="3" fill="#00FFFF" filter="url(#neonGlow)"/>
+  <circle cx="62" cy="45" r="3" fill="#FF00FF" filter="url(#neonGlow)"/>
+  <!-- Label -->
+  <rect x="15" y="82" width="70" height="14" rx="3" fill="#222" stroke="url(#neonItemGrad)" stroke-width="1"/>
+  <text x="50" y="93" text-anchor="middle" font-size="9" fill="#00FFFF" font-weight="bold" filter="url(#neonGlow)">NEON SKIN</text>
+</svg>

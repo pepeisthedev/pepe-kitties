@@ -497,6 +497,31 @@
         "internalType": "uint256",
         "name": "itemType",
         "type": "uint256"
+      }
+    ],
+    "name": "MintedFromCoin",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "itemType",
+        "type": "uint256"
       },
       {
         "indexed": false,
@@ -1211,6 +1236,19 @@
   },
   {
     "inputs": [],
+    "name": "fregCoinContract",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "fregs",
     "outputs": [
       {
@@ -1574,6 +1612,24 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_itemType",
+        "type": "uint256"
+      }
+    ],
+    "name": "mintFromCoin",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "name",
     "outputs": [
@@ -1920,6 +1976,19 @@
       }
     ],
     "name": "setChestETHAmount",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_fregCoin",
+        "type": "address"
+      }
+    ],
+    "name": "setFregCoinContract",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

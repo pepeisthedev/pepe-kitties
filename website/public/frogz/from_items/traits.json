@@ -9,7 +9,9 @@
     { "fileName": "1.svg", "name": "Gold" },
     { "fileName": "2.svg", "name": "Diamond" },
     { "fileName": "3.svg", "name": "Metal" },
-    { "fileName": "4.svg", "name": "Skeleton" }
+    { "fileName": "4.svg", "name": "Skeleton" },
+    { "fileName": "200.svg", "name": "Silver" },
+    { "fileName": "201.svg", "name": "Neon" }
   ],
   "stomach": []
 }

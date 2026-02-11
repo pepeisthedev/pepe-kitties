@@ -5,9 +5,11 @@ import {
   FREGS_ADDRESS,
   FREGS_ITEMS_ADDRESS,
   FREGS_MINTPASS_ADDRESS,
+  FREGCOIN_ADDRESS,
   FregsABI,
   FregsItemsABI,
   FregsMintPassABI,
+  FregCoinABI,
 } from "../config/contracts"
 
 export function useContracts() {
@@ -44,6 +46,13 @@ export function useContracts() {
           return new Contract(FREGS_MINTPASS_ADDRESS, FregsMintPassABI, signer)
         },
       },
+      fregCoin: FREGCOIN_ADDRESS ? {
+        read: new Contract(FREGCOIN_ADDRESS, FregCoinABI, provider),
+        write: async () => {
+          const signer = await getSigner()
+          return new Contract(FREGCOIN_ADDRESS, FregCoinABI, signer)
+        },
+      } : null,
     }
   }, [walletProvider])
 

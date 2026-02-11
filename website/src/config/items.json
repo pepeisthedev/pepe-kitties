@@ -129,6 +129,32 @@
       "incompatibleWithHeads": [21, 22]
     },
     {
+      "id": 200,
+      "name": "Silver Skin",
+      "description": "A shimmering silver skin - exclusive spin wheel prize",
+      "category": "skin",
+      "svgFile": "silver.svg",
+      "targetTraitType": 1,
+      "traitFileName": "200.svg",
+      "isClaimable": false,
+      "claimWeight": 0,
+      "isOwnerMintable": true,
+      "spinWheelExclusive": true
+    },
+    {
+      "id": 201,
+      "name": "Neon Skin",
+      "description": "A glowing neon skin - exclusive spin wheel prize",
+      "category": "skin",
+      "svgFile": "neon.svg",
+      "targetTraitType": 1,
+      "traitFileName": "201.svg",
+      "isClaimable": false,
+      "claimWeight": 0,
+      "isOwnerMintable": true,
+      "spinWheelExclusive": true
+    },
+    {
       "id": 100,
       "name": "Special Dice",
       "description": "Roll for a random special trait on your Freg",

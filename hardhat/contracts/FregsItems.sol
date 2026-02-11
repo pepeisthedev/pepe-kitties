@@ -84,6 +84,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     IFregs public fregs;
     ISVGItemsRenderer public svgRenderer;
     IERC721 public beadPunksContract;
+    address public fregCoinContract;
 
     uint256 private _tokenIdCounter;
     uint256 private randomNonce;
@@ -169,6 +170,12 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         address indexed to,
         uint256 itemType,
         uint256 amount
+    );
+
+    event MintedFromCoin(
+        uint256 indexed itemTokenId,
+        address indexed to,
+        uint256 itemType
     );
 
     event SpecialTraitItemUsed(
@@ -404,14 +411,11 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
 
         uint256 iType = itemType[itemTokenId];
-        require(
-            iType == BRONZE_SKIN || iType == METAL_SKIN || iType == GOLD_SKIN || iType == DIAMOND_SKIN || iType == SKELETON_SKIN,
-            "Not a special skin item"
-        );
 
         // Get body value from dynamic mapping (configured at deployment to match traits.json)
+        // If trait value is configured (> 0), it's a valid skin item
         uint256 bodyValue = skinItemToTraitValue[iType];
-        require(bodyValue > 0, "Skin item not configured");
+        require(bodyValue > 0, "Not a special skin item");
 
         // Skeleton skin cannot be applied to fregs wearing hoodie or frogsuit
         if (iType == SKELETON_SKIN) {
@@ -537,6 +541,23 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         }
 
         emit OwnerMinted(startTokenId, to, _itemType, amount);
+    }
+
+    // Mint from FregCoin spin wheel
+    function mintFromCoin(address to, uint256 _itemType) external {
+        require(msg.sender == fregCoinContract, "Only FregCoin contract");
+        require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Item type not configured");
+
+        uint256 newItemId = _tokenIdCounter;
+        _safeMint(to, 1);
+        _tokenIdCounter += 1;
+        itemType[newItemId] = _itemType;
+
+        emit MintedFromCoin(newItemId, to, _itemType);
+    }
+
+    function setFregCoinContract(address _fregCoin) external onlyOwner {
+        fregCoinContract = _fregCoin;
     }
 
     // Add a new dynamic item type
