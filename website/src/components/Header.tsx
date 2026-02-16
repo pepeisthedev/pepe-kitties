@@ -30,6 +30,7 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
     const [isAtTop, setIsAtTop] = useState(true)
 
     const isLanding = activeSection === "landing"
+    const isFullscreen = isLanding || activeSection === "spin-wheel"
 
     // Build nav items dynamically based on owner status
     const dynamicNavItems = isOwner
@@ -79,7 +80,7 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
     }
 
     // Dynamic styles based on landing state and theme
-    const headerBg = isLanding
+    const headerBg = isFullscreen
         ? (isAtTop ? 'bg-transparent' : 'bg-white/10 backdrop-blur-md')
         : (theme === 'dark'
             ? 'backdrop-blur-md bg-black/30 border-b-4 border-lime-400'

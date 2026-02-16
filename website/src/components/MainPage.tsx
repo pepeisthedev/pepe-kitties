@@ -37,12 +37,13 @@ export default function MainPage(): React.JSX.Element {
     }
 
     const isLanding = activeSection === "landing"
+    const isFullscreen = isLanding || activeSection === "spin-wheel"
 
     return (
         <div className={isLanding ? "" : "h-screen flex flex-col overflow-hidden"}>
             <Header activeSection={activeSection} onSectionChange={setActiveSection} />
 
-            <main className={isLanding ? "" : "flex-1 overflow-hidden pt-20"}>
+            <main className={isLanding ? "" : `flex-1 overflow-hidden ${isFullscreen ? "" : "pt-20"}`}>
                 {renderSection()}
             </main>
         </div>
