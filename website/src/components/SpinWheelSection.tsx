@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from "react"
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { useAppKitAccount } from "@reown/appkit/react"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
@@ -12,11 +12,15 @@ const PRIZE_NONE = 0
 const PRIZE_MINTPASS = 1
 const PRIZE_ITEM = 2
 
-// Minimum spin duration in ms (so the wheel spins for at least this long)
-const MIN_SPIN_DURATION = 3000
+// Wheel animation constants
+const SPIN_SPEED = 540 // degrees per second during fast spin
+const DECELERATE_DURATION = 3500 // ms for the slowdown phase
+const REVEAL_DELAY = 1500 // ms to show result on wheel before modal
 
-// Delay after wheel stops before showing the result modal
-const REVEAL_DELAY = 1500
+// Easing function: fast start, slow finish
+function easeOutQuart(t: number): number {
+  return 1 - Math.pow(1 - t, 4)
+}
 
 interface SpinResult {
   won: boolean
@@ -24,7 +28,7 @@ interface SpinResult {
   itemType: number
 }
 
-type SpinPhase = "idle" | "confirming" | "spinning" | "revealing" | "result"
+type SpinPhase = "idle" | "confirming" | "spinning" | "decelerating" | "revealing" | "result"
 
 // Confetti particle component for win celebrations
 function ConfettiParticles() {
@@ -90,6 +94,16 @@ export default function SpinWheelSection(): React.JSX.Element | null {
   const [spinPhase, setSpinPhase] = useState<SpinPhase>("idle")
   const [spinResult, setSpinResult] = useState<SpinResult | null>(null)
 
+  // Wheel animation refs (decoupled from React render cycle for smooth 60fps)
+  const wheelImgRef = useRef<HTMLImageElement>(null)
+  const rafRef = useRef<number>()
+  const currentAngleRef = useRef(0)
+  const decelerateInfoRef = useRef<{
+    fromAngle: number
+    toAngle: number
+    startTime: number
+  } | null>(null)
+
   // If FregCoin contract is not configured, don't render the section
   if (!FREGCOIN_ADDRESS) {
     return null
@@ -119,6 +133,76 @@ export default function SpinWheelSection(): React.JSX.Element | null {
     return null
   }
 
+  // Start the rAF animation loop (fast constant spin)
+  const startSpinLoop = useCallback(() => {
+    decelerateInfoRef.current = null
+    let lastTime = performance.now()
+
+    const loop = (time: number) => {
+      const dt = (time - lastTime) / 1000
+      lastTime = time
+
+      const decel = decelerateInfoRef.current
+      if (decel) {
+        // Decelerating to target angle
+        const elapsed = time - decel.startTime
+        const progress = Math.min(elapsed / DECELERATE_DURATION, 1)
+        const eased = easeOutQuart(progress)
+        currentAngleRef.current = decel.fromAngle + (decel.toAngle - decel.fromAngle) * eased
+
+        if (wheelImgRef.current) {
+          wheelImgRef.current.style.transform = `rotate(${currentAngleRef.current}deg)`
+        }
+
+        if (progress >= 1) {
+          // Deceleration complete - wheel has stopped
+          decelerateInfoRef.current = null
+          setSpinPhase("revealing")
+          return
+        }
+      } else {
+        // Fast constant spin
+        currentAngleRef.current += SPIN_SPEED * dt
+        if (wheelImgRef.current) {
+          wheelImgRef.current.style.transform = `rotate(${currentAngleRef.current}deg)`
+        }
+      }
+
+      rafRef.current = requestAnimationFrame(loop)
+    }
+
+    rafRef.current = requestAnimationFrame(loop)
+  }, [])
+
+  // Trigger deceleration: adds extra rotations then eases to a stop
+  const triggerDeceleration = useCallback(() => {
+    const currentAngle = currentAngleRef.current
+    // 3-5 extra full rotations + random stop position
+    const extraSpins = (3 + Math.random() * 2) * 360
+    const randomOffset = Math.random() * 360
+    const targetAngle = currentAngle + extraSpins + randomOffset
+
+    decelerateInfoRef.current = {
+      fromAngle: currentAngle,
+      toAngle: targetAngle,
+      startTime: performance.now()
+    }
+  }, [])
+
+  // Stop the animation loop
+  const stopAnimation = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = undefined
+    }
+    decelerateInfoRef.current = null
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => stopAnimation()
+  }, [stopAnimation])
+
   const handleSpin = useCallback(async () => {
     if (!contracts || !contracts.fregCoin || balance < 1) return
 
@@ -129,44 +213,39 @@ export default function SpinWheelSection(): React.JSX.Element | null {
       const contract = await contracts.fregCoin.write()
       const tx = await contract.spin({ gasLimit: 500000n })
 
-      // Transaction submitted (user confirmed) - now spinning until mined
-      const spinStartTime = Date.now()
+      // Transaction submitted - start spinning the wheel
       setSpinPhase("spinning")
+      startSpinLoop()
 
       const receipt = await tx.wait()
-
       const result = parseSpinResultEvent(receipt)
 
-      // Ensure minimum spin duration for visual effect
-      const elapsed = Date.now() - spinStartTime
-      if (elapsed < MIN_SPIN_DURATION) {
-        await new Promise(resolve => setTimeout(resolve, MIN_SPIN_DURATION - elapsed))
-      }
-
       setSpinResult(result)
-      setSpinPhase("revealing")
+
+      // Trigger the slowdown — the rAF loop handles the rest
+      // and will set phase to "revealing" when done
+      setSpinPhase("decelerating")
+      triggerDeceleration()
 
       // Refresh balance and items in the background
       Promise.all([refetchBalance(), refetchItems()])
     } catch (err: any) {
-      // If user rejected or error occurred
+      stopAnimation()
       if (err.code === 4001 || err.code === "ACTION_REJECTED") {
-        // User rejected - go back to idle
         setSpinPhase("idle")
       } else {
-        // Other error - show as loss
         setSpinResult({ won: false, prizeType: PRIZE_NONE, itemType: 0 })
         setSpinPhase("result")
       }
     }
-  }, [contracts, balance, refetchBalance, refetchItems])
+  }, [contracts, balance, refetchBalance, refetchItems, startSpinLoop, triggerDeceleration, stopAnimation])
 
   const handleCloseResult = () => {
     setSpinPhase("idle")
     setSpinResult(null)
   }
 
-  // Transition from "revealing" (wheel stopped, result visible on wheel) to "result" (modal appears)
+  // Transition from "revealing" (wheel stopped) to "result" (modal appears)
   useEffect(() => {
     if (spinPhase === "revealing") {
       const timer = setTimeout(() => setSpinPhase("result"), REVEAL_DELAY)
@@ -174,7 +253,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
     }
   }, [spinPhase])
 
-  const isSpinning = spinPhase === "confirming" || spinPhase === "spinning"
+  const isSpinning = spinPhase === "confirming" || spinPhase === "spinning" || spinPhase === "decelerating"
 
   return (
     <section
@@ -199,18 +278,30 @@ export default function SpinWheelSection(): React.JSX.Element | null {
         </Card>
       ) : (
         <div className="flex flex-col items-center gap-8 relative">
- 
 
-          {/* Spin Wheel Visual */}
+          {/* Spin Wheel: rotating disc + static frame overlay */}
           <div className="relative w-80 h-80 md:w-80 md:h-80 mt-40 md:mt-20">
-            {/* Wheel image: GIF when idle/spinning, PNG when result */}
+            {/* Rotating wheel disc (behind the frame) */}
+            <div
+              ref={wheelImgRef}
+              className="absolute inset-0 w-full h-full"
+              style={{
+                transform: `rotate(${currentAngleRef.current}deg)`,
+                transformOrigin: "50% 45%",
+              }}
+            >
+              <img
+                src="/wheel14x.png"
+                alt="Spin wheel disc"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            {/* Static frame overlay (pointer, border, center hub, stand) */}
             <img
-              src={spinPhase === "result" || spinPhase === "revealing" ? "/wheel.png" : "/wheel.gif"}
-              alt="Spin wheel"
-              className="w-full h-full object-contain"
+              src="/wheel-frame.png"
+              alt="Wheel frame"
+              className="absolute inset-0 w-full h-full object-contain z-10 pointer-events-none"
             />
-
-
           </div>
 
           {/* Spin Button */}
