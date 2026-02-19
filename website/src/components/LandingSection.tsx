@@ -85,12 +85,12 @@ function LinkCard({
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className={`${bgColor} rounded-3xl p-6 flex flex-col items-center justify-center
-                w-full h-full
+            className={`${bgColor} rounded-3xl p-4 md:p-5 flex flex-col items-center justify-center
+                w-full aspect-square
                 hover:scale-105 transition-transform duration-300 cursor-pointer ${className}`}
         >
-            <Icon className="w-10 h-10 md:w-14 md:h-14 text-black mb-3" />
-            <span className="text-black font-bold text-lg md:text-2xl text-center">{label}</span>
+            <Icon className="w-8 h-8 md:w-11 md:h-11 text-black mb-2 md:mb-3" />
+            <span className="text-black font-bold text-sm md:text-lg text-center">{label}</span>
         </a>
     )
 }
@@ -205,30 +205,17 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                 </video>
 
 
-                {/* Content */}
-                <div className="relative z-10 h-full flex items-end pb-24 md:pb-32">
-                    <div className="max-w-[348px] md:max-w-[600px] mx-6 md:mx-16 lg:mx-24 text-left">
-                        {/* Title */}
-                        <h1 className="text-white text-3xl md:text-[44px] font-bold tracking-tight mb-4 md:mb-8">
-                            Fregs
-                        </h1>
-
-                        {/* Description */}
-                        <p className="text-white/90 text-xl md:text-2xl font-medium tracking-tight mb-6 md:mb-16">
-                            Born from forgotten swamps and half-remembered dreams, Freg wanders the blockchain in search of meaning. No one knows what he's seen, but he's definitely judging you.
-                        </p>
-
-                        {/* CTA Button */}
-                        <Button
-                            onClick={onEnter}
-                            className="px-8 py-4 md:px-12 md:py-6 rounded-full font-bangers text-xl md:text-2xl
-                                text-white
-                                transition duration-200 hover:opacity-90"
-                            style={{ backgroundColor: '#7CB342' }}
-                        >
-                            ENTER
-                        </Button>
-                    </div>
+                {/* CTA Button */}
+                <div className="absolute left-6 md:left-16 lg:left-24 bottom-24 md:bottom-18 z-20">
+                    <Button
+                        onClick={onEnter}
+                        className="px-8 py-4 md:px-12 md:py-6 rounded-full font-bangers text-xl md:text-2xl
+                            text-white
+                            transition duration-200 hover:opacity-90"
+                        style={{ backgroundColor: '#7CB342' }}
+                    >
+                        Spin to win
+                    </Button>
                 </div>
 
                 {/* Scroll Down Arrow */}
@@ -248,133 +235,68 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                 style={{ background: 'linear-gradient(135deg, #134e4a 0%, #064e3b 25%, #14532d 50%, #1a2e05 100%)' }}
             >
                 <div className="max-w-6xl mx-auto">
-                    {/* Mobile Layout: 2 columns staggered masonry */}
-                    <div
-                        className="grid grid-cols-2 gap-4 md:hidden"
-                        style={{
-                            gridTemplateRows: 'repeat(8, 80px)'
-                        }}
-                    >
-                        {/* Left column: DoodleFreg tall (rows 1-3), OpenSea square (rows 4-5), HoodieFreg tall (rows 6-8) */}
-                        <div style={{ gridColumn: 1, gridRow: '1 / 4' }}>
-                            <VideoCard
-                                src={`${VIDEO_BASE_URL}/DoodleFreg.MOV`}
-                                clickable={false}
-                                className="w-full h-full !aspect-auto"
-                            />
-                        </div>
-                        <div style={{ gridColumn: 1, gridRow: '4 / 6' }}>
-                            <LinkCard
-                                href={SOCIAL_LINKS.opensea}
-                                icon={OpenSeaLogo}
-                                label="OpenSea"
-                                bgColor="bg-emerald-400"
-                            />
-                        </div>
-                        <div style={{ gridColumn: 1, gridRow: '6 / 9' }}>
-                            <VideoCard
-                                src={`${VIDEO_BASE_URL}/HoodieFreg.MOV`}
-                                clickable={false}
-                                className="w-full h-full !aspect-auto"
-                            />
-                        </div>
-
-                        {/* Right column: X square (rows 1-2), freg1 tall (rows 3-5), Etherscan square (rows 6-7) */}
-                        <div style={{ gridColumn: 2, gridRow: '1 / 3' }}>
-                            <LinkCard
-                                href={SOCIAL_LINKS.x}
-                                icon={XLogo}
-                                label="Follow on X"
-                                bgColor="bg-lime-400"
-                            />
-                        </div>
-                        <div style={{ gridColumn: 2, gridRow: '3 / 6' }}>
-                            <ImageCard
-                                src="/frogz/freg1.png"
-                                clickable={false}
-                                className="w-full h-full !aspect-auto"
-                            />
-                        </div>
-                        <div style={{ gridColumn: 2, gridRow: '6 / 9' }}>
-                            <LinkCard
-                                href={SOCIAL_LINKS.etherscan}
-                                icon={EtherscanLogo}
-                                label="Etherscan"
-                                bgColor="bg-teal-400"
-                            />
+                    {/* Roadmap video block */}
+                    <div className="mb-10 md:mb-14">
+                        <h2 className="text-white text-5xl md:text-8xl font-bold tracking-tight mb-4 md:mb-6">
+                            Roadmap
+                        </h2>
+                        <div className="rounded-3xl overflow-hidden border border-white/10 bg-black/30">
+                            <video
+                                autoPlay
+                                loop
+                                muted
+                                playsInline
+                                className="w-full h-auto object-contain bg-black"
+                            >
+                                <source src={`${VIDEO_BASE_URL}/roadmap.mp4`} type="video/mp4" />
+                            </video>
                         </div>
                     </div>
-
-                    {/* Desktop Layout: 3 columns with organic masonry-like arrangement */}
-                    <div
-                        className="hidden md:grid gap-6"
-                        style={{
-                            gridTemplateColumns: 'repeat(3, 1fr)',
-                            gridTemplateRows: 'repeat(5, 140px)'
-                        }}
-                    >
-                        {/* Column 1: DoodleFreg (rows 1-3), OpenSea (rows 4-5) */}
-                        <div className="col-start-1" style={{ gridRow: '1 / 4' }}>
-                            <VideoCard
-                                src={`${VIDEO_BASE_URL}/DoodleFreg.MOV`}
-                                clickable={false}
-                                className="w-full h-full !aspect-auto"
-                            />
-                        </div>
-                        <div className="col-start-1" style={{ gridRow: '4 / 6' }}>
-                            <a
-                                href={SOCIAL_LINKS.opensea}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="bg-emerald-400 rounded-3xl p-6 flex flex-col items-center justify-center w-full h-full
-                                    hover:scale-105 transition-transform duration-300 cursor-pointer"
-                            >
-                                <OpenSeaLogo className="w-14 h-14 text-black mb-3" />
-                                <span className="text-black font-bold text-2xl text-center">OpenSea</span>
-                            </a>
-                        </div>
-
-                        {/* Column 2: X (rows 1-2), HoodieFreg (rows 3-5) */}
-                        <div className="col-start-2" style={{ gridRow: '1 / 3' }}>
-                            <a
-                                href={SOCIAL_LINKS.x}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="bg-lime-400 rounded-3xl p-6 flex flex-col items-center justify-center w-full h-full
-                                    hover:scale-105 transition-transform duration-300 cursor-pointer"
-                            >
-                                <XLogo className="w-14 h-14 text-black mb-3" />
-                                <span className="text-black font-bold text-2xl text-center">Follow on X</span>
-                            </a>
-                        </div>
-                        <div className="col-start-2" style={{ gridRow: '3 / 6' }}>
-                            <VideoCard
-                                src={`${VIDEO_BASE_URL}/HoodieFreg.MOV`}
-                                clickable={false}
-                                className="w-full h-full !aspect-auto"
-                            />
-                        </div>
-
-                        {/* Column 3: freg1.png (rows 1-3), Etherscan (rows 4-5) */}
-                        <div className="col-start-3" style={{ gridRow: '1 / 4' }}>
-                            <ImageCard
-                                src="/frogz/freg1.png"
-                                clickable={false}
-                                className="w-full h-full !aspect-auto"
-                            />
-                        </div>
-                        <div className="col-start-3" style={{ gridRow: '4 / 6' }}>
-                            <a
-                                href={SOCIAL_LINKS.etherscan}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="bg-teal-400 rounded-3xl p-6 flex flex-col items-center justify-center w-full h-full
-                                    hover:scale-105 transition-transform duration-300 cursor-pointer"
-                            >
-                                <EtherscanLogo className="w-14 h-14 text-black mb-3" />
-                                <span className="text-black font-bold text-2xl text-center">Etherscan</span>
-                            </a>
-                        </div>
+          <h2 className="text-white text-5xl md:text-8xl font-bold tracking-tight mb-4 md:mb-6">
+                            Socials
+                        </h2>
+                    {/* Socials and media tiles */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5 max-w-5xl mx-auto">
+                        
+                                <LinkCard
+                            href={SOCIAL_LINKS.x}
+                            icon={XLogo}
+                            label="Follow on X"
+                            bgColor="bg-lime-400"
+                        />
+                        <VideoCard
+                            src={`${VIDEO_BASE_URL}/DoodleFreg.MOV`}
+                            clickable={false}
+                        />
+                
+                        <VideoCard
+                            src={`${VIDEO_BASE_URL}/HoodieFreg.MOV`}
+                            clickable={false}
+                        />
+                        <LinkCard
+                            href={SOCIAL_LINKS.opensea}
+                            icon={OpenSeaLogo}
+                            label="OpenSea"
+                            bgColor="bg-emerald-400"
+                        />
+                        <VideoCard
+                            src={`${VIDEO_BASE_URL}/MetalFreg.MP4`}
+                            clickable={false}
+                        />
+                        <LinkCard
+                            href={SOCIAL_LINKS.etherscan}
+                            icon={EtherscanLogo}
+                            label="Etherscan"
+                            bgColor="bg-teal-400"
+                        />
+                        <VideoCard
+                            src={`${VIDEO_BASE_URL}/HatFreg.MP4`}
+                            clickable={false}
+                        />
+                        <ImageCard
+                            src="/frogz/freg1.png"
+                            clickable={false}
+                        />
                     </div>
                 </div>
             </div>
