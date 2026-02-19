@@ -368,7 +368,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
               "No FregCoins"
             ) : (
               <>
-                <Coins className="w-6 h-6 mr-2" />
+      
                 Spin (1 FregCoin)
               </>
             )}
@@ -453,7 +453,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
                     onClick={() => { handleCloseResult(); setTimeout(handleSpin, 100) }}
                     className="w-full px-8 py-4 rounded-2xl font-bangers text-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
                   >
-                    <Coins className="w-5 h-5 mr-2" />
+           
                     Spin Again!
                   </Button>
                 )}
