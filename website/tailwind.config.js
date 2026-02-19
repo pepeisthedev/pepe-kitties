@@ -45,6 +45,11 @@ module.exports = {
         'creepster': ['Creepster', 'cursive', 'fantasy', 'serif'],
         'nosifer': ['Nosifer', 'cursive', 'fantasy', 'serif'],
         'butcherman': ['Butcherman', 'cursive', 'fantasy', 'serif'],
+        'bangers': ['Bangers', 'cursive', 'sans-serif'],
+        'righteous': ['Righteous', 'cursive', 'sans-serif'],
+      },
+      spacing: {
+        '100': '25rem',
       },
       borderRadius: {
         lg: "var(--radius)",
