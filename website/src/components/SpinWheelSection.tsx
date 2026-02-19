@@ -25,8 +25,8 @@ const WHEEL_SEGMENTS = [
 ]
 
 // Wheel animation constants
-const SPIN_SPEED = 540 // degrees per second during fast spin
-const DECELERATE_DURATION = 3500 // ms for the slowdown phase
+const SPIN_SPEED = 540 // degrees per second during spin
+const DECELERATE_DURATION = 3500 // ms for the slowdown to target segment
 const REVEAL_DELAY = 1500 // ms to show result on wheel before modal
 
 // Easing function: fast start, slow finish
@@ -173,7 +173,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
     return null
   }
 
-  // Start the rAF animation loop (fast constant spin)
+  // Start the rAF animation loop (constant fast spin until result arrives)
   const startSpinLoop = useCallback(() => {
     decelerateInfoRef.current = null
     let lastTime = performance.now()
@@ -184,7 +184,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
 
       const decel = decelerateInfoRef.current
       if (decel) {
-        // Decelerating to target angle
+        // Decelerate from current speed down to stop at target
         const elapsed = time - decel.startTime
         const progress = Math.min(elapsed / DECELERATE_DURATION, 1)
         const eased = easeOutQuart(progress)
@@ -195,13 +195,12 @@ export default function SpinWheelSection(): React.JSX.Element | null {
         }
 
         if (progress >= 1) {
-          // Deceleration complete - wheel has stopped
           decelerateInfoRef.current = null
           setSpinPhase("revealing")
           return
         }
       } else {
-        // Fast constant spin
+        // Fast constant spin while waiting for tx
         currentAngleRef.current += SPIN_SPEED * dt
         if (wheelImgRef.current) {
           wheelImgRef.current.style.transform = `rotate(${currentAngleRef.current}deg)`
@@ -214,18 +213,25 @@ export default function SpinWheelSection(): React.JSX.Element | null {
     rafRef.current = requestAnimationFrame(loop)
   }, [])
 
-  // Trigger deceleration: adds extra rotations then eases to the correct segment
+  // Trigger deceleration: eases from current speed to stop at the correct segment.
+  // The total distance is calculated so the initial easing speed matches SPIN_SPEED,
+  // preventing any visible speed jump.
   const triggerDeceleration = useCallback((result: SpinResult) => {
     const currentAngle = currentAngleRef.current
-    // Calculate where the wheel needs to stop (segment-aware)
     const targetOffset = getTargetAngleForResult(result)
-    // Normalize current angle to 0-360
     const currentMod = ((currentAngle % 360) + 360) % 360
-    // Calculate how far to rotate to reach the target, then add 3-5 extra full spins
-    const extraSpins = (3 + Math.floor(Math.random() * 3)) * 360
+
+    // easeOutQuart derivative at t=0 is 4, so initial speed = 4 * totalDist / duration.
+    // To match SPIN_SPEED: totalDist = SPIN_SPEED * DECELERATE_DURATION / 4000 (ms→s)
+    const totalDist = (SPIN_SPEED * DECELERATE_DURATION) / 4000
+
+    // How far to the target segment within one rotation
     let delta = targetOffset - currentMod
     if (delta < 0) delta += 360
-    const targetAngle = currentAngle + extraSpins + delta
+
+    // Add full rotations so total distance >= totalDist
+    const fullSpins = Math.ceil((totalDist - delta) / 360) * 360
+    const targetAngle = currentAngle + Math.max(fullSpins, 0) + delta
 
     decelerateInfoRef.current = {
       fromAngle: currentAngle,
