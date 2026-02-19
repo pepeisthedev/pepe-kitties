@@ -92,28 +92,30 @@
     {
       "id": 9,
       "name": "Hoodie",
-      "description": "A cozy hoodie for your Freg",
+      "description": "A cozy hoodie for your Freg - exclusive spin wheel prize",
       "category": "head",
       "svgFile": "hoodie.svg",
       "targetTraitType": 2,
       "traitFileName": "2.svg",
-      "isClaimable": true,
-      "claimWeight": 500,
+      "isClaimable": false,
+      "claimWeight": 0,
       "isOwnerMintable": true,
-      "incompatibleWithSkins": [4]
+      "incompatibleWithSkins": [4],
+      "spinWheelExclusive": true
     },
     {
       "id": 10,
       "name": "Frogsuit",
-      "description": "Transform your Freg into a frog",
+      "description": "Transform your Freg into a frog - exclusive spin wheel prize",
       "category": "head",
       "svgFile": "frog.svg",
       "targetTraitType": 2,
       "traitFileName": "3.svg",
-      "isClaimable": true,
-      "claimWeight": 500,
+      "isClaimable": false,
+      "claimWeight": 0,
       "isOwnerMintable": true,
-      "incompatibleWithSkins": [4]
+      "incompatibleWithSkins": [4],
+      "spinWheelExclusive": true
     },
     {
       "id": 11,
@@ -127,32 +129,6 @@
       "claimWeight": 0,
       "isOwnerMintable": true,
       "incompatibleWithHeads": [21, 22]
-    },
-    {
-      "id": 200,
-      "name": "Silver Skin",
-      "description": "A shimmering silver skin - exclusive spin wheel prize",
-      "category": "skin",
-      "svgFile": "silver.svg",
-      "targetTraitType": 1,
-      "traitFileName": "200.svg",
-      "isClaimable": false,
-      "claimWeight": 0,
-      "isOwnerMintable": true,
-      "spinWheelExclusive": true
-    },
-    {
-      "id": 201,
-      "name": "Neon Skin",
-      "description": "A glowing neon skin - exclusive spin wheel prize",
-      "category": "skin",
-      "svgFile": "neon.svg",
-      "targetTraitType": 1,
-      "traitFileName": "201.svg",
-      "isClaimable": false,
-      "claimWeight": 0,
-      "isOwnerMintable": true,
-      "spinWheelExclusive": true
     },
     {
       "id": 100,

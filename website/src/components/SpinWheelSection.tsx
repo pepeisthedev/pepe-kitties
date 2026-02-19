@@ -5,12 +5,24 @@ import { Button } from "./ui/button"
 import { useContracts, useOwnedItems, useFregCoinBalance } from "../hooks"
 import ItemCard from "./ItemCard"
 import { FREGCOIN_ADDRESS } from "../config/contracts"
-import { Coins, RotateCw, Frown, Ticket, X, Sparkles } from "lucide-react"
+import { Coins, RotateCw, Ticket, X, Sparkles } from "lucide-react"
 
 // Prize types from contract
-const PRIZE_NONE = 0
 const PRIZE_MINTPASS = 1
 const PRIZE_ITEM = 2
+
+// Wheel segment mapping — measured from the actual wheel image (clockwise from top).
+// Segments are NOT equal-sized. The pointer is at 0° (top).
+// To land on a segment at angle C, CSS rotation = (360 - C) % 360.
+const SAFE_MARGIN = 5 // degrees from segment edge to avoid landing on a boundary
+const WHEEL_SEGMENTS = [
+  { startDeg: 329.24, endDeg: 384.13, centerDeg: 356.69, prize: "mintpass" as const },            // Red → MintPass
+  { startDeg: 24.13,  endDeg: 78.4,   centerDeg: 51.27,  prize: "item" as const, itemType: 9 },  // Yellow → Hoodie
+  { startDeg: 78.4,   endDeg: 134.3,  centerDeg: 106.35, prize: "mintpass" as const },            // Green → MintPass
+  { startDeg: 134.3,  endDeg: 203.8,  centerDeg: 169.05, prize: "item" as const, itemType: 6 },  // Purple → Treasure Chest
+  { startDeg: 203.8,  endDeg: 271.88, centerDeg: 237.84, prize: "mintpass" as const },            // Blue → MintPass
+  { startDeg: 271.88, endDeg: 329.24, centerDeg: 300.56, prize: "item" as const, itemType: 10 }, // Purple → Frogsuit
+]
 
 // Wheel animation constants
 const SPIN_SPEED = 540 // degrees per second during fast spin
@@ -26,6 +38,34 @@ interface SpinResult {
   won: boolean
   prizeType: number
   itemType: number
+}
+
+function randomAngleInSegment(segment: typeof WHEEL_SEGMENTS[number]): number {
+  // Pick a random angle within the segment, with a safe margin from edges
+  const safeStart = segment.startDeg + SAFE_MARGIN
+  const safeEnd = segment.endDeg - SAFE_MARGIN
+  const angle = safeStart + Math.random() * (safeEnd - safeStart)
+  // Normalize to 0–360
+  return ((angle % 360) + 360) % 360
+}
+
+function getTargetAngleForResult(result: SpinResult): number {
+  let segment: typeof WHEEL_SEGMENTS[number] | undefined
+
+  if (result.prizeType === PRIZE_MINTPASS) {
+    const mintPassSegments = WHEEL_SEGMENTS.filter(s => s.prize === "mintpass")
+    segment = mintPassSegments[Math.floor(Math.random() * mintPassSegments.length)]
+  } else if (result.prizeType === PRIZE_ITEM) {
+    segment = WHEEL_SEGMENTS.find(s => "itemType" in s && s.itemType === result.itemType)
+  }
+
+  if (segment) {
+    const wheelAngle = randomAngleInSegment(segment)
+    return (360 - wheelAngle + 360) % 360
+  }
+
+  // Fallback: random position
+  return Math.random() * 360
 }
 
 type SpinPhase = "idle" | "confirming" | "spinning" | "decelerating" | "revealing" | "result"
@@ -174,13 +214,18 @@ export default function SpinWheelSection(): React.JSX.Element | null {
     rafRef.current = requestAnimationFrame(loop)
   }, [])
 
-  // Trigger deceleration: adds extra rotations then eases to a stop
-  const triggerDeceleration = useCallback(() => {
+  // Trigger deceleration: adds extra rotations then eases to the correct segment
+  const triggerDeceleration = useCallback((result: SpinResult) => {
     const currentAngle = currentAngleRef.current
-    // 3-5 extra full rotations + random stop position
-    const extraSpins = (3 + Math.random() * 2) * 360
-    const randomOffset = Math.random() * 360
-    const targetAngle = currentAngle + extraSpins + randomOffset
+    // Calculate where the wheel needs to stop (segment-aware)
+    const targetOffset = getTargetAngleForResult(result)
+    // Normalize current angle to 0-360
+    const currentMod = ((currentAngle % 360) + 360) % 360
+    // Calculate how far to rotate to reach the target, then add 3-5 extra full spins
+    const extraSpins = (3 + Math.floor(Math.random() * 3)) * 360
+    let delta = targetOffset - currentMod
+    if (delta < 0) delta += 360
+    const targetAngle = currentAngle + extraSpins + delta
 
     decelerateInfoRef.current = {
       fromAngle: currentAngle,
@@ -225,7 +270,9 @@ export default function SpinWheelSection(): React.JSX.Element | null {
       // Trigger the slowdown — the rAF loop handles the rest
       // and will set phase to "revealing" when done
       setSpinPhase("decelerating")
-      triggerDeceleration()
+      if (result) {
+        triggerDeceleration(result)
+      }
 
       // Refresh balance and items in the background
       Promise.all([refetchBalance(), refetchItems()])
@@ -234,7 +281,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
       if (err.code === 4001 || err.code === "ACTION_REJECTED") {
         setSpinPhase("idle")
       } else {
-        setSpinResult({ won: false, prizeType: PRIZE_NONE, itemType: 0 })
+        setSpinResult(null)
         setSpinPhase("result")
       }
     }
@@ -280,7 +327,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
         <div className="flex flex-col items-center gap-8 relative">
 
           {/* Spin Wheel: rotating disc + static frame overlay */}
-          <div className="relative w-80 h-80 md:w-80 md:h-80 mt-40 md:mt-20">
+          <div className="relative w-80 h-80 md:w-100 md:h-100 mt-40 md:mt-0">
             {/* Rotating wheel disc (behind the frame) */}
             <div
               ref={wheelImgRef}
@@ -336,134 +383,89 @@ export default function SpinWheelSection(): React.JSX.Element | null {
       {/* Result Modal - appears after reveal delay */}
       {spinPhase === "result" && spinResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center animate-backdrop-fade"
-          style={{ backgroundColor: spinResult.won ? "rgba(0,0,0,0.7)" : "rgba(0,0,0,0.6)" }}
+          style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
           onClick={handleCloseResult}
         >
           {/* Confetti for wins */}
-          {spinResult.won && <ConfettiParticles />}
+          <ConfettiParticles />
 
           {/* Modal card */}
           <div
-            className={`relative z-10 ${spinResult.won ? "animate-spiral-in" : "animate-spiral-in-loss"}`}
+            className="relative z-10 animate-spiral-in"
             onClick={(e) => e.stopPropagation()}
           >
-            {spinResult.won ? (
-              /* === WIN MODAL === */
-              <div className="relative rounded-3xl p-8 md:p-10 text-center max-w-sm mx-4 animate-prize-glow"
-                style={{
-                  background: "linear-gradient(135deg, #1e0533 0%, #2d1054 40%, #1a0a2e 100%)",
-                  border: "3px solid rgba(255, 215, 0, 0.7)",
-                }}
+            <div className="relative rounded-3xl p-8 md:p-10 text-center max-w-sm mx-4 animate-prize-glow"
+              style={{
+                background: "linear-gradient(135deg, #1e0533 0%, #2d1054 40%, #1a0a2e 100%)",
+                border: "3px solid rgba(255, 215, 0, 0.7)",
+              }}
+            >
+              {/* Star burst behind content */}
+              <StarBurst />
+
+              {/* Close button */}
+              <button
+                onClick={handleCloseResult}
+                className="absolute top-3 right-3 text-white/50 hover:text-white transition-colors z-20"
               >
-                {/* Star burst behind content */}
-                <StarBurst />
+                <X className="w-6 h-6" />
+              </button>
 
-                {/* Close button */}
-                <button
-                  onClick={handleCloseResult}
-                  className="absolute top-3 right-3 text-white/50 hover:text-white transition-colors z-20"
+     
+              {/* Title */}
+              <div className="relative z-10 mb-6">
+                <p className="font-bangers text-5xl md:text-6xl text-transparent bg-clip-text animate-shimmer"
+                  style={{
+                    backgroundImage: "linear-gradient(90deg, #FFD700, #FFA500, #FFD700, #FFEC8B, #FFD700)",
+                    backgroundSize: "200% 100%",
+                  }}
                 >
-                  <X className="w-6 h-6" />
-                </button>
-
-                {/* Sparkle decorations */}
-                <Sparkles className="absolute top-4 left-4 w-6 h-6 text-yellow-400 animate-float" />
-                <Sparkles className="absolute bottom-4 right-4 w-5 h-5 text-yellow-300 animate-float" style={{ animationDelay: "1s" }} />
-
-                {/* Title */}
-                <div className="relative z-10 mb-6">
-                  <p className="font-bangers text-5xl md:text-6xl text-transparent bg-clip-text animate-shimmer"
-                    style={{
-                      backgroundImage: "linear-gradient(90deg, #FFD700, #FFA500, #FFD700, #FFEC8B, #FFD700)",
-                      backgroundSize: "200% 100%",
-                    }}
-                  >
-                    YOU WON!
-                  </p>
-                  <p className="font-righteous text-purple-300 text-sm mt-1">
-                    {spinResult.prizeType === PRIZE_ITEM ? "New Item Acquired!" : "Mint Pass Earned!"}
-                  </p>
-                </div>
-
-                {/* Prize display */}
-                <div className="relative z-10 mb-6">
-                  {spinResult.prizeType === PRIZE_ITEM ? (
-                    <div className="inline-block rounded-2xl p-3 bg-purple-900/50 border border-purple-400/30">
-                      <ItemCard
-                        tokenId={0}
-                        itemType={spinResult.itemType}
-                        size="lg"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <div className="w-24 h-24 bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl flex items-center justify-center mb-3 border-2 border-purple-400/50 animate-float">
-                        <Ticket className="w-14 h-14 text-purple-200" />
-                      </div>
-                      <p className="font-bangers text-2xl text-white">Mint Pass</p>
-                      <p className="font-righteous text-sm text-purple-300">Use it to mint a free Freg!</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Action buttons */}
-                <div className="relative z-10 flex flex-col gap-3">
-                  {balance > 0 && (
-                    <Button
-                      onClick={() => { handleCloseResult(); setTimeout(handleSpin, 100) }}
-                      className="w-full px-8 py-4 rounded-2xl font-bangers text-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
-                    >
-                      <Coins className="w-5 h-5 mr-2" />
-                      Spin Again!
-                    </Button>
-                  )}
-                  <Button
-                    onClick={handleCloseResult}
-                    variant="ghost"
-                    className="w-full px-8 py-3 rounded-2xl font-righteous text-base text-white/70 hover:text-white hover:bg-white/10"
-                  >
-                    Collect & Close
-                  </Button>
-                </div>
+                  YOU WON!
+                </p>
+        
               </div>
-            ) : (
-              /* === LOSS MODAL === */
-              <div className="relative rounded-3xl p-8 text-center max-w-xs mx-4"
-                style={{
-                  background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)",
-                  border: "2px solid rgba(255,255,255,0.1)",
-                }}
-              >
-                {/* Close button */}
-                <button
-                  onClick={handleCloseResult}
-                  className="absolute top-3 right-3 text-white/40 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
 
-                <Frown className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-                <p className="font-bangers text-3xl text-gray-300 mb-2">No Luck!</p>
-                <p className="font-righteous text-base text-white/50 mb-6">Better luck next time</p>
+              {/* Prize display */}
+              <div className="relative z-10 mb-6">
+                {spinResult.prizeType === PRIZE_ITEM ? (
+                  <div className="inline-block rounded-2xl p-3 bg-purple-900/50 border border-purple-400/30">
+                    <ItemCard
+                      tokenId={0}
+                      itemType={spinResult.itemType}
+                      size="lg"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <div className="w-24 h-24 bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl flex items-center justify-center mb-3 border-2 border-purple-400/50 animate-float">
+                      <Ticket className="w-14 h-14 text-purple-200" />
+                    </div>
+                    <p className="font-bangers text-2xl text-white">Mint Pass</p>
+                    <p className="font-righteous text-sm text-purple-300">Use it to mint a free Freg!</p>
+                  </div>
+                )}
+              </div>
 
-                {balance > 0 ? (
+              {/* Action buttons */}
+              <div className="relative z-10 flex flex-col gap-3">
+                {balance > 0 && (
                   <Button
                     onClick={() => { handleCloseResult(); setTimeout(handleSpin, 100) }}
                     className="w-full px-8 py-4 rounded-2xl font-bangers text-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
                   >
-                    <RotateCw className="w-5 h-5 mr-2" />
-                    Try Again!
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleCloseResult}
-                    className="w-full px-8 py-4 rounded-2xl font-bangers text-xl bg-gray-700 hover:bg-gray-600 text-white"
-                  >
-                    Close
+                    <Coins className="w-5 h-5 mr-2" />
+                    Spin Again!
                   </Button>
                 )}
+                <Button
+                  onClick={handleCloseResult}
+                  variant="ghost"
+                  className="w-full px-8 py-3 rounded-2xl font-righteous text-base text-white/70 hover:text-white hover:bg-white/10"
+                >
+                  Collect & Close
+                </Button>
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}

@@ -8,15 +8,16 @@ const FREGS_MINTPASS_ADDRESS = process.env.VITE_FREGS_MINTPASS_ADDRESS || "";
 const FREGS_ITEMS_ADDRESS = process.env.VITE_FREGS_ITEMS_ADDRESS || "";
 
 // Prize configuration (weights out of 10000)
-const LOSE_WEIGHT = 8000;           // 80% chance to lose
-const MINTPASS_WEIGHT = 1000;       // 10% chance to win MintPass
-const SILVER_SKIN_WEIGHT = 500;     // 5% chance to win Silver Skin
-const NEON_SKIN_WEIGHT = 500;       // 5% chance to win Neon Skin
+const LOSE_WEIGHT = 0;              // 0% chance to lose (every spin wins)
+const MINTPASS_WEIGHT = 9000;       // 90% chance to win MintPass
+const HOODIE_WEIGHT = 300;          // 3% chance to win Hoodie
+const FROGSUIT_WEIGHT = 300;        // 3% chance to win Frogsuit
+const CHEST_WEIGHT = 400;           // 4% chance to win Treasure Chest
 
-// Item type IDs for the new skins (must match items.json)
-// Using high IDs (200+) to keep spin wheel exclusive items separate from regular items
-const SILVER_SKIN_ITEM_TYPE = 200;
-const NEON_SKIN_ITEM_TYPE = 201;
+// Item type IDs (must match items.json)
+const HOODIE_ITEM_TYPE = 9;
+const FROGSUIT_ITEM_TYPE = 10;
+const CHEST_ITEM_TYPE = 6;
 
 // Initial FregCoins to mint to owner for distribution
 const INITIAL_COINS_TO_MINT = 100;
@@ -162,11 +163,14 @@ async function main() {
     console.log("Setting MintPass weight:", MINTPASS_WEIGHT, "(", MINTPASS_WEIGHT / 100, "%)");
     await sendTx(fregCoin.setMintPassWeight(MINTPASS_WEIGHT));
 
-    console.log("Adding Silver Skin prize (type", SILVER_SKIN_ITEM_TYPE, ") with weight:", SILVER_SKIN_WEIGHT, "(", SILVER_SKIN_WEIGHT / 100, "%)");
-    await sendTx(fregCoin.addItemPrize(SILVER_SKIN_ITEM_TYPE, SILVER_SKIN_WEIGHT));
+    console.log("Adding Hoodie prize (type", HOODIE_ITEM_TYPE, ") with weight:", HOODIE_WEIGHT, "(", HOODIE_WEIGHT / 100, "%)");
+    await sendTx(fregCoin.addItemPrize(HOODIE_ITEM_TYPE, HOODIE_WEIGHT));
 
-    console.log("Adding Neon Skin prize (type", NEON_SKIN_ITEM_TYPE, ") with weight:", NEON_SKIN_WEIGHT, "(", NEON_SKIN_WEIGHT / 100, "%)");
-    await sendTx(fregCoin.addItemPrize(NEON_SKIN_ITEM_TYPE, NEON_SKIN_WEIGHT));
+    console.log("Adding Frogsuit prize (type", FROGSUIT_ITEM_TYPE, ") with weight:", FROGSUIT_WEIGHT, "(", FROGSUIT_WEIGHT / 100, "%)");
+    await sendTx(fregCoin.addItemPrize(FROGSUIT_ITEM_TYPE, FROGSUIT_WEIGHT));
+
+    console.log("Adding Treasure Chest prize (type", CHEST_ITEM_TYPE, ") with weight:", CHEST_WEIGHT, "(", CHEST_WEIGHT / 100, "%)");
+    await sendTx(fregCoin.addItemPrize(CHEST_ITEM_TYPE, CHEST_WEIGHT));
 
     // ============ Configure Existing Contracts ============
     console.log("\n--- Configuring Existing Contracts ---");
@@ -180,57 +184,30 @@ async function main() {
     console.log("Setting FregCoin on FregsItems...");
     await sendTx(fregsItems.setFregCoinContract(fregCoinAddress));
 
-    // ============ Configure New Skin Item Types ============
-    console.log("\n--- Configuring New Skin Item Types ---");
+    // ============ Ensure Prize Item Types Are Configured ============
+    // FregCoin.spin() calls FregsItems.mintFromCoin() which requires
+    // itemTypeConfigs[itemType].name to be non-empty
+    console.log("\n--- Ensuring Prize Item Types Are Configured ---");
 
-    // Check if items need to be configured
-    try {
-        const silverConfig = await fregsItems.itemTypeConfigs(SILVER_SKIN_ITEM_TYPE);
-        if (!silverConfig.name || silverConfig.name === "") {
-            console.log("Configuring Silver Skin item type...");
-            await sendTx(fregsItems.setBuiltInItemConfig(
-                SILVER_SKIN_ITEM_TYPE,
-                "Silver Skin",
-                "A shimmering silver skin - exclusive spin wheel prize"
-            ));
-        } else {
-            console.log("  Silver Skin already configured");
+    const prizeItems = [
+        { id: HOODIE_ITEM_TYPE, name: "Hoodie", desc: "A cozy hoodie for your Freg - exclusive spin wheel prize" },
+        { id: FROGSUIT_ITEM_TYPE, name: "Frogsuit", desc: "Transform your Freg into a frog - exclusive spin wheel prize" },
+        { id: CHEST_ITEM_TYPE, name: "Treasure Chest", desc: "Burn this chest to claim ETH rewards" },
+    ];
+
+    for (const item of prizeItems) {
+        try {
+            const config = await fregsItems.itemTypeConfigs(item.id);
+            if (config.name && config.name !== "") {
+                console.log(`  ${item.name} (type ${item.id}) already configured`);
+                continue;
+            }
+        } catch (e) {
+            // Not configured yet
         }
-    } catch (e) {
-        console.log("Configuring Silver Skin item type...");
-        await sendTx(fregsItems.setBuiltInItemConfig(
-            SILVER_SKIN_ITEM_TYPE,
-            "Silver Skin",
-            "A shimmering silver skin - exclusive spin wheel prize"
-        ));
+        console.log(`  Configuring ${item.name} (type ${item.id})...`);
+        await sendTx(fregsItems.setBuiltInItemConfig(item.id, item.name, item.desc));
     }
-
-    try {
-        const neonConfig = await fregsItems.itemTypeConfigs(NEON_SKIN_ITEM_TYPE);
-        if (!neonConfig.name || neonConfig.name === "") {
-            console.log("Configuring Neon Skin item type...");
-            await sendTx(fregsItems.setBuiltInItemConfig(
-                NEON_SKIN_ITEM_TYPE,
-                "Neon Skin",
-                "A glowing neon skin - exclusive spin wheel prize"
-            ));
-        } else {
-            console.log("  Neon Skin already configured");
-        }
-    } catch (e) {
-        console.log("Configuring Neon Skin item type...");
-        await sendTx(fregsItems.setBuiltInItemConfig(
-            NEON_SKIN_ITEM_TYPE,
-            "Neon Skin",
-            "A glowing neon skin - exclusive spin wheel prize"
-        ));
-    }
-
-    // Configure skin trait mappings (maps item type to skin trait value)
-    // These values should match the fileName numbers in from_items/traits.json
-    console.log("Setting skin trait mappings...");
-    await sendTx(fregsItems.setSkinItemTraitValue(SILVER_SKIN_ITEM_TYPE, 200)); // 200.svg
-    await sendTx(fregsItems.setSkinItemTraitValue(NEON_SKIN_ITEM_TYPE, 201));   // 201.svg
 
     // ============ Mint Initial FregCoins ============
     const isLocalhost = network.name === "localhost" || network.name === "hardhat";
@@ -280,11 +257,12 @@ async function main() {
     console.log("\nContract Address:");
     console.log("  FregCoin:", fregCoinAddress);
     console.log("\nPrize Configuration:");
-    console.log("  Total Weight:", LOSE_WEIGHT + MINTPASS_WEIGHT + SILVER_SKIN_WEIGHT + NEON_SKIN_WEIGHT);
+    console.log("  Total Weight:", LOSE_WEIGHT + MINTPASS_WEIGHT + HOODIE_WEIGHT + FROGSUIT_WEIGHT + CHEST_WEIGHT);
     console.log("  Lose:", LOSE_WEIGHT / 100, "%");
     console.log("  MintPass:", MINTPASS_WEIGHT / 100, "%");
-    console.log("  Silver Skin:", SILVER_SKIN_WEIGHT / 100, "%");
-    console.log("  Neon Skin:", NEON_SKIN_WEIGHT / 100, "%");
+    console.log("  Hoodie:", HOODIE_WEIGHT / 100, "%");
+    console.log("  Frogsuit:", FROGSUIT_WEIGHT / 100, "%");
+    console.log("  Treasure Chest:", CHEST_WEIGHT / 100, "%");
     console.log("\nLinked Contracts:");
     console.log("  FregsMintPass:", mintPassAddress);
     console.log("  FregsItems:", itemsAddress);

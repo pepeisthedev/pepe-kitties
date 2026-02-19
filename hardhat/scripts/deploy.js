@@ -46,13 +46,15 @@ const MINT_PASSES_TO_MINT = 2; // Number of mint passes to mint to deployer
 const ADDITIONAL_MINTPASS_RECIPIENT = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"; // Also mint passes to this address (for testing)
 const MAINNET_BEAD_PUNKS_ADDRESS = "0x0000000000000000000000000000000000000000"; // TODO: Set actual BeadPunks contract address on mainnet
 
-// FregCoin configuration
-const FREGCOIN_LOSE_WEIGHT = 500;           // 80% chance to lose
-const FREGCOIN_MINTPASS_WEIGHT = 1000;       // 10% chance to win MintPass
-const FREGCOIN_SILVER_SKIN_WEIGHT = 500;     // 5% chance to win Silver Skin
-const FREGCOIN_NEON_SKIN_WEIGHT = 8000;       // 5% chance to win Neon Skin
-const SILVER_SKIN_ITEM_TYPE = 200;
-const NEON_SKIN_ITEM_TYPE = 201;
+// FregCoin configuration (weights out of 10000)
+const FREGCOIN_LOSE_WEIGHT = 0;              // 0% chance to lose (every spin wins)
+const FREGCOIN_MINTPASS_WEIGHT = 9000;       // 90% chance to win MintPass
+const FREGCOIN_HOODIE_WEIGHT = 300;          // 3% chance to win Hoodie
+const FREGCOIN_FROGSUIT_WEIGHT = 300;        // 3% chance to win Frogsuit
+const FREGCOIN_CHEST_WEIGHT = 400;           // 4% chance to win Treasure Chest
+const HOODIE_ITEM_TYPE = 9;
+const FROGSUIT_ITEM_TYPE = 10;
+const CHEST_ITEM_TYPE = 6;
 const INITIAL_FREGCOINS_TO_MINT = 100;       // Initial FregCoins to mint to owner on localhost
 
 // Path to website ABIs folder (relative to hardhat folder)
@@ -662,18 +664,14 @@ async function main() {
     await sendTx(fregCoin.setItemsContract(fregsItemsAddress));
     await sendTx(fregCoin.setLoseWeight(FREGCOIN_LOSE_WEIGHT));
     await sendTx(fregCoin.setMintPassWeight(FREGCOIN_MINTPASS_WEIGHT));
-    await sendTx(fregCoin.addItemPrize(SILVER_SKIN_ITEM_TYPE, FREGCOIN_SILVER_SKIN_WEIGHT));
-    await sendTx(fregCoin.addItemPrize(NEON_SKIN_ITEM_TYPE, FREGCOIN_NEON_SKIN_WEIGHT));
+    await sendTx(fregCoin.addItemPrize(HOODIE_ITEM_TYPE, FREGCOIN_HOODIE_WEIGHT));
+    await sendTx(fregCoin.addItemPrize(FROGSUIT_ITEM_TYPE, FREGCOIN_FROGSUIT_WEIGHT));
+    await sendTx(fregCoin.addItemPrize(CHEST_ITEM_TYPE, FREGCOIN_CHEST_WEIGHT));
 
     // Set FregCoin on MintPass and Items
     console.log("Setting FregCoin on MintPass and Items...");
     await sendTx(fregsMintPass.setFregCoinContract(fregCoinAddress));
     await sendTx(fregsItems.setFregCoinContract(fregCoinAddress));
-
-    // Configure spin wheel skin trait mappings
-    console.log("Setting spin wheel skin trait mappings...");
-    await sendTx(fregsItems.setSkinItemTraitValue(SILVER_SKIN_ITEM_TYPE, 200));
-    await sendTx(fregsItems.setSkinItemTraitValue(NEON_SKIN_ITEM_TYPE, 201));
 
     // ============ Mint Mint Passes to Deployer (localhost only) ============
     const isLocalhost = network.name === "localhost" || network.name === "hardhat";
@@ -978,8 +976,9 @@ async function main() {
     console.log("\nFregCoin Spin Wheel:");
     console.log("  Lose:", FREGCOIN_LOSE_WEIGHT / 100, "%");
     console.log("  MintPass:", FREGCOIN_MINTPASS_WEIGHT / 100, "%");
-    console.log("  Silver Skin:", FREGCOIN_SILVER_SKIN_WEIGHT / 100, "%");
-    console.log("  Neon Skin:", FREGCOIN_NEON_SKIN_WEIGHT / 100, "%");
+    console.log("  Hoodie:", FREGCOIN_HOODIE_WEIGHT / 100, "%");
+    console.log("  Frogsuit:", FREGCOIN_FROGSUIT_WEIGHT / 100, "%");
+    console.log("  Treasure Chest:", FREGCOIN_CHEST_WEIGHT / 100, "%");
     console.log("\nNext Steps:");
     console.log("  1. Fund items contract for chest rewards:");
     console.log("     await fregsItems.depositETH({ value: ethers.parseEther('0.5') })");
