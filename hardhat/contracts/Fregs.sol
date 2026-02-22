@@ -43,6 +43,14 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     address public itemsContract;
     address public mintPassContract;
 
+    // "None" trait probability (percentage out of 100)
+    // If random < noneChance, trait is set to 0 (no SVG layer rendered)
+    // Head uses headDefaultTrait instead of 0 (eyes-only fallback)
+    uint256 public headNoneChance = 50;
+    uint256 public mouthNoneChance = 80;
+    uint256 public bellyNoneChance = 80;
+    uint256 public headDefaultTrait = 1;
+
     // Trait mappings (simplified - all traits are just IDs)
     // Convention: 0 = use bodyColor for rendering, >0 = use specific trait
     mapping(uint256 => string) public bodyColor;    // Base color for body and background
@@ -51,6 +59,9 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     mapping(uint256 => uint256) public head;        // Base heads (1+) or item heads (above baseTraitCount)
     mapping(uint256 => uint256) public mouth;       // Base mouths (1+) or item mouths (above baseTraitCount)
     mapping(uint256 => uint256) public belly;       // Base bellies (1+) or item bellies (above baseTraitCount)
+
+    // Sentinel value for "no trait" — non-zero to keep SSTORE gas costs consistent
+    uint256 public constant NONE_TRAIT = type(uint256).max;
 
     // Trait type constants (reduced from 8 to 5)
     uint256 public constant TRAIT_BACKGROUND = 0;
@@ -158,11 +169,11 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             '"}'
         ));
 
-        // Mouth: always from meta (base or item)
+        // Mouth: NONE_TRAIT = no mouth
         attrs = string(abi.encodePacked(
             attrs,
             ',{"trait_type": "Mouth","value": "',
-            svgRenderer.meta(TRAIT_MOUTH, mouth[tokenId]),
+            mouth[tokenId] == NONE_TRAIT ? "None" : svgRenderer.meta(TRAIT_MOUTH, mouth[tokenId]),
             '"}'
         ));
 
@@ -171,7 +182,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             attrs = string(abi.encodePacked(
                 attrs,
                 ',{"trait_type": "Belly","value": "',
-                svgRenderer.meta(TRAIT_BELLY, belly[tokenId]),
+                belly[tokenId] == NONE_TRAIT ? "None" : svgRenderer.meta(TRAIT_BELLY, belly[tokenId]),
                 '"}'
             ));
         }
@@ -194,10 +205,14 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         background[newTokenId] = 0;
         body[newTokenId] = 0;
 
-        // Assign random base traits (1-indexed from base trait count)
-        head[newTokenId] = _getRandom(svgRenderer.getBaseTraitCount(TRAIT_HEAD)) + 1;
-        mouth[newTokenId] = _getRandom(svgRenderer.getBaseTraitCount(TRAIT_MOUTH)) + 1;
-        belly[newTokenId] = _getRandom(svgRenderer.getBaseTraitCount(TRAIT_BELLY)) + 1;
+        // Assign random base traits — NONE_TRAIT sentinel keeps all SSTOREs as
+        // 0→non-zero (20,000 gas each), eliminating gas variance from refunds
+        uint256 headRoll = _getRandomTrait(svgRenderer.getBaseTraitCount(TRAIT_HEAD), headNoneChance);
+        head[newTokenId] = headRoll == 0 ? headDefaultTrait : headRoll;
+        uint256 mouthRoll = _getRandomTrait(svgRenderer.getBaseTraitCount(TRAIT_MOUTH), mouthNoneChance);
+        mouth[newTokenId] = mouthRoll == 0 ? NONE_TRAIT : mouthRoll;
+        uint256 bellyRoll = _getRandomTrait(svgRenderer.getBaseTraitCount(TRAIT_BELLY), bellyNoneChance);
+        belly[newTokenId] = bellyRoll == 0 ? NONE_TRAIT : bellyRoll;
 
         emit FregMinted(
             newTokenId,
@@ -225,10 +240,14 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         background[newTokenId] = 0;
         body[newTokenId] = 0;
 
-        // Assign random base traits (1-indexed from base trait count)
-        head[newTokenId] = _getRandomForAddress(svgRenderer.getBaseTraitCount(TRAIT_HEAD), _sender) + 1;
-        mouth[newTokenId] = _getRandomForAddress(svgRenderer.getBaseTraitCount(TRAIT_MOUTH), _sender) + 1;
-        belly[newTokenId] = _getRandomForAddress(svgRenderer.getBaseTraitCount(TRAIT_BELLY), _sender) + 1;
+        // Assign random base traits — NONE_TRAIT sentinel keeps all SSTOREs as
+        // 0→non-zero (20,000 gas each), eliminating gas variance from refunds
+        uint256 headRoll = _getRandomTraitForAddress(svgRenderer.getBaseTraitCount(TRAIT_HEAD), headNoneChance, _sender);
+        head[newTokenId] = headRoll == 0 ? headDefaultTrait : headRoll;
+        uint256 mouthRoll = _getRandomTraitForAddress(svgRenderer.getBaseTraitCount(TRAIT_MOUTH), mouthNoneChance, _sender);
+        mouth[newTokenId] = mouthRoll == 0 ? NONE_TRAIT : mouthRoll;
+        uint256 bellyRoll = _getRandomTraitForAddress(svgRenderer.getBaseTraitCount(TRAIT_BELLY), bellyNoneChance, _sender);
+        belly[newTokenId] = bellyRoll == 0 ? NONE_TRAIT : bellyRoll;
 
         emit FregMinted(
             newTokenId,
@@ -270,6 +289,20 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
                     )
                 )
             ) % max;
+    }
+
+    // Returns 0 (None) with noneChance% probability, otherwise a random trait 1..max
+    // Always calls _getRandom twice to keep gas consumption and nonce consistent
+    function _getRandomTrait(uint256 max, uint256 noneChance) internal returns (uint256) {
+        uint256 roll = _getRandom(100);
+        uint256 trait = _getRandom(max) + 1;
+        return roll < noneChance ? 0 : trait;
+    }
+
+    function _getRandomTraitForAddress(uint256 max, uint256 noneChance, address _addr) internal returns (uint256) {
+        uint256 roll = _getRandomForAddress(100, _addr);
+        uint256 trait = _getRandomForAddress(max, _addr) + 1;
+        return roll < noneChance ? 0 : trait;
     }
 
     // Called by items contract to reroll head trait (only randomizes within base traits)
@@ -349,6 +382,14 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     function setSupply(uint256 _supply) public onlyOwner {
         supply = _supply;
+    }
+
+    function setTraitNoneChances(uint256 _head, uint256 _mouth, uint256 _belly, uint256 _headDefault) public onlyOwner {
+        require(_head <= 100 && _mouth <= 100 && _belly <= 100, "Max 100");
+        headNoneChance = _head;
+        mouthNoneChance = _mouth;
+        bellyNoneChance = _belly;
+        headDefaultTrait = _headDefault;
     }
 
     // Trait counts are now determined dynamically from svgRenderer.getTraitCount()

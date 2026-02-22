@@ -5,7 +5,7 @@ import { Button } from "./ui/button"
 import { useContracts, useOwnedItems, useFregCoinBalance } from "../hooks"
 import ItemCard from "./ItemCard"
 import { FREGCOIN_ADDRESS } from "../config/contracts"
-import { Coins, RotateCw, Ticket, X, Sparkles } from "lucide-react"
+import { Coins, RotateCw, X, Sparkles } from "lucide-react"
 
 // Prize types from contract
 const PRIZE_MINTPASS = 1
@@ -433,7 +433,13 @@ export default function SpinWheelSection(): React.JSX.Element | null {
 
               {/* Prize display */}
               <div className="relative z-10 mb-6">
-                {spinResult.prizeType === PRIZE_ITEM ? (
+                {spinResult.prizeType === PRIZE_ITEM && spinResult.itemType === 6 ? (
+                  <div className="flex flex-col items-center">
+                    <div className="w-32 h-32 mb-3 animate-float">
+                      <img src="/chest.svg" alt="Treasure Chest" className="w-full h-full object-contain" />
+                    </div>
+                  </div>
+                ) : spinResult.prizeType === PRIZE_ITEM ? (
                   <div className="inline-block rounded-2xl p-3 bg-purple-900/50 border border-purple-400/30">
                     <ItemCard
                       tokenId={0}
@@ -443,11 +449,9 @@ export default function SpinWheelSection(): React.JSX.Element | null {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
-                    <div className="w-24 h-24 bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl flex items-center justify-center mb-3 border-2 border-purple-400/50 animate-float">
-                      <Ticket className="w-14 h-14 text-purple-200" />
+                    <div className="w-32 h-32 mb-3 animate-float">
+                      <img src="/Whitelist.svg" alt="Whitelist" className="w-full h-full object-contain" />
                     </div>
-                    <p className="font-bangers text-2xl text-white">Mint Pass</p>
-                    <p className="font-righteous text-sm text-purple-300">Use it to mint a free Freg!</p>
                   </div>
                 )}
               </div>

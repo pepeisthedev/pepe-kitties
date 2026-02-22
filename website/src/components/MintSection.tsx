@@ -79,6 +79,8 @@ export default function MintSection(): React.JSX.Element {
     const mintPassCount = contractData?.userMintPassBalance || 0
 
     const parseFregMintedEvent = (receipt: any) => {
+        const NONE_TRAIT = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+        const toTrait = (val: bigint): number => val === NONE_TRAIT ? 0 : Number(val)
         const contract = contracts!.fregs.read
         for (const log of receipt.logs) {
             try {
@@ -90,9 +92,9 @@ export default function MintSection(): React.JSX.Element {
                     return {
                         tokenId: Number(parsed.args.tokenId),
                         bodyColor: parsed.args.bodyColor,
-                        head: Number(parsed.args.head),
-                        mouth: Number(parsed.args.mouth),
-                        stomach: Number(parsed.args.belly) // Contract uses 'belly', we use 'stomach'
+                        head: toTrait(parsed.args.head),
+                        mouth: toTrait(parsed.args.mouth),
+                        stomach: toTrait(parsed.args.belly) // Contract uses 'belly', we use 'stomach'
                     }
                 }
             } catch {
@@ -115,11 +117,11 @@ export default function MintSection(): React.JSX.Element {
             if (hasMintPass) {
                 // Free mint using mint pass
                 const contract = await contracts.mintPass.write()
-                tx = await contract.mintFreg(skinColor)
+                tx = await contract.mintFreg(skinColor, { gasLimit: 500000n })
             } else {
                 // Paid mint
                 const contract = await contracts.fregs.write()
-                tx = await contract.mint(skinColor, { value: parseEther(contractData.mintPrice) })
+                tx = await contract.mint(skinColor, { value: parseEther(contractData.mintPrice), gasLimit: 500000n })
             }
 
             setMintStatus('confirming')

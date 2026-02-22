@@ -525,6 +525,19 @@
   },
   {
     "inputs": [],
+    "name": "NONE_TRAIT",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "TRAIT_BACKGROUND",
     "outputs": [
       {
@@ -666,6 +679,19 @@
       }
     ],
     "name": "belly",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "bellyNoneChance",
     "outputs": [
       {
         "internalType": "uint256",
@@ -851,6 +877,32 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "headDefaultTrait",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "headNoneChance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -935,6 +987,19 @@
       }
     ],
     "name": "mouth",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "mouthNoneChance",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1238,6 +1303,34 @@
       }
     ],
     "name": "setTrait",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_head",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_mouth",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_belly",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_headDefault",
+        "type": "uint256"
+      }
+    ],
+    "name": "setTraitNoneChances",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

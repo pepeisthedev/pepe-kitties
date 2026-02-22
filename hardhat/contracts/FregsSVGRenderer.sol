@@ -74,12 +74,12 @@ contract FregsSVGRenderer is Ownable {
             bodyLayer = bodyContract.renderWithColor(_bodyColor);
         }
 
-        // Belly only renders for default body (special skins cover the belly)
-        string memory bellyLayer = hasSpecialSkin ? "" : bellyContract.render(_belly);
+        // Belly only renders for default body; NONE_TRAIT = no belly
+        string memory bellyLayer = (hasSpecialSkin || _belly == type(uint256).max) ? "" : bellyContract.render(_belly);
 
-        // Head and mouth always from their contracts
-        string memory headLayer = headContract.render(_head);
-        string memory mouthLayer = mouthContract.render(_mouth);
+        // Head and mouth: type(uint256).max = None (no layer rendered)
+        string memory headLayer = _head == type(uint256).max ? "" : headContract.render(_head);
+        string memory mouthLayer = _mouth == type(uint256).max ? "" : mouthContract.render(_mouth);
 
         return string(
             abi.encodePacked(
@@ -110,10 +110,13 @@ contract FregsSVGRenderer is Ownable {
             }
             return "Default";
         } else if (_traitType == TRAIT_HEAD) {
+            if (_traitId == 0 || _traitId == type(uint256).max) return "None";
             return headContract.meta(_traitId);
         } else if (_traitType == TRAIT_MOUTH) {
+            if (_traitId == 0 || _traitId == type(uint256).max) return "None";
             return mouthContract.meta(_traitId);
         } else if (_traitType == TRAIT_BELLY) {
+            if (_traitId == 0 || _traitId == type(uint256).max) return "None";
             return bellyContract.meta(_traitId);
         }
         revert("Invalid trait type");

@@ -19,6 +19,7 @@ const FROM_ITEMS_PATH = "/frogz/from_items"
 // Base trait counts - heads with IDs above this are item heads (stored in added/head folder)
 const BASE_HEAD_COUNT = 19
 
+
 // Cache for original SVG content to avoid repeated fetches
 const svgCache: { body: string | null; background: string | null } = {
   body: null,
@@ -29,7 +30,7 @@ export default function KittyRenderer({
   bodyColor,
   background = 0,
   body = 0,
-  head = 11,  // Default eyes (Mohawk head includes base eyes)
+  head = 1,  // Default eyes
   mouth = 1,
   stomach = 1,
   size = "md",
@@ -149,8 +150,8 @@ export default function KittyRenderer({
         )
       )}
 
-      {/* Stomach - only renders for default body (special skins cover the belly) */}
-      {!hideTraits && !hasSpecialBody && (
+      {/* Stomach - only renders for default body (special skins cover the belly), 0 = None */}
+      {!hideTraits && !hasSpecialBody && stomach > 0 && (
         <img
           src={`${FROGZ_PATH}/stomach/${stomach}.svg`}
           alt={`Stomach ${stomach}`}
@@ -174,8 +175,8 @@ export default function KittyRenderer({
         />
       )}
 
-      {/* Mouth - hidden in preview mode */}
-      {!hideTraits && (
+      {/* Mouth - hidden in preview mode, 0 = None */}
+      {!hideTraits && mouth > 0 && (
         <img
           src={`${FROGZ_PATH}/mouth/${mouth}.svg`}
           alt={`Mouth ${mouth}`}

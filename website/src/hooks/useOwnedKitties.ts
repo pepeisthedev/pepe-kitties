@@ -3,6 +3,10 @@ import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react"
 import { BrowserProvider, Contract } from "ethers"
 import { FREGS_ADDRESS, FregsABI } from "../config/contracts"
 
+// Matches NONE_TRAIT in Fregs.sol — type(uint256).max
+const NONE_TRAIT = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+const toTraitNumber = (val: bigint): number => val === NONE_TRAIT ? 0 : Number(val)
+
 export interface Kitty {
   tokenId: number
   bodyColor: string
@@ -50,9 +54,9 @@ export function useOwnedKitties() {
         bodyColor: bodyColors[i],
         background: Number(backgrounds[i]),
         body: Number(bodies[i]),
-        head: Number(heads[i]),
-        mouth: Number(mouths[i]),
-        stomach: Number(stomachs[i]),
+        head: toTraitNumber(heads[i]),
+        mouth: toTraitNumber(mouths[i]),
+        stomach: toTraitNumber(stomachs[i]),
       }))
 
       setKitties(kittyList)

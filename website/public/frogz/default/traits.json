@@ -3,7 +3,7 @@
     { "fileName": "1.svg", "name": "Default", "description": "Default background" }
   ],
   "head": [
-    { "fileName": "1.svg", "name": "None", "description": "Base head with eyes" },
+    { "fileName": "1.svg", "name": "Eyes", "description": "Eyes" },
     { "fileName": "2.svg", "name": "3D Glasses", "description": "Cool 3D glasses" },
     { "fileName": "3.svg", "name": "Helmet", "description": "Protective helmet" },
     { "fileName": "4.svg", "name": "Cap", "description": "Baseball cap" },
@@ -13,7 +13,7 @@
     { "fileName": "8.svg", "name": "Crown", "description": "Royal crown" },
     { "fileName": "9.svg", "name": "Halo", "description": "Angelic halo" },
     { "fileName": "10.svg", "name": "Devil Horns", "description": "Devilish horns" },
-    { "fileName": "11.svg", "name": "Mohawk", "description": "Punk mohawk" },
+    { "fileName": "11.svg", "name": "Base", "description": "Base eyes" },
     { "fileName": "12.svg", "name": "Top Hat", "description": "Fancy top hat" },
     { "fileName": "13.svg", "name": "Wizard Hat", "description": "Magical wizard hat" },
     { "fileName": "14.svg", "name": "Antenna", "description": "Alien antenna" },
