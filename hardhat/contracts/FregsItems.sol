@@ -22,30 +22,19 @@ interface ISVGItemsRenderer {
     function render(uint256 _itemType) external view returns (string memory);
 }
 
-interface IERC721 {
-    function balanceOf(address owner) external view returns (uint256);
-    function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256);
-    function safeTransferFrom(address from, address to, uint256 tokenId) external;
-}
-
 contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     using Strings for uint256;
 
-    // Item type constants (original built-in items)
-    uint256 public constant COLOR_CHANGE = 1;   // Most common - change body color
+    // Item type constants
+    uint256 public constant COLOR_CHANGE = 1;
     uint256 public constant HEAD_REROLL = 2;
-    uint256 public constant BRONZE_SKIN = 3;
     uint256 public constant METAL_SKIN = 4;
     uint256 public constant GOLD_SKIN = 5;
     uint256 public constant TREASURE_CHEST = 6;
-    uint256 public constant BEAD_PUNK = 7;      // External NFT reward
     uint256 public constant DIAMOND_SKIN = 8;
     uint256 public constant HOODIE = 9;
     uint256 public constant FROGSUIT = 10;
-    uint256 public constant SKELETON_SKIN = 11;
-
-    // Special dice item (reserved ID)
-    uint256 public constant SPECIAL_DICE = 100;
+    uint256 public constant SKELETON_SKIN = 11;  // Bone
 
     // Skeleton skin trait value (set during deployment, matches traitFileName 4.svg)
     uint256 public skeletonSkinTraitValue;
@@ -68,13 +57,13 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         uint256 claimWeight;
     }
     mapping(uint256 => ItemTypeConfig) public itemTypeConfigs;
-    uint256 public nextItemTypeId = 101;  // Start after reserved IDs (100 = SPECIAL_DICE)
+    uint256 public nextItemTypeId = 101;  // Start after reserved IDs
 
     // Special trait max variants for dice rolls
     mapping(uint256 => uint256) public specialTraitMaxVariants;  // traitType => maxVariantId
 
     // Dynamic skin item type to trait value mapping (configured at deployment)
-    // Maps item type (BRONZE_SKIN, DIAMOND_SKIN, etc.) to the actual trait value in skinContract
+    // Maps item type (METAL_SKIN, DIAMOND_SKIN, etc.) to the actual trait value in skinContract
     mapping(uint256 => uint256) public skinItemToTraitValue;
 
     // Dynamic head item type to trait value mapping (configured at deployment)
@@ -83,7 +72,6 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     IFregs public fregs;
     ISVGItemsRenderer public svgRenderer;
-    IERC721 public beadPunksContract;
     address public fregCoinContract;
 
     uint256 private _tokenIdCounter;
@@ -101,17 +89,17 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     uint256 public constant MAX_TREASURE_CHESTS = 5;
     uint256 public chestETHAmount = 0.1 ether;
 
-    // Rarity weights (out of 10000)
-    uint256 public colorChangeWeight = 4000;  // 40% - most common
-    uint256 public headRerollWeight = 3000;   // 30%
-    uint256 public bronzeSkinWeight = 1500;   // 15%
-    uint256 public metalSkinWeight = 1000;    // 10%
-    uint256 public goldSkinWeight = 500;      // 5%
-    uint256 public diamondSkinWeight = 0;     // 0% - owner mint only for now
-    uint256 public beadPunkWeight = 100;      // 1% - rare external NFT (only when available)
-    uint256 public treasureChestWeight = 50;  // 0.5% - ultra rare, max 5 ever
-    uint256 public hoodieWeight = 500;        // 5% - uncommon claimable head item
-    uint256 public frogsuitWeight = 500;      // 5% - uncommon claimable head item
+    // Rarity weights for claimable items
+    uint256 public colorChangeWeight = 5500;    // 55%
+    uint256 public headRerollWeight = 3000;     // 30%
+    uint256 public treasureChestWeight = 1000;  // 10%
+    uint256 public metalSkinWeight = 200;       // 2%
+    uint256 public goldSkinWeight = 100;        // 1%
+    uint256 public diamondSkinWeight = 100;     // 1%
+    uint256 public boneWeight = 50;             // 0.5%
+    // Non-claimable weights (spin wheel exclusive)
+    uint256 public hoodieWeight = 0;
+    uint256 public frogsuitWeight = 0;
 
     // Events
     event ItemClaimed(
@@ -152,12 +140,6 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         uint256 ethAmount
     );
 
-    event BeadPunkClaimed(
-        uint256 indexed fregId,
-        uint256 indexed beadPunkTokenId,
-        address indexed owner
-    );
-
     event ItemTypeAdded(
         uint256 indexed itemTypeId,
         string name,
@@ -182,13 +164,6 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         uint256 indexed itemTokenId,
         uint256 indexed fregId,
         address indexed owner,
-        uint256 traitType,
-        uint256 traitValue
-    );
-
-    event SpecialDiceUsed(
-        uint256 indexed itemTokenId,
-        uint256 indexed fregId,
         uint256 traitType,
         uint256 traitValue
     );
@@ -268,20 +243,13 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
         hasClaimed[fregId] = true;
 
-        // Check if we have any Bead Punks available
-        bool hasBeadPunks = address(beadPunksContract) != address(0) &&
-                           beadPunksContract.balanceOf(address(this)) > 0;
-
         // Check if treasure chests are still available (max 5 ever)
         bool chestsAvailable = treasureChestCount < MAX_TREASURE_CHESTS;
 
-        // Calculate total weight (only include special items if available)
-        uint256 totalWeight = colorChangeWeight + headRerollWeight + bronzeSkinWeight +
+        // Calculate total weight from claimable items only
+        uint256 totalWeight = colorChangeWeight + headRerollWeight +
                               metalSkinWeight + goldSkinWeight + diamondSkinWeight +
-                              hoodieWeight + frogsuitWeight;
-        if (hasBeadPunks) {
-            totalWeight += beadPunkWeight;
-        }
+                              boneWeight;
         if (chestsAvailable) {
             totalWeight += treasureChestWeight;
         }
@@ -291,21 +259,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         uint256 newItemType;
         uint256 cumulative = 0;
 
-        // Check for Bead Punk first (if available)
-        if (hasBeadPunks) {
-            cumulative += beadPunkWeight;
-            if (rand < cumulative) {
-                // Transfer a Bead Punk to the user
-                uint256 beadPunkTokenId = beadPunksContract.tokenOfOwnerByIndex(address(this), 0);
-                beadPunksContract.safeTransferFrom(address(this), msg.sender, beadPunkTokenId);
-                emit BeadPunkClaimed(fregId, beadPunkTokenId, msg.sender);
-                // Also emit ItemClaimed for consistency with BEAD_PUNK type
-                emit ItemClaimed(fregId, beadPunkTokenId, msg.sender, BEAD_PUNK);
-                return;
-            }
-        }
-
-        // Check for Treasure Chest (ultra rare, if still available)
+        // Check for Treasure Chest first (if still available)
         if (chestsAvailable) {
             cumulative += treasureChestWeight;
             if (rand < cumulative) {
@@ -329,29 +283,19 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             if (rand < cumulative) {
                 newItemType = HEAD_REROLL;
             } else {
-                cumulative += bronzeSkinWeight;
+                cumulative += metalSkinWeight;
                 if (rand < cumulative) {
-                    newItemType = BRONZE_SKIN;
+                    newItemType = METAL_SKIN;
                 } else {
-                    cumulative += metalSkinWeight;
+                    cumulative += goldSkinWeight;
                     if (rand < cumulative) {
-                        newItemType = METAL_SKIN;
+                        newItemType = GOLD_SKIN;
                     } else {
-                        cumulative += goldSkinWeight;
+                        cumulative += diamondSkinWeight;
                         if (rand < cumulative) {
-                            newItemType = GOLD_SKIN;
+                            newItemType = DIAMOND_SKIN;
                         } else {
-                            cumulative += diamondSkinWeight;
-                            if (rand < cumulative) {
-                                newItemType = DIAMOND_SKIN;
-                            } else {
-                                cumulative += hoodieWeight;
-                                if (rand < cumulative) {
-                                    newItemType = HOODIE;
-                                } else {
-                                    newItemType = FROGSUIT;
-                                }
-                            }
+                            newItemType = SKELETON_SKIN;
                         }
                     }
                 }
@@ -473,40 +417,6 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         fregs.setTrait(fregId, TRAIT_HEAD, headValue, msg.sender);
 
         emit SpecialTraitItemUsed(itemTokenId, fregId, msg.sender, TRAIT_HEAD, headValue);
-    }
-
-    // Use special dice for random trait
-    function useSpecialDice(uint256 itemTokenId, uint256 fregId) external nonReentrant {
-        require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
-        require(itemType[itemTokenId] == SPECIAL_DICE, "Not a special dice");
-        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
-
-        // Count available trait types (only those with max variants set)
-        uint256[] memory availableTraits = new uint256[](5);
-        uint256 availableCount = 0;
-
-        for (uint256 t = TRAIT_BACKGROUND; t <= TRAIT_BELLY; t++) {
-            if (specialTraitMaxVariants[t] > 0) {
-                availableTraits[availableCount] = t;
-                availableCount++;
-            }
-        }
-        require(availableCount > 0, "No traits configured for dice");
-
-        _burn(itemTokenId);
-
-        // Random trait type from available ones
-        uint256 traitIndex = _getRandom(availableCount);
-        uint256 traitType = availableTraits[traitIndex];
-
-        // Random variant within that trait type
-        uint256 maxVariant = specialTraitMaxVariants[traitType];
-        uint256 variant = _getRandom(maxVariant) + 1;
-
-        // Apply the trait
-        fregs.setTrait(fregId, traitType, variant, msg.sender);
-
-        emit SpecialDiceUsed(itemTokenId, fregId, traitType, variant);
     }
 
     function burnChest(uint256 chestTokenId) external nonReentrant {
@@ -657,7 +567,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         for (uint256 i = 0; i < itemTypes.length; i++) {
             uint256 iType = itemTypes[i];
             // Determine if it's a skin or head item based on item type constant
-            if (iType == BRONZE_SKIN || iType == METAL_SKIN || iType == GOLD_SKIN || iType == DIAMOND_SKIN || iType == SKELETON_SKIN) {
+            if (iType == METAL_SKIN || iType == GOLD_SKIN || iType == DIAMOND_SKIN || iType == SKELETON_SKIN) {
                 skinItemToTraitValue[iType] = traitValues[i];
             } else if (iType == HOODIE || iType == FROGSUIT) {
                 headItemToTraitValue[iType] = traitValues[i];
@@ -696,14 +606,6 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         chestETHAmount = _amount;
     }
 
-    function setBeadPunksContract(address _beadPunks) external onlyOwner {
-        beadPunksContract = IERC721(_beadPunks);
-    }
-
-    function setBeadPunkWeight(uint256 _weight) external onlyOwner {
-        beadPunkWeight = _weight;
-    }
-
     function setTreasureChestWeight(uint256 _weight) external onlyOwner {
         treasureChestWeight = _weight;
     }
@@ -716,21 +618,19 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     function setRarityWeights(
         uint256 _colorChange,
         uint256 _headReroll,
-        uint256 _bronze,
+        uint256 _treasureChest,
         uint256 _metal,
         uint256 _gold,
-        uint256 _diamond
+        uint256 _diamond,
+        uint256 _bone
     ) external onlyOwner {
-        require(
-            _colorChange + _headReroll + _bronze + _metal + _gold + _diamond == 10000,
-            "Weights must sum to 10000"
-        );
         colorChangeWeight = _colorChange;
         headRerollWeight = _headReroll;
-        bronzeSkinWeight = _bronze;
+        treasureChestWeight = _treasureChest;
         metalSkinWeight = _metal;
         goldSkinWeight = _gold;
         diamondSkinWeight = _diamond;
+        boneWeight = _bone;
     }
 
     function withdrawExcess() external onlyOwner {
@@ -748,10 +648,6 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         return _tokenIdCounter;
     }
 
-    function getAvailableBeadPunks() public view returns (uint256) {
-        if (address(beadPunksContract) == address(0)) return 0;
-        return beadPunksContract.balanceOf(address(this));
-    }
 
     function getActiveChestSupply() public view returns (uint256) {
         return treasureChestCount - chestsBurned;
@@ -837,16 +733,6 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     function _requireCallerIsContractOwner() internal view override {
         _checkOwner();
-    }
-
-    // Allow contract to receive ERC721 NFTs (Bead Punks)
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes calldata
-    ) external pure returns (bytes4) {
-        return this.onERC721Received.selector;
     }
 
     // Allow contract to receive ETH for chest rewards

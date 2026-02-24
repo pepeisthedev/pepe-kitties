@@ -41,10 +41,8 @@ async function deployContract(factory, args = [], name = "Contract") {
 
 // ============ CONFIGURATION ============
 const VERIFY_CONTRACTS = false; // Set to false to skip contract verification
-const BEAD_PUNKS_TO_MINT = 5;  // Number of mock BeadPunks to mint on testnet
 const MINT_PASSES_TO_MINT = 2; // Number of mint passes to mint to deployer
 const ADDITIONAL_MINTPASS_RECIPIENT = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"; // Also mint passes to this address (for testing)
-const MAINNET_BEAD_PUNKS_ADDRESS = "0x0000000000000000000000000000000000000000"; // TODO: Set actual BeadPunks contract address on mainnet
 
 // FregCoin configuration (weights out of 10000)
 const FREGCOIN_LOSE_WEIGHT = 0;              // 0% chance to lose (every spin wins)
@@ -600,27 +598,9 @@ async function main() {
     const deploymentStatus = loadDeploymentStatus();
     deploymentStatus.network = network.name;
 
-    const isTestnet = network.name === "localhost" || network.name === "hardhat" || network.name === "baseSepolia";
-    const isMainnet = network.name === "base";
-
     // Configuration
     const ROYALTY_RECEIVER = deployerAddress;
     const ROYALTY_FEE = 500; // 5% (500/10000)
-
-    // ============ Deploy MockERC721 (BeadPunks) on testnet ============
-    let beadPunksAddress = null;
-    let beadPunksContract = null;
-
-    if (isTestnet) {
-        console.log("\n--- Deploying MockERC721 (BeadPunks) ---");
-        const MockERC721 = await ethers.getContractFactory("MockERC721");
-        beadPunksContract = await deployContract(MockERC721, ["Bead Punks", "BEADPUNK"], "MockERC721 (BeadPunks)");
-        beadPunksAddress = await beadPunksContract.getAddress();
-    } else if (isMainnet) {
-        beadPunksAddress = MAINNET_BEAD_PUNKS_ADDRESS;
-        console.log("\n--- Using existing BeadPunks contract ---");
-        console.log("BeadPunks address:", beadPunksAddress);
-    }
 
     // ============ Deploy Fregs ============
     console.log("\n--- Deploying Fregs ---");
@@ -725,44 +705,6 @@ async function main() {
         console.log("  ⚠️  No items/items.json found, skipping item config");
     }
 
-    // ============ Configure BeadPunks ============
-    if (beadPunksAddress && beadPunksAddress !== "0x0000000000000000000000000000000000000000") {
-        console.log("\n--- Configuring BeadPunks ---");
-        console.log("Setting BeadPunks contract on Fregs Items...");
-        await sendTx(fregsItems.setBeadPunksContract(beadPunksAddress));
-
-        // On localhost only, mint BeadPunks and transfer to Items contract
-        if (isLocalhost && beadPunksContract) {
-            console.log(`Minting ${BEAD_PUNKS_TO_MINT} BeadPunks to deployer...`);
-            const mintedTokenIds = [];
-            for (let i = 0; i < BEAD_PUNKS_TO_MINT; i++) {
-                await sendTx(beadPunksContract.mint(deployerAddress));
-                mintedTokenIds.push(i);
-                console.log(`  Minted BeadPunk #${i}`);
-            }
-
-            console.log(`Transferring ${BEAD_PUNKS_TO_MINT} BeadPunks to Fregs Items contract...`);
-            for (const tokenId of mintedTokenIds) {
-                await sendTx(beadPunksContract["safeTransferFrom(address,address,uint256)"](
-                    deployerAddress,
-                    fregsItemsAddress,
-                    tokenId
-                ));
-                console.log(`  Transferred BeadPunk #${tokenId}`);
-            }
-
-            // Verify BeadPunks are in Items contract
-            const beadPunksInContract = await fregsItems.getAvailableBeadPunks();
-            console.log(`BeadPunks in Items contract: ${beadPunksInContract}`);
-        } else if (!isLocalhost) {
-            console.log("  Skipping BeadPunks minting (not localhost)");
-        }
-    } else if (isMainnet) {
-        console.log("\n--- WARNING: BeadPunks not configured ---");
-        console.log("Set MAINNET_BEAD_PUNKS_ADDRESS in deploy script and call:");
-        console.log(`  await fregsItems.setBeadPunksContract("0x...")`);
-    }
-
     console.log("\nCross-contract references configured!");
 
     // Save contract addresses to deployment status
@@ -770,9 +712,6 @@ async function main() {
     deploymentStatus.contracts.fregsItems = fregsItemsAddress;
     deploymentStatus.contracts.fregsMintPass = fregsMintPassAddress;
     deploymentStatus.contracts.fregCoin = fregCoinAddress;
-    if (beadPunksAddress) {
-        deploymentStatus.contracts.beadPunks = beadPunksAddress;
-    }
 
     // ============ Deploy Art and SVG Renderer ============
     const artAddresses = await deployArt(deploymentStatus);
@@ -859,20 +798,6 @@ async function main() {
         console.log("Waiting 30s for indexing...");
         await new Promise(resolve => setTimeout(resolve, 30000));
 
-        // Verify MockERC721 (BeadPunks) on testnet
-        if (isTestnet && beadPunksAddress) {
-            try {
-                console.log("Verifying MockERC721 (BeadPunks)...");
-                await run("verify:verify", {
-                    address: beadPunksAddress,
-                    constructorArguments: ["Bead Punks", "BEADPUNK"]
-                });
-                console.log("MockERC721 (BeadPunks) verified!");
-            } catch (error) {
-                console.log("MockERC721 verification failed:", error.message);
-            }
-        }
-
         // Verify Fregs
         try {
             console.log("Verifying Fregs...");
@@ -947,9 +872,6 @@ async function main() {
     console.log("  Fregs Mint Pass: ", fregsMintPassAddress);
     console.log("  FregCoin:        ", fregCoinAddress);
     console.log("  SVG Renderer:    ", svgRendererAddress);
-    if (beadPunksAddress) {
-        console.log("  BeadPunks:       ", beadPunksAddress, isTestnet ? "(Mock)" : "(Mainnet)");
-    }
     console.log("\nArt Contracts (6 unified routers):");
     console.log("  Background:        ", artAddresses.background || "Not deployed (uses color rect)");
     console.log("  Body:              ", artAddresses.body || "Not deployed");
@@ -969,10 +891,6 @@ async function main() {
     console.log("  Royalty Fee:", ROYALTY_FEE / 100, "%");
     console.log("  Deployer Mint Passes:", mintPassBalance.toString());
     console.log("  Deployer FregCoins:", fregCoinBalance.toString());
-    if (isTestnet && beadPunksAddress) {
-        const beadPunksInContract = await fregsItems.getAvailableBeadPunks();
-        console.log("  BeadPunks in Items Contract:", beadPunksInContract.toString());
-    }
     console.log("\nFregCoin Spin Wheel:");
     console.log("  Lose:", FREGCOIN_LOSE_WEIGHT / 100, "%");
     console.log("  MintPass:", FREGCOIN_MINTPASS_WEIGHT / 100, "%");
@@ -984,10 +902,6 @@ async function main() {
     console.log("     await fregsItems.depositETH({ value: ethers.parseEther('0.5') })");
     console.log("  2. Activate mint pass sale:");
     console.log("     await fregsMintPass.setMintPassSaleActive(true)");
-    if (isMainnet && (!beadPunksAddress || beadPunksAddress === "0x0000000000000000000000000000000000000000")) {
-        console.log("  3. Set BeadPunks contract (mainnet):");
-        console.log("     await fregsItems.setBeadPunksContract('0x...')");
-    }
     // ============ Save Deployment Status ============
     console.log("\n--- Saving Deployment Status ---");
     saveDeploymentStatus(deploymentStatus);
@@ -1002,9 +916,6 @@ async function main() {
     console.log(`VITE_FREGS_MINTPASS_ADDRESS=${fregsMintPassAddress}`);
     console.log(`VITE_FREGCOIN_ADDRESS=${fregCoinAddress}`);
     console.log(`VITE_SVG_RENDERER_ADDRESS=${svgRendererAddress}`);
-    if (beadPunksAddress) {
-        console.log(`VITE_BEAD_PUNKS_ADDRESS=${beadPunksAddress}`);
-    }
 
 }
 

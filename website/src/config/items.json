@@ -7,7 +7,8 @@
       "category": "utility",
       "svgFile": "ink.svg",
       "isClaimable": true,
-      "claimWeight": 4000,
+      "claimWeight": 5500,
+      "claimPercent": 55,
       "isOwnerMintable": true
     },
     {
@@ -18,30 +19,20 @@
       "svgFile": "dice3.svg",
       "isClaimable": true,
       "claimWeight": 3000,
+      "claimPercent": 30,
       "isOwnerMintable": true
     },
-    {
-      "id": 3,
-      "name": "Bronze Skin",
-      "description": "Apply a bronze skin to your Freg",
-      "category": "skin",
-      "svgFile": "3.svg",
-      "targetTraitType": 1,
-      "traitFileName": "5.svg",
-      "isClaimable": true,
-      "claimWeight": 1500,
-      "isOwnerMintable": true
-    },
-    {
+{
       "id": 4,
-      "name": "Metal Skin",
-      "description": "Apply a metallic skin to your Freg",
+      "name": "Robot",
+      "description": "Apply a robotic skin to your Freg",
       "category": "skin",
-      "svgFile": "4.svg",
+      "svgFile": "robot.svg",
       "targetTraitType": 1,
       "traitFileName": "3.svg",
       "isClaimable": true,
-      "claimWeight": 1000,
+      "claimWeight": 200,
+      "claimPercent": 2,
       "isOwnerMintable": true
     },
     {
@@ -53,7 +44,8 @@
       "targetTraitType": 1,
       "traitFileName": "1.svg",
       "isClaimable": true,
-      "claimWeight": 500,
+      "claimWeight": 100,
+      "claimPercent": 1,
       "isOwnerMintable": true
     },
     {
@@ -63,19 +55,10 @@
       "category": "special",
       "svgFile": "chest.svg",
       "isClaimable": true,
-      "claimWeight": 50,
+      "claimWeight": 1000,
+      "claimPercent": 10,
       "maxSupply": 5,
       "isOwnerMintable": true
-    },
-    {
-      "id": 7,
-      "name": "Bead Punk",
-      "description": "A rare Bead Punk NFT",
-      "category": "external",
-      "svgFile": "beadpunks.svg",
-      "isClaimable": true,
-      "claimWeight": 100,
-      "isOwnerMintable": false
     },
     {
       "id": 8,
@@ -85,8 +68,9 @@
       "svgFile": "diamond.svg",
       "targetTraitType": 1,
       "traitFileName": "2.svg",
-      "isClaimable": false,
-      "claimWeight": 0,
+      "isClaimable": true,
+      "claimWeight": 100,
+      "claimPercent": 1,
       "isOwnerMintable": true
     },
     {
@@ -119,26 +103,17 @@
     },
     {
       "id": 11,
-      "name": "Skeleton Skin",
-      "description": "Transform your Freg into a spooky skeleton",
+      "name": "Bone",
+      "description": "Transform your Freg into a bony skeleton",
       "category": "skin",
-      "svgFile": "skeleton.svg",
+      "svgFile": "bone.svg",
       "targetTraitType": 1,
       "traitFileName": "4.svg",
-      "isClaimable": false,
-      "claimWeight": 0,
+      "isClaimable": true,
+      "claimWeight": 50,
+      "claimPercent": 0.5,
       "isOwnerMintable": true,
       "incompatibleWithHeads": [21, 22]
-    },
-    {
-      "id": 100,
-      "name": "Special Dice",
-      "description": "Roll for a random special trait on your Freg",
-      "category": "special",
-      "svgFile": "100.svg",
-      "isClaimable": false,
-      "claimWeight": 0,
-      "isOwnerMintable": true
     }
   ],
   "categories": {
@@ -156,9 +131,6 @@
     },
     "special": {
       "description": "Special items with unique behaviors"
-    },
-    "external": {
-      "description": "External NFT rewards"
     }
   },
   "traitTypes": {
