@@ -13,4 +13,4 @@ export { useContracts } from "./useContracts"
 
 export { useIsOwner } from "./useIsOwner"
 
-export { useFregCoinBalance } from "./useFregCoinBalance"
+export { useSpinTokenBalance } from "./useSpinTokenBalance"

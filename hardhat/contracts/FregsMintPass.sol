@@ -28,8 +28,8 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     uint256 public totalMinted;
     bool public mintPassSaleActive = false;
 
-    // FregCoin contract for spin wheel
-    address public fregCoinContract;
+    // SpinTheWheel contract for spin wheel
+    address public spinTheWheelContract;
 
     // Events
     event MintPassPurchased(address indexed buyer, uint256 amount);
@@ -113,17 +113,17 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         _mint(to, MINT_PASS, amount, "");
     }
 
-    // Mint from FregCoin spin wheel
+    // Mint from SpinTheWheel spin wheel
     function mintFromCoin(address to, uint256 amount) external {
-        require(msg.sender == fregCoinContract, "Only FregCoin contract");
+        require(msg.sender == spinTheWheelContract, "Only SpinTheWheel contract");
         require(totalMinted + amount <= maxMintPasses, "Exceeds max mint passes");
         totalMinted += amount;
         _mint(to, MINT_PASS, amount, "");
         emit MintedFromCoin(to, amount);
     }
 
-    function setFregCoinContract(address _fregCoin) external onlyOwner {
-        fregCoinContract = _fregCoin;
+    function setSpinTheWheelContract(address _spinTheWheel) external onlyOwner {
+        spinTheWheelContract = _spinTheWheel;
     }
 
     // Owner can airdrop to multiple addresses

@@ -2,9 +2,9 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { useAppKitAccount } from "@reown/appkit/react"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
-import { useContracts, useOwnedItems, useFregCoinBalance } from "../hooks"
+import { useContracts, useOwnedItems, useSpinTokenBalance } from "../hooks"
 import ItemCard from "./ItemCard"
-import { FREGCOIN_ADDRESS } from "../config/contracts"
+import { SPIN_THE_WHEEL_ADDRESS } from "../config/contracts"
 import { Coins, RotateCw, X, Sparkles } from "lucide-react"
 
 // Prize types from contract
@@ -128,7 +128,7 @@ function StarBurst() {
 export default function SpinWheelSection(): React.JSX.Element | null {
   const { isConnected } = useAppKitAccount()
   const contracts = useContracts()
-  const { balance, isLoading: balanceLoading, refetch: refetchBalance } = useFregCoinBalance()
+  const { balance, isLoading: balanceLoading, refetch: refetchBalance } = useSpinTokenBalance()
   const { refetch: refetchItems } = useOwnedItems()
 
   const [spinPhase, setSpinPhase] = useState<SpinPhase>("idle")
@@ -144,13 +144,13 @@ export default function SpinWheelSection(): React.JSX.Element | null {
     startTime: number
   } | null>(null)
 
-  // If FregCoin contract is not configured, don't render the section
-  if (!FREGCOIN_ADDRESS) {
+  // If SpinTheWheel contract is not configured, don't render the section
+  if (!SPIN_THE_WHEEL_ADDRESS) {
     return null
   }
 
   const parseSpinResultEvent = (receipt: any) => {
-    const contract = contracts!.fregCoin!.read
+    const contract = contracts!.spinTheWheel!.read
 
     for (const log of receipt.logs) {
       try {
@@ -255,13 +255,13 @@ export default function SpinWheelSection(): React.JSX.Element | null {
   }, [stopAnimation])
 
   const handleSpin = useCallback(async () => {
-    if (!contracts || !contracts.fregCoin || balance < 1) return
+    if (!contracts || !contracts.spinTheWheel || balance < 1) return
 
     setSpinPhase("confirming")
     setSpinResult(null)
 
     try {
-      const contract = await contracts.fregCoin.write()
+      const contract = await contracts.spinTheWheel.write()
       const tx = await contract.spin({ gasLimit: 500000n })
 
       // Transaction submitted - start spinning the wheel
@@ -371,11 +371,11 @@ export default function SpinWheelSection(): React.JSX.Element | null {
             ) : spinPhase === "result" ? (
               balance > 0 ? "Spin Again!" : "Close"
             ) : balance < 1 ? (
-              "No FregCoins"
+              "No SpinTokens"
             ) : (
               <>
       
-                Spin (1 FregCoin)
+                Spin (1 SpinToken)
               </>
             )}
           </Button>

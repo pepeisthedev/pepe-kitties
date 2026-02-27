@@ -44,16 +44,16 @@ const VERIFY_CONTRACTS = false; // Set to false to skip contract verification
 const MINT_PASSES_TO_MINT = 2; // Number of mint passes to mint to deployer
 const ADDITIONAL_MINTPASS_RECIPIENT = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"; // Also mint passes to this address (for testing)
 
-// FregCoin configuration (weights out of 10000)
-const FREGCOIN_LOSE_WEIGHT = 0;              // 0% chance to lose (every spin wins)
-const FREGCOIN_MINTPASS_WEIGHT = 9000;       // 90% chance to win MintPass
-const FREGCOIN_HOODIE_WEIGHT = 300;          // 3% chance to win Hoodie
-const FREGCOIN_FROGSUIT_WEIGHT = 300;        // 3% chance to win Frogsuit
-const FREGCOIN_CHEST_WEIGHT = 400;           // 4% chance to win Treasure Chest
+// SpinTheWheel configuration (weights out of 10000)
+const SPIN_LOSE_WEIGHT = 0;                  // 0% chance to lose (every spin wins)
+const SPIN_MINTPASS_WEIGHT = 9000;           // 90% chance to win MintPass
+const SPIN_HOODIE_WEIGHT = 300;              // 3% chance to win Hoodie
+const SPIN_FROGSUIT_WEIGHT = 300;            // 3% chance to win Frogsuit
+const SPIN_CHEST_WEIGHT = 400;               // 4% chance to win Treasure Chest
 const HOODIE_ITEM_TYPE = 9;
 const FROGSUIT_ITEM_TYPE = 10;
 const CHEST_ITEM_TYPE = 6;
-const INITIAL_FREGCOINS_TO_MINT = 100;       // Initial FregCoins to mint to owner on localhost
+const INITIAL_SPIN_TOKENS_TO_MINT = 100;     // Initial SpinTokens to mint to owner on localhost
 
 // Path to website ABIs folder (relative to hardhat folder)
 const WEBSITE_ABI_PATH = path.join(__dirname, "../../website/src/assets/abis");
@@ -620,11 +620,11 @@ async function main() {
     const fregsMintPass = await deployContract(FregsMintPass, [""], "FregsMintPass");
     const fregsMintPassAddress = await fregsMintPass.getAddress();
 
-    // ============ Deploy FregCoin ============
-    console.log("\n--- Deploying FregCoin ---");
-    const FregCoin = await ethers.getContractFactory("FregCoin");
-    const fregCoin = await deployContract(FregCoin, [""], "FregCoin");
-    const fregCoinAddress = await fregCoin.getAddress();
+    // ============ Deploy SpinTheWheel ============
+    console.log("\n--- Deploying SpinTheWheel ---");
+    const SpinTheWheel = await ethers.getContractFactory("SpinTheWheel");
+    const spinTheWheel = await deployContract(SpinTheWheel, [""], "SpinTheWheel");
+    const spinTheWheelAddress = await spinTheWheel.getAddress();
 
     // ============ Configure Cross-Contract References ============
     console.log("\n--- Configuring Cross-Contract References ---");
@@ -638,20 +638,20 @@ async function main() {
     console.log("Setting Fregs on MintPass...");
     await sendTx(fregsMintPass.setFregs(fregsAddress));
 
-    // Configure FregCoin
-    console.log("Configuring FregCoin...");
-    await sendTx(fregCoin.setMintPassContract(fregsMintPassAddress));
-    await sendTx(fregCoin.setItemsContract(fregsItemsAddress));
-    await sendTx(fregCoin.setLoseWeight(FREGCOIN_LOSE_WEIGHT));
-    await sendTx(fregCoin.setMintPassWeight(FREGCOIN_MINTPASS_WEIGHT));
-    await sendTx(fregCoin.addItemPrize(HOODIE_ITEM_TYPE, FREGCOIN_HOODIE_WEIGHT));
-    await sendTx(fregCoin.addItemPrize(FROGSUIT_ITEM_TYPE, FREGCOIN_FROGSUIT_WEIGHT));
-    await sendTx(fregCoin.addItemPrize(CHEST_ITEM_TYPE, FREGCOIN_CHEST_WEIGHT));
+    // Configure SpinTheWheel
+    console.log("Configuring SpinTheWheel...");
+    await sendTx(spinTheWheel.setMintPassContract(fregsMintPassAddress));
+    await sendTx(spinTheWheel.setItemsContract(fregsItemsAddress));
+    await sendTx(spinTheWheel.setLoseWeight(SPIN_LOSE_WEIGHT));
+    await sendTx(spinTheWheel.setMintPassWeight(SPIN_MINTPASS_WEIGHT));
+    await sendTx(spinTheWheel.addItemPrize(HOODIE_ITEM_TYPE, SPIN_HOODIE_WEIGHT));
+    await sendTx(spinTheWheel.addItemPrize(FROGSUIT_ITEM_TYPE, SPIN_FROGSUIT_WEIGHT));
+    await sendTx(spinTheWheel.addItemPrize(CHEST_ITEM_TYPE, SPIN_CHEST_WEIGHT));
 
-    // Set FregCoin on MintPass and Items
-    console.log("Setting FregCoin on MintPass and Items...");
-    await sendTx(fregsMintPass.setFregCoinContract(fregCoinAddress));
-    await sendTx(fregsItems.setFregCoinContract(fregCoinAddress));
+    // Set SpinTheWheel on MintPass and Items
+    console.log("Setting SpinTheWheel on MintPass and Items...");
+    await sendTx(fregsMintPass.setSpinTheWheelContract(spinTheWheelAddress));
+    await sendTx(fregsItems.setSpinTheWheelContract(spinTheWheelAddress));
 
     // ============ Mint Mint Passes to Deployer (localhost only) ============
     const isLocalhost = network.name === "localhost" || network.name === "hardhat";
@@ -674,14 +674,14 @@ async function main() {
         console.log("\n--- Skipping Mint Pass minting (not localhost) ---");
     }
 
-    // Mint FregCoins to deployer on localhost
-    let fregCoinBalance = 0n;
-    if (isLocalhost && INITIAL_FREGCOINS_TO_MINT > 0) {
-        console.log("\n--- Minting FregCoins ---");
-        console.log(`Minting ${INITIAL_FREGCOINS_TO_MINT} FregCoins to deployer...`);
-        await sendTx(fregCoin.ownerMint(deployerAddress, INITIAL_FREGCOINS_TO_MINT));
-        fregCoinBalance = await fregCoin.balanceOf(deployerAddress, 1);
-        console.log(`Deployer FregCoin balance: ${fregCoinBalance}`);
+    // Mint SpinTokens to deployer on localhost
+    let spinTokenBalance = 0n;
+    if (isLocalhost && INITIAL_SPIN_TOKENS_TO_MINT > 0) {
+        console.log("\n--- Minting SpinTokens ---");
+        console.log(`Minting ${INITIAL_SPIN_TOKENS_TO_MINT} SpinTokens to deployer...`);
+        await sendTx(spinTheWheel.ownerMint(deployerAddress, INITIAL_SPIN_TOKENS_TO_MINT));
+        spinTokenBalance = await spinTheWheel.balanceOf(deployerAddress, 1);
+        console.log(`Deployer SpinToken balance: ${spinTokenBalance}`);
     }
 
     // ============ Configure Item Configs from items.json ============
@@ -711,7 +711,7 @@ async function main() {
     deploymentStatus.contracts.fregs = fregsAddress;
     deploymentStatus.contracts.fregsItems = fregsItemsAddress;
     deploymentStatus.contracts.fregsMintPass = fregsMintPassAddress;
-    deploymentStatus.contracts.fregCoin = fregCoinAddress;
+    deploymentStatus.contracts.spinTheWheel = spinTheWheelAddress;
 
     // ============ Deploy Art and SVG Renderer ============
     const artAddresses = await deployArt(deploymentStatus);
@@ -788,7 +788,7 @@ async function main() {
     copyABI("FregsItems", "FregsItems");
     copyABI("FregsMintPass", "FregsMintPass");
     copyABI("FregsSVGRenderer", "FregsSVGRenderer");
-    copyABI("FregCoin", "FregCoin");
+    copyABI("SpinTheWheel", "SpinTheWheel");
 
     console.log("ABIs copied successfully!");
 
@@ -846,16 +846,16 @@ async function main() {
             console.log("FregsSVGRenderer verification failed:", error.message);
         }
 
-        // Verify FregCoin
+        // Verify SpinTheWheel
         try {
-            console.log("Verifying FregCoin...");
+            console.log("Verifying SpinTheWheel...");
             await run("verify:verify", {
-                address: fregCoinAddress,
+                address: spinTheWheelAddress,
                 constructorArguments: [""]
             });
-            console.log("FregCoin verified!");
+            console.log("SpinTheWheel verified!");
         } catch (error) {
-            console.log("FregCoin verification failed:", error.message);
+            console.log("SpinTheWheel verification failed:", error.message);
         }
     } else if (!VERIFY_CONTRACTS) {
         console.log("\n--- Skipping Contract Verification (VERIFY_CONTRACTS = false) ---");
@@ -870,7 +870,7 @@ async function main() {
     console.log("  Fregs:           ", fregsAddress);
     console.log("  Fregs Items:     ", fregsItemsAddress);
     console.log("  Fregs Mint Pass: ", fregsMintPassAddress);
-    console.log("  FregCoin:        ", fregCoinAddress);
+    console.log("  SpinTheWheel:    ", spinTheWheelAddress);
     console.log("  SVG Renderer:    ", svgRendererAddress);
     console.log("\nArt Contracts (6 unified routers):");
     console.log("  Background:        ", artAddresses.background || "Not deployed (uses color rect)");
@@ -890,13 +890,13 @@ async function main() {
     console.log("  Royalty Receiver:", ROYALTY_RECEIVER);
     console.log("  Royalty Fee:", ROYALTY_FEE / 100, "%");
     console.log("  Deployer Mint Passes:", mintPassBalance.toString());
-    console.log("  Deployer FregCoins:", fregCoinBalance.toString());
-    console.log("\nFregCoin Spin Wheel:");
-    console.log("  Lose:", FREGCOIN_LOSE_WEIGHT / 100, "%");
-    console.log("  MintPass:", FREGCOIN_MINTPASS_WEIGHT / 100, "%");
-    console.log("  Hoodie:", FREGCOIN_HOODIE_WEIGHT / 100, "%");
-    console.log("  Frogsuit:", FREGCOIN_FROGSUIT_WEIGHT / 100, "%");
-    console.log("  Treasure Chest:", FREGCOIN_CHEST_WEIGHT / 100, "%");
+    console.log("  Deployer SpinTokens:", spinTokenBalance.toString());
+    console.log("\nSpinTheWheel Spin Wheel:");
+    console.log("  Lose:", SPIN_LOSE_WEIGHT / 100, "%");
+    console.log("  MintPass:", SPIN_MINTPASS_WEIGHT / 100, "%");
+    console.log("  Hoodie:", SPIN_HOODIE_WEIGHT / 100, "%");
+    console.log("  Frogsuit:", SPIN_FROGSUIT_WEIGHT / 100, "%");
+    console.log("  Treasure Chest:", SPIN_CHEST_WEIGHT / 100, "%");
     console.log("\nNext Steps:");
     console.log("  1. Fund items contract for chest rewards:");
     console.log("     await fregsItems.depositETH({ value: ethers.parseEther('0.5') })");
@@ -914,7 +914,7 @@ async function main() {
     console.log(`VITE_FREGS_ADDRESS=${fregsAddress}`);
     console.log(`VITE_FREGS_ITEMS_ADDRESS=${fregsItemsAddress}`);
     console.log(`VITE_FREGS_MINTPASS_ADDRESS=${fregsMintPassAddress}`);
-    console.log(`VITE_FREGCOIN_ADDRESS=${fregCoinAddress}`);
+    console.log(`VITE_SPIN_THE_WHEEL_ADDRESS=${spinTheWheelAddress}`);
     console.log(`VITE_SVG_RENDERER_ADDRESS=${svgRendererAddress}`);
 
 }

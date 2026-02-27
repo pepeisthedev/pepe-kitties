@@ -1115,19 +1115,6 @@
   },
   {
     "inputs": [],
-    "name": "fregCoinContract",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "fregs",
     "outputs": [
       {
@@ -1790,19 +1777,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_fregCoin",
-        "type": "address"
-      }
-    ],
-    "name": "setFregCoinContract",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
         "name": "_fregs",
         "type": "address"
       }
@@ -1925,6 +1899,19 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "_spinTheWheel",
+        "type": "address"
+      }
+    ],
+    "name": "setSpinTheWheelContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256[]",
         "name": "itemTypes",
         "type": "uint256[]"
@@ -2030,6 +2017,19 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "spinTheWheelContract",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",

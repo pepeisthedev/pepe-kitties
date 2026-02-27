@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react"
 import { BrowserProvider, Contract } from "ethers"
-import { FREGCOIN_ADDRESS, FregCoinABI } from "../config/contracts"
+import { SPIN_THE_WHEEL_ADDRESS, SpinTheWheelABI } from "../config/contracts"
 
-export function useFregCoinBalance() {
+export function useSpinTokenBalance() {
   const { address, isConnected } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider("eip155")
 
@@ -12,7 +12,7 @@ export function useFregCoinBalance() {
   const [error, setError] = useState<string | null>(null)
 
   const fetchBalance = useCallback(async () => {
-    if (!walletProvider || !address || !FREGCOIN_ADDRESS) {
+    if (!walletProvider || !address || !SPIN_THE_WHEEL_ADDRESS) {
       setBalance(0)
       return
     }
@@ -22,14 +22,14 @@ export function useFregCoinBalance() {
 
     try {
       const provider = new BrowserProvider(walletProvider as any)
-      const contract = new Contract(FREGCOIN_ADDRESS, FregCoinABI, provider)
+      const contract = new Contract(SPIN_THE_WHEEL_ADDRESS, SpinTheWheelABI, provider)
 
-      // Token ID 1 is FREG_COIN
+      // Token ID 1 is SPIN_TOKEN
       const bal = await contract.balanceOf(address, 1)
       setBalance(Number(bal))
     } catch (err) {
-      console.error("Error fetching FregCoin balance:", err)
-      setError(err instanceof Error ? err.message : "Failed to fetch FregCoin balance")
+      console.error("Error fetching SpinToken balance:", err)
+      setError(err instanceof Error ? err.message : "Failed to fetch SpinToken balance")
       setBalance(0)
     } finally {
       setIsLoading(false)
@@ -37,7 +37,7 @@ export function useFregCoinBalance() {
   }, [walletProvider, address])
 
   useEffect(() => {
-    if (isConnected && walletProvider && address && FREGCOIN_ADDRESS) {
+    if (isConnected && walletProvider && address && SPIN_THE_WHEEL_ADDRESS) {
       fetchBalance()
     } else {
       setBalance(0)

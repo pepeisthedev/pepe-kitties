@@ -72,7 +72,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     IFregs public fregs;
     ISVGItemsRenderer public svgRenderer;
-    address public fregCoinContract;
+    address public spinTheWheelContract;
 
     uint256 private _tokenIdCounter;
     uint256 private randomNonce;
@@ -453,9 +453,9 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         emit OwnerMinted(startTokenId, to, _itemType, amount);
     }
 
-    // Mint from FregCoin spin wheel
+    // Mint from SpinTheWheel spin wheel
     function mintFromCoin(address to, uint256 _itemType) external {
-        require(msg.sender == fregCoinContract, "Only FregCoin contract");
+        require(msg.sender == spinTheWheelContract, "Only SpinTheWheel contract");
         require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Item type not configured");
 
         uint256 newItemId = _tokenIdCounter;
@@ -466,8 +466,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         emit MintedFromCoin(newItemId, to, _itemType);
     }
 
-    function setFregCoinContract(address _fregCoin) external onlyOwner {
-        fregCoinContract = _fregCoin;
+    function setSpinTheWheelContract(address _spinTheWheel) external onlyOwner {
+        spinTheWheelContract = _spinTheWheel;
     }
 
     // Add a new dynamic item type
