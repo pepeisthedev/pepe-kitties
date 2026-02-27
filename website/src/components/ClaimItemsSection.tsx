@@ -129,10 +129,6 @@ export default function ClaimItemsSection(): React.JSX.Element {
                                 <p className="font-righteous text-xs text-purple-400">Head Reroll</p>
                                 <p className="font-bangers text-lg text-white">{getRarityPercent(contractData.headRerollWeight)}%</p>
                             </div>
-                            <div className="bg-amber-600/20 rounded-lg p-2">
-                                <p className="font-righteous text-xs text-amber-500">Bronze Skin</p>
-                                <p className="font-bangers text-lg text-white">{getRarityPercent(contractData.bronzeSkinWeight)}%</p>
-                            </div>
                             <div className="bg-gray-300/20 rounded-lg p-2">
                                 <p className="font-righteous text-xs text-gray-300">Metal Skin</p>
                                 <p className="font-bangers text-lg text-white">{getRarityPercent(contractData.metalSkinWeight)}%</p>

@@ -30,10 +30,10 @@ export interface ContractData {
   remainingChests: number
   colorChangeWeight: number
   headRerollWeight: number
-  bronzeSkinWeight: number
   metalSkinWeight: number
   goldSkinWeight: number
   diamondSkinWeight: number
+  boneWeight: number
   treasureChestWeight: number
 }
 
@@ -75,10 +75,10 @@ export function useContractData() {
         remainingChests,
         colorChangeWeight,
         headRerollWeight,
-        bronzeSkinWeight,
         metalSkinWeight,
         goldSkinWeight,
         diamondSkinWeight,
+        boneWeight,
         treasureChestWeight,
       ] = await Promise.all([
         fregs.mintPrice(),
@@ -95,10 +95,10 @@ export function useContractData() {
         items.getRemainingChests(),
         items.colorChangeWeight(),
         items.headRerollWeight(),
-        items.bronzeSkinWeight(),
         items.metalSkinWeight(),
         items.goldSkinWeight(),
         items.diamondSkinWeight(),
+        items.boneWeight(),
         items.treasureChestWeight(),
       ])
 
@@ -124,10 +124,10 @@ export function useContractData() {
         remainingChests: Number(remainingChests),
         colorChangeWeight: Number(colorChangeWeight),
         headRerollWeight: Number(headRerollWeight),
-        bronzeSkinWeight: Number(bronzeSkinWeight),
         metalSkinWeight: Number(metalSkinWeight),
         goldSkinWeight: Number(goldSkinWeight),
         diamondSkinWeight: Number(diamondSkinWeight),
+        boneWeight: Number(boneWeight),
         treasureChestWeight: Number(treasureChestWeight),
       })
     } catch (err) {
