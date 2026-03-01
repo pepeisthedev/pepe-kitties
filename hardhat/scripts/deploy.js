@@ -6,6 +6,7 @@ const {
     storeSvgData,
     processSvgFile,
 } = require("./deployUtils");
+const { loadDeploymentStatus, saveDeploymentStatus } = require("./deploymentStatus");
 
 // Helper to send transaction with retry and proper waiting
 async function sendTx(txPromise, confirmations = 1) {
@@ -67,9 +68,6 @@ const TRAITS_JSON_PATH = path.join(DEFAULT_TRAITS_PATH, "traits.json");
 // Path to the items SVG folder
 const ITEMS_PATH = path.join(__dirname, "../../website/public/items");
 
-// Path to deployment status file
-const DEPLOYMENT_STATUS_PATH = path.join(__dirname, "../deployment-status.json");
-
 // Path to from_items traits.json (for special items configuration)
 const FROM_ITEMS_TRAITS_JSON_PATH = path.join(FROM_ITEMS_PATH, "traits.json");
 
@@ -88,7 +86,19 @@ function loadTraitsConfig() {
     for (const [traitType, traits] of Object.entries(traitsConfig)) {
         traitNames[traitType] = traits.map(t => t.name);
     }
-    return { traitsConfig, traitNames };
+
+    // Extract rarity weights and noneTraitIds per trait type
+    // traitType mapping: head=2 (TRAIT_HEAD), mouth=3 (TRAIT_MOUTH), stomach=4 (TRAIT_BELLY)
+    const traitWeights = {};
+    const noneTraitIds = {};
+    for (const [traitType, traits] of Object.entries(traitsConfig)) {
+        if (!traits[0]?.rarity && traits[0]?.rarity !== 0) continue; // Skip types without rarity
+        traitWeights[traitType] = traits.map(t => t.rarity || 0);
+        const noneIndex = traits.findIndex(t => t.isNone);
+        noneTraitIds[traitType] = noneIndex >= 0 ? noneIndex + 1 : 0; // 1-based ID, 0 = no none
+    }
+
+    return { traitsConfig, traitNames, traitWeights, noneTraitIds };
 }
 
 // Load items.json - single source of truth for all items
@@ -142,7 +152,7 @@ function buildTraitItemMappings(itemsConfig, baseTraitCounts) {
             console.log(`    Skin mapping: ${item.name} (id ${item.id}) → trait value ${traitValue}`);
         } else if (item.category === 'head') {
             // Head: baseHeadCount + fileNumber
-            const baseHeadCount = baseTraitCounts?.head || 19;
+            const baseHeadCount = baseTraitCounts?.head || 22;
             traitValue = baseHeadCount + fileNumber;
             console.log(`    Head mapping: ${item.name} (id ${item.id}) → trait value ${traitValue} (base ${baseHeadCount} + file ${fileNumber})`);
         } else {
@@ -153,28 +163,6 @@ function buildTraitItemMappings(itemsConfig, baseTraitCounts) {
     }
 
     return mappings;
-}
-
-// ============ DEPLOYMENT STATUS ============
-function loadDeploymentStatus() {
-    if (fs.existsSync(DEPLOYMENT_STATUS_PATH)) {
-        return JSON.parse(fs.readFileSync(DEPLOYMENT_STATUS_PATH, "utf8"));
-    }
-    return {
-        network: null,
-        lastUpdated: null,
-        contracts: {},
-        routers: {},
-        defaultTraits: {},
-        addedTraits: {},
-        itemTypes: {}
-    };
-}
-
-function saveDeploymentStatus(status) {
-    status.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(DEPLOYMENT_STATUS_PATH, JSON.stringify(status, null, 2));
-    console.log(`  Deployment status saved to: ${DEPLOYMENT_STATUS_PATH}`);
 }
 
 // Copy ABI from artifacts to website
@@ -516,7 +504,7 @@ async function deployArt(deploymentStatus) {
     }
 
     // Load traits from JSON
-    const { traitsConfig, traitNames } = loadTraitsConfig();
+    const { traitsConfig, traitNames, traitWeights, noneTraitIds } = loadTraitsConfig();
     console.log("  Loaded traits config from:", TRAITS_JSON_PATH);
 
     // Deploy SVGPartWriter
@@ -549,9 +537,11 @@ async function deployArt(deploymentStatus) {
         const address = await deployTraitFolder(folder, svgPartWriter, names, deploymentStatus);
         if (address) {
             artAddresses[folder] = address;
-            const folderPath = path.join(DEFAULT_TRAITS_PATH, folder);
             if (folder !== 'skin') { // skin uses from_items, not default
-                baseTraitCounts[folder] = names.length || fs.readdirSync(folderPath).filter(f => f.endsWith('.svg')).length;
+                // Count only traits that have SVG files (exclude isNone traits)
+                const traits = traitsConfig[folder] || [];
+                const deployableCount = traits.filter(t => !t.isNone).length;
+                baseTraitCounts[folder] = deployableCount;
             }
         }
     }
@@ -565,6 +555,10 @@ async function deployArt(deploymentStatus) {
         artAddresses.items = itemsRouter;
         deploymentStatus.routers.items = itemsRouter;
     }
+
+    // Attach weight info for main() to configure Fregs
+    artAddresses.traitWeights = traitWeights;
+    artAddresses.noneTraitIds = noneTraitIds;
 
     return artAddresses;
 }
@@ -595,7 +589,7 @@ async function main() {
     console.log("Verify Contracts:", VERIFY_CONTRACTS);
 
     // Load or initialize deployment status
-    const deploymentStatus = loadDeploymentStatus();
+    const deploymentStatus = loadDeploymentStatus(network.name);
     deploymentStatus.network = network.name;
 
     // Configuration
@@ -636,7 +630,7 @@ async function main() {
     await sendTx(fregs.setMintPassContract(fregsMintPassAddress));
 
     console.log("Setting Fregs on MintPass...");
-    await sendTx(fregsMintPass.setFregs(fregsAddress));
+    await sendTx(fregsMintPass.setFregsContract(fregsAddress));
 
     // Configure SpinTheWheel
     console.log("Configuring SpinTheWheel...");
@@ -653,8 +647,17 @@ async function main() {
     await sendTx(fregsMintPass.setSpinTheWheelContract(spinTheWheelAddress));
     await sendTx(fregsItems.setSpinTheWheelContract(spinTheWheelAddress));
 
-    // ============ Mint Mint Passes to Deployer (localhost only) ============
+    // ============ Set Mint Phase ============
     const isLocalhost = network.name === "localhost" || network.name === "hardhat";
+    if (isLocalhost) {
+        console.log("\n--- Setting mint phase to Public (2) for localhost ---");
+        await sendTx(fregs.setMintPhase(2));
+    } else {
+        console.log("\n--- Setting mint phase to Paused (0) for live network ---");
+        await sendTx(fregs.setMintPhase(0));
+    }
+
+    // ============ Mint Mint Passes to Deployer (localhost only) ============
     let mintPassBalance = 0n;
     if (isLocalhost) {
         console.log("\n--- Minting Mint Passes ---");
@@ -752,6 +755,22 @@ async function main() {
     console.log("Setting SVG Renderer on Fregs...");
     await sendTx(fregs.setSVGRenderer(svgRendererAddress));
     console.log("SVG Renderer set on Fregs!");
+
+    // Configure weighted trait selection on Fregs
+    // Trait type mapping: head=2 (TRAIT_HEAD), mouth=3 (TRAIT_MOUTH), stomach=4 (TRAIT_BELLY)
+    const TRAIT_TYPE_MAP = { head: 2, mouth: 3, stomach: 4 };
+    if (artAddresses.traitWeights) {
+        console.log("\n--- Configuring Trait Weights on Fregs ---");
+        for (const [traitName, traitTypeId] of Object.entries(TRAIT_TYPE_MAP)) {
+            const weights = artAddresses.traitWeights[traitName];
+            const noneId = artAddresses.noneTraitIds[traitName] || 0;
+            if (weights && weights.length > 0) {
+                console.log(`  Setting ${traitName} weights: [${weights.join(', ')}], noneTraitId: ${noneId}`);
+                await sendTx(fregs.setTraitWeights(traitTypeId, weights, noneId));
+                console.log(`  ${traitName} weights configured!`);
+            }
+        }
+    }
 
     // Set Items SVG Renderer on FregsItems
     if (artAddresses.items) {
@@ -904,7 +923,7 @@ async function main() {
     console.log("     await fregsMintPass.setMintPassSaleActive(true)");
     // ============ Save Deployment Status ============
     console.log("\n--- Saving Deployment Status ---");
-    saveDeploymentStatus(deploymentStatus);
+    saveDeploymentStatus(deploymentStatus, network.name);
 
     console.log("\n" + "=".repeat(60));
 

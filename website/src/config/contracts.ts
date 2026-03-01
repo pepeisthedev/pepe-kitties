@@ -73,7 +73,7 @@ export function getItemsByCategory(category: string): ItemConfig[] {
 }
 
 // Base head count for calculating head trait values from fileNames
-export const BASE_HEAD_COUNT = 19
+export const BASE_HEAD_COUNT = 22
 
 // Check if an item is incompatible with a freg's current traits
 export function checkItemIncompatibility(

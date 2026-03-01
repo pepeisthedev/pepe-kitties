@@ -1,0 +1,123 @@
+const { ethers, network } = require("hardhat");
+const { loadDeploymentStatus } = require("./deploymentStatus");
+
+const TOTAL_SPINS = 500;
+const BATCH_SIZE = 50;
+
+const ITEM_NAMES = {
+    1: "Color Change", 2: "Head Reroll", 4: "Robot", 5: "Gold Skin",
+    6: "Treasure Chest", 8: "Diamond Skin", 9: "Hoodie", 10: "Frogsuit", 11: "Bone",
+};
+
+const PRIZE_NAMES = {
+    0: "Lose",
+    1: "Mint Pass",
+    2: "Item",
+};
+
+function printDistribution(title, counts, total, nameMap) {
+    console.log(`\n${"=".repeat(60)}`);
+    console.log(`  ${title} (${total} total)`);
+    console.log(`${"=".repeat(60)}`);
+
+    const entries = Object.entries(counts)
+        .map(([id, count]) => ({
+            id: Number(id),
+            name: nameMap[Number(id)] || `Unknown(${id})`,
+            count,
+            pct: ((count / total) * 100).toFixed(2),
+        }))
+        .sort((a, b) => b.count - a.count);
+
+    const maxNameLen = Math.max(...entries.map(e => e.name.length), 10);
+    const maxCountLen = Math.max(...entries.map(e => String(e.count).length), 3);
+
+    for (const { name, count, pct } of entries) {
+        const bar = "#".repeat(Math.round(Number(pct)));
+        console.log(
+            `  ${name.padEnd(maxNameLen)}  ${String(count).padStart(maxCountLen)}  ${pct.padStart(6)}%  ${bar}`
+        );
+    }
+}
+
+async function main() {
+    const status = loadDeploymentStatus(network.name);
+    const [deployer] = await ethers.getSigners();
+
+    const spinTheWheel = await ethers.getContractAt("SpinTheWheel", status.contracts.spinTheWheel);
+
+    // Print current weights
+    const loseWeight = Number(await spinTheWheel.loseWeight());
+    const mintPassWeight = Number(await spinTheWheel.mintPassWeight());
+    const totalItemWeight = Number(await spinTheWheel.totalItemWeight());
+    const totalWeight = loseWeight + mintPassWeight + totalItemWeight;
+
+    console.log("Current spin weights:");
+    console.log(`  Lose:      ${loseWeight} (${((loseWeight / totalWeight) * 100).toFixed(1)}%)`);
+    console.log(`  MintPass:  ${mintPassWeight} (${((mintPassWeight / totalWeight) * 100).toFixed(1)}%)`);
+    console.log(`  Items:     ${totalItemWeight} (${((totalItemWeight / totalWeight) * 100).toFixed(1)}%)`);
+    console.log(`  Total:     ${totalWeight}`);
+
+    // Mint spin tokens
+    console.log(`\nMinting ${TOTAL_SPINS} SpinTokens to deployer...`);
+    await (await spinTheWheel.ownerMint(deployer.address, TOTAL_SPINS)).wait();
+    const balance = await spinTheWheel.balanceOf(deployer.address, 1);
+    console.log(`SpinToken balance: ${balance}`);
+
+    console.log(`\nSpinning ${TOTAL_SPINS} times...\n`);
+
+    // Counters
+    const prizeCounts = {}; // prizeType -> count
+    const itemCounts = {};  // itemType -> count
+    let failed = 0;
+
+    for (let i = 0; i < TOTAL_SPINS; i++) {
+        try {
+            const tx = await spinTheWheel.spin({ gasLimit: 500000n });
+            const receipt = await tx.wait();
+
+            const event = receipt.logs.find(l => {
+                try { return spinTheWheel.interface.parseLog(l)?.name === "SpinResult"; } catch { return false; }
+            });
+            const parsed = event ? spinTheWheel.interface.parseLog(event) : null;
+
+            if (parsed) {
+                const prizeType = Number(parsed.args.prizeType);
+                const itemType = Number(parsed.args.itemType);
+
+                prizeCounts[prizeType] = (prizeCounts[prizeType] || 0) + 1;
+
+                if (prizeType === 2) {
+                    itemCounts[itemType] = (itemCounts[itemType] || 0) + 1;
+                }
+            }
+        } catch (e) {
+            failed++;
+            if (failed <= 3) console.log(`  Spin ${i} FAILED: ${e.message.slice(0, 200)}`);
+        }
+
+        if ((i + 1) % BATCH_SIZE === 0) {
+            process.stdout.write(`  Spun ${i + 1}/${TOTAL_SPINS}\r`);
+        }
+    }
+
+    const totalSpun = TOTAL_SPINS - failed;
+    console.log(`\nSpinning done: ${totalSpun} success, ${failed} failed`);
+
+    // Print reports
+    printDistribution("SPIN OUTCOMES", prizeCounts, totalSpun, PRIZE_NAMES);
+
+    const totalItems = Object.values(itemCounts).reduce((a, b) => a + b, 0);
+    if (totalItems > 0) {
+        printDistribution("ITEM PRIZES (breakdown)", itemCounts, totalItems, ITEM_NAMES);
+    }
+
+    console.log(`\n${"=".repeat(60)}`);
+    console.log(`  SUMMARY: ${totalSpun} spins completed`);
+    console.log(`    Losses:     ${prizeCounts[0] || 0}`);
+    console.log(`    Mint Passes: ${prizeCounts[1] || 0}`);
+    console.log(`    Items:      ${prizeCounts[2] || 0}`);
+    console.log(`${"=".repeat(60)}`);
+}
+
+main().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });

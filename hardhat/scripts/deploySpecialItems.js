@@ -7,6 +7,7 @@ const {
     processSvgFile,
     storeSvgData,
 } = require("./deployUtils");
+const { loadDeploymentStatus, saveDeploymentStatus } = require("./deploymentStatus");
 
 // ============ CONFIGURATION ============
 // These can be overridden with environment variables
@@ -17,8 +18,6 @@ const SVG_RENDERER_ADDRESS = process.env.VITE_SVG_RENDERER_ADDRESS || "";
 const FROGZ_PATH = path.join(__dirname, "../../website/public/frogz");
 const FROM_ITEMS_PATH = path.join(FROGZ_PATH, "from_items");
 const FROM_ITEMS_TRAITS_JSON = path.join(FROM_ITEMS_PATH, "traits.json");
-const DEPLOYMENT_STATUS_PATH = path.join(__dirname, "../deployment-status.json");
-
 // Trait type constants (must match contracts)
 const TRAIT_TYPES = {
     BACKGROUND: 0,
@@ -36,29 +35,6 @@ const FOLDER_TO_TRAIT_TYPE = {
     mouth: TRAIT_TYPES.MOUTH,
     stomach: TRAIT_TYPES.STOMACH,
 };
-
-// ============ DEPLOYMENT STATUS ============
-
-function loadDeploymentStatus() {
-    if (fs.existsSync(DEPLOYMENT_STATUS_PATH)) {
-        return JSON.parse(fs.readFileSync(DEPLOYMENT_STATUS_PATH, "utf8"));
-    }
-    return {
-        network: null,
-        lastUpdated: null,
-        contracts: {},
-        routers: {},
-        defaultTraits: {},
-        addedTraits: {},
-        itemTypes: {}
-    };
-}
-
-function saveDeploymentStatus(status) {
-    status.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(DEPLOYMENT_STATUS_PATH, JSON.stringify(status, null, 2));
-    console.log(`  Deployment status saved to: ${DEPLOYMENT_STATUS_PATH}`);
-}
 
 function loadAddedTraitsConfig() {
     if (!fs.existsSync(FROM_ITEMS_TRAITS_JSON)) {
@@ -93,13 +69,7 @@ async function main() {
     console.log("Deployer:", deployerAddress);
 
     // Load deployment status
-    const deploymentStatus = loadDeploymentStatus();
-
-    // Verify network matches
-    if (deploymentStatus.network && deploymentStatus.network !== network.name) {
-        console.warn(`\n⚠️  Warning: Deployment status is for ${deploymentStatus.network}, but running on ${network.name}`);
-        console.warn("   Contract addresses may not be valid for this network.\n");
-    }
+    const deploymentStatus = loadDeploymentStatus(network.name);
 
     // Get contract addresses from status or env
     const fregsItemsAddress = FREGS_ITEMS_ADDRESS || deploymentStatus.contracts?.fregsItems;
@@ -270,7 +240,7 @@ async function main() {
 
     // Save deployment status
     console.log("\n--- Saving Deployment Status ---");
-    saveDeploymentStatus(deploymentStatus);
+    saveDeploymentStatus(deploymentStatus, network.name);
 
     // ============ SUMMARY ============
     console.log("\n" + "=".repeat(60));

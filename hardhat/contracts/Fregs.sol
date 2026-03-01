@@ -7,6 +7,10 @@ import "./utils/BasicRoyalties.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
+interface IFregsMintPass {
+    function burnForMint(address holder) external;
+}
+
 interface ISVGRenderer {
     // Renders full SVG
     // background=0 uses bodyColor, background>0 uses special background
@@ -43,13 +47,20 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     address public itemsContract;
     address public mintPassContract;
 
-    // "None" trait probability (percentage out of 100)
-    // If random < noneChance, trait is set to 0 (no SVG layer rendered)
-    // Head uses headDefaultTrait instead of 0 (eyes-only fallback)
-    uint256 public headNoneChance = 50;
-    uint256 public mouthNoneChance = 80;
-    uint256 public bellyNoneChance = 80;
-    uint256 public headDefaultTrait = 1;
+    // Mint phases: 0=Paused, 1=Whitelist, 2=Public
+    uint256 public mintPhase;
+
+    // Free mint wallets: address => remaining free mints
+    mapping(address => uint256) public freeMints;
+
+    // Weighted trait selection: cumulative weights per trait type
+    // traitCumulativeWeights[traitType] = array where index i holds the
+    // cumulative weight sum for trait (i+1). A roll in [0, totalWeight) is
+    // compared against these to pick a trait.
+    mapping(uint256 => uint256[]) private traitCumulativeWeights;
+
+    // Which trait ID represents "none" for each trait type (0 = no none option)
+    mapping(uint256 => uint256) public noneTraitId;
 
     // Trait mappings (simplified - all traits are just IDs)
     // Convention: 0 = use bodyColor for rendering, >0 = use specific trait
@@ -191,8 +202,31 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function mint(string memory _color) public payable nonReentrant {
-        require(msg.value >= mintPrice, "Insufficient funds");
         require(_tokenIdCounter < supply, "Max supply reached");
+
+        bool isFree = freeMints[msg.sender] > 0;
+
+        if (mintPhase == 0) {
+            // Paused: only owner can mint
+            require(msg.sender == owner(), "Minting is paused");
+        } else if (mintPhase == 1) {
+            // Whitelist: mint pass holders (pay ETH + burn pass) or free mint wallets
+            if (!isFree) {
+                // Must have a mint pass — burn it, still pay ETH
+                require(mintPassContract != address(0), "Mint pass not configured");
+                IFregsMintPass(mintPassContract).burnForMint(msg.sender);
+                require(msg.value >= mintPrice, "Insufficient funds");
+            }
+        } else {
+            // Public: anyone can mint, free mint wallets still free
+            if (!isFree) {
+                require(msg.value >= mintPrice, "Insufficient funds");
+            }
+        }
+
+        if (isFree) {
+            freeMints[msg.sender] -= 1;
+        }
 
         uint256 newTokenId = _tokenIdCounter;
         _safeMint(msg.sender, 1);
@@ -205,53 +239,16 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         background[newTokenId] = 0;
         body[newTokenId] = 0;
 
-        // Assign random base traits — NONE_TRAIT sentinel keeps all SSTOREs as
-        // 0→non-zero (20,000 gas each), eliminating gas variance from refunds
-        uint256 headRoll = _getRandomTrait(svgRenderer.getBaseTraitCount(TRAIT_HEAD), headNoneChance);
-        head[newTokenId] = headRoll == 0 ? headDefaultTrait : headRoll;
-        uint256 mouthRoll = _getRandomTrait(svgRenderer.getBaseTraitCount(TRAIT_MOUTH), mouthNoneChance);
+        // Assign random base traits using weighted selection
+        head[newTokenId] = _getWeightedTrait(TRAIT_HEAD);
+        uint256 mouthRoll = _getWeightedTrait(TRAIT_MOUTH);
         mouth[newTokenId] = mouthRoll == 0 ? NONE_TRAIT : mouthRoll;
-        uint256 bellyRoll = _getRandomTrait(svgRenderer.getBaseTraitCount(TRAIT_BELLY), bellyNoneChance);
+        uint256 bellyRoll = _getWeightedTrait(TRAIT_BELLY);
         belly[newTokenId] = bellyRoll == 0 ? NONE_TRAIT : bellyRoll;
 
         emit FregMinted(
             newTokenId,
             msg.sender,
-            _color,
-            head[newTokenId],
-            mouth[newTokenId],
-            belly[newTokenId]
-        );
-    }
-
-    // Called by mint pass contract for free mints
-    function freeMint(string memory _color, address _sender) external nonReentrant {
-        require(msg.sender == mintPassContract, "Only mint pass contract");
-        require(_tokenIdCounter < supply, "Max supply reached");
-
-        uint256 newTokenId = _tokenIdCounter;
-        _safeMint(_sender, 1);
-        _tokenIdCounter += 1;
-
-        // Store body color (used for body and background when trait is 0)
-        bodyColor[newTokenId] = _color;
-
-        // Background and body default to 0 (use color)
-        background[newTokenId] = 0;
-        body[newTokenId] = 0;
-
-        // Assign random base traits — NONE_TRAIT sentinel keeps all SSTOREs as
-        // 0→non-zero (20,000 gas each), eliminating gas variance from refunds
-        uint256 headRoll = _getRandomTraitForAddress(svgRenderer.getBaseTraitCount(TRAIT_HEAD), headNoneChance, _sender);
-        head[newTokenId] = headRoll == 0 ? headDefaultTrait : headRoll;
-        uint256 mouthRoll = _getRandomTraitForAddress(svgRenderer.getBaseTraitCount(TRAIT_MOUTH), mouthNoneChance, _sender);
-        mouth[newTokenId] = mouthRoll == 0 ? NONE_TRAIT : mouthRoll;
-        uint256 bellyRoll = _getRandomTraitForAddress(svgRenderer.getBaseTraitCount(TRAIT_BELLY), bellyNoneChance, _sender);
-        belly[newTokenId] = bellyRoll == 0 ? NONE_TRAIT : bellyRoll;
-
-        emit FregMinted(
-            newTokenId,
-            _sender,
             _color,
             head[newTokenId],
             mouth[newTokenId],
@@ -291,37 +288,45 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             ) % max;
     }
 
-    // Returns 0 (None) with noneChance% probability, otherwise a random trait 1..max
-    // Always calls _getRandom twice to keep gas consumption and nonce consistent
-    function _getRandomTrait(uint256 max, uint256 noneChance) internal returns (uint256) {
-        uint256 roll = _getRandom(100);
-        uint256 trait = _getRandom(max) + 1;
-        return roll < noneChance ? 0 : trait;
+    // Weighted trait selection using cumulative weights.
+    // Returns trait ID (1-based). If the selected trait is the "none" trait for
+    // this type, returns 0 instead.
+    function _getWeightedTrait(uint256 traitType) internal returns (uint256) {
+        uint256[] storage cumWeights = traitCumulativeWeights[traitType];
+        uint256 len = cumWeights.length;
+        require(len > 0, "No weights set");
+        uint256 totalWeight = cumWeights[len - 1];
+        uint256 roll = _getRandom(totalWeight);
+        for (uint256 i = 0; i < len; i++) {
+            if (roll < cumWeights[i]) {
+                uint256 traitId = i + 1;
+                return traitId == noneTraitId[traitType] ? 0 : traitId;
+            }
+        }
+        return len; // Fallback to last trait
     }
 
-    function _getRandomTraitForAddress(uint256 max, uint256 noneChance, address _addr) internal returns (uint256) {
-        uint256 roll = _getRandomForAddress(100, _addr);
-        uint256 trait = _getRandomForAddress(max, _addr) + 1;
-        return roll < noneChance ? 0 : trait;
+    function _getWeightedTraitForAddress(uint256 traitType, address _addr) internal returns (uint256) {
+        uint256[] storage cumWeights = traitCumulativeWeights[traitType];
+        uint256 len = cumWeights.length;
+        require(len > 0, "No weights set");
+        uint256 totalWeight = cumWeights[len - 1];
+        uint256 roll = _getRandomForAddress(totalWeight, _addr);
+        for (uint256 i = 0; i < len; i++) {
+            if (roll < cumWeights[i]) {
+                uint256 traitId = i + 1;
+                return traitId == noneTraitId[traitType] ? 0 : traitId;
+            }
+        }
+        return len; // Fallback to last trait
     }
 
-    // Called by items contract to reroll head trait (only randomizes within base traits)
+    // Called by items contract to reroll head trait (uses weighted selection)
     function rerollHead(uint256 tokenId, address sender) external {
         require(msg.sender == itemsContract, "Only items contract");
         require(ownerOf(tokenId) == sender, "Not token owner");
 
-        randomNonce++;
-        head[tokenId] = (uint256(
-            keccak256(
-                abi.encodePacked(
-                    block.timestamp,
-                    block.prevrandao,
-                    sender,
-                    randomNonce,
-                    tokenId
-                )
-            )
-        ) % svgRenderer.getBaseTraitCount(TRAIT_HEAD)) + 1;
+        head[tokenId] = _getWeightedTraitForAddress(TRAIT_HEAD, sender);
 
         emit TraitSet(tokenId, TRAIT_HEAD, head[tokenId]);
     }
@@ -376,6 +381,24 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         mintPassContract = _mintPassContract;
     }
 
+    function setMintPhase(uint256 _phase) public onlyOwner {
+        require(_phase <= 2, "Invalid phase");
+        mintPhase = _phase;
+    }
+
+    function addFreeMintWallets(address[] calldata wallets, uint256[] calldata counts) public onlyOwner {
+        require(wallets.length == counts.length, "Length mismatch");
+        for (uint256 i = 0; i < wallets.length; i++) {
+            freeMints[wallets[i]] = counts[i];
+        }
+    }
+
+    function removeFreeMintWallets(address[] calldata wallets) public onlyOwner {
+        for (uint256 i = 0; i < wallets.length; i++) {
+            freeMints[wallets[i]] = 0;
+        }
+    }
+
     function setMintPrice(uint256 _mintPrice) public onlyOwner {
         mintPrice = _mintPrice;
     }
@@ -384,12 +407,23 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         supply = _supply;
     }
 
-    function setTraitNoneChances(uint256 _head, uint256 _mouth, uint256 _belly, uint256 _headDefault) public onlyOwner {
-        require(_head <= 100 && _mouth <= 100 && _belly <= 100, "Max 100");
-        headNoneChance = _head;
-        mouthNoneChance = _mouth;
-        bellyNoneChance = _belly;
-        headDefaultTrait = _headDefault;
+    // Set weighted trait selection for a trait type.
+    // weights: array of per-trait weights (index 0 = trait 1, etc.)
+    // _noneTraitId: which trait ID means "none" (0 = no none option)
+    function setTraitWeights(uint256 traitType, uint256[] calldata weights, uint256 _noneTraitId) public onlyOwner {
+        require(weights.length > 0, "Empty weights");
+        uint256[] storage cumWeights = traitCumulativeWeights[traitType];
+
+        // Clear existing
+        delete traitCumulativeWeights[traitType];
+
+        uint256 cumulative = 0;
+        for (uint256 i = 0; i < weights.length; i++) {
+            cumulative += weights[i];
+            cumWeights.push(cumulative);
+        }
+        require(cumulative > 0, "Total weight must be > 0");
+        noneTraitId[traitType] = _noneTraitId;
     }
 
     // Trait counts are now determined dynamically from svgRenderer.getTraitCount()

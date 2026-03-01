@@ -1,23 +1,22 @@
-const { ethers } = require("hardhat");
-const fs = require("fs");
-const path = require("path");
+const { ethers, network } = require("hardhat");
+const { loadDeploymentStatus } = require("./deploymentStatus");
 
 async function main() {
-    const status = JSON.parse(fs.readFileSync(path.join(__dirname, "../deployment-status.json"), "utf8"));
+    const status = loadDeploymentStatus(network.name);
 
-    const fregCoin = await ethers.getContractAt("FregCoin", status.contracts.fregCoin);
+    const spinTheWheel = await ethers.getContractAt("SpinTheWheel", status.contracts.spinTheWheel);
     const fregsItems = await ethers.getContractAt("FregsItems", status.contracts.fregsItems);
 
-    console.log("=== FregCoin Prize Config ===");
-    console.log("Lose weight:", (await fregCoin.loseWeight()).toString());
-    console.log("MintPass weight:", (await fregCoin.mintPassWeight()).toString());
-    console.log("Total item weight:", (await fregCoin.totalItemWeight()).toString());
+    console.log("=== SpinTheWheel Prize Config ===");
+    console.log("Lose weight:", (await spinTheWheel.loseWeight()).toString());
+    console.log("MintPass weight:", (await spinTheWheel.mintPassWeight()).toString());
+    console.log("Total item weight:", (await spinTheWheel.totalItemWeight()).toString());
 
-    const count = await fregCoin.getItemPrizeCount();
+    const count = await spinTheWheel.getItemPrizeCount();
     console.log("Item prize count:", count.toString());
 
     for (let i = 0; i < count; i++) {
-        const [itemType, weight] = await fregCoin.getItemPrize(i);
+        const [itemType, weight] = await spinTheWheel.getItemPrize(i);
         console.log(`  Prize ${i}: itemType=${itemType}, weight=${weight}`);
 
         // Check if this item type is configured on FregsItems

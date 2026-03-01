@@ -7,17 +7,13 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-interface IFregs {
-    function freeMint(string memory _color, address _sender) external;
-}
-
 contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     using Strings for uint256;
 
     // Token ID for the mint pass (ERC1155 can have multiple token types)
     uint256 public constant MINT_PASS = 1;
 
-    IFregs public fregs;
+    address public fregsContract;
 
     string public name = "Fregs Mint Pass";
     string public symbol = "FREGMINTPASS";
@@ -33,7 +29,6 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
 
     // Events
     event MintPassPurchased(address indexed buyer, uint256 amount);
-    event FregMinted(address indexed user, string color);
     event MintedFromCoin(address indexed to, uint256 amount);
 
     constructor(string memory uri_) ERC1155(uri_) Ownable(msg.sender) {}
@@ -52,42 +47,18 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         emit MintPassPurchased(msg.sender, amount);
     }
 
-    // ============ Use Mint Pass to Mint Freg ============
+    // ============ Burn for Mint (called by Fregs contract) ============
 
-    function mintFreg(string memory _color) external nonReentrant {
-        require(balanceOf(msg.sender, MINT_PASS) >= 1, "No mint pass");
-        require(address(fregs) != address(0), "Fregs not set");
-
-        // Burn the mint pass
-        _burn(msg.sender, MINT_PASS, 1);
-
-        // Call freeMint on Fregs contract
-        fregs.freeMint(_color, msg.sender);
-
-        emit FregMinted(msg.sender, _color);
-    }
-
-    // Batch mint multiple fregs at once
-    function mintFregBatch(string[] memory _colors) external nonReentrant {
-        uint256 amount = _colors.length;
-        require(amount > 0, "Must mint at least 1");
-        require(balanceOf(msg.sender, MINT_PASS) >= amount, "Not enough mint passes");
-        require(address(fregs) != address(0), "Fregs not set");
-
-        // Burn the mint passes
-        _burn(msg.sender, MINT_PASS, amount);
-
-        // Mint each freg
-        for (uint256 i = 0; i < amount; i++) {
-            fregs.freeMint(_colors[i], msg.sender);
-            emit FregMinted(msg.sender, _colors[i]);
-        }
+    function burnForMint(address holder) external {
+        require(msg.sender == fregsContract, "Only Fregs contract");
+        require(balanceOf(holder, MINT_PASS) >= 1, "No mint pass");
+        _burn(holder, MINT_PASS, 1);
     }
 
     // ============ Owner Functions ============
 
-    function setFregs(address _fregs) external onlyOwner {
-        fregs = IFregs(_fregs);
+    function setFregsContract(address _fregsContract) external onlyOwner {
+        fregsContract = _fregsContract;
     }
 
     function setURI(string memory newuri) external onlyOwner {

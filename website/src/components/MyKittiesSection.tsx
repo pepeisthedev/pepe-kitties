@@ -33,9 +33,9 @@ const getTraitName = (traitsConfig: TraitsConfig | null, traitType: keyof Traits
     const traits = traitsConfig[traitType]
     if (!traits || index > traits.length) {
         // Check from_items for special traits
-        if (traitType === 'head' && index > 19) {
-            const itemHead = ITEMS.find(item => item.category === 'head' && item.traitFileName === `${index - 19}.svg`)
-            return itemHead?.name || `Special #${index - 19}`
+        if (traitType === 'head' && index > 22) {
+            const itemHead = ITEMS.find(item => item.category === 'head' && item.traitFileName === `${index - 22}.svg`)
+            return itemHead?.name || `Special #${index - 22}`
         }
         if (traitType === 'skin' && index > 1) {
             const itemSkin = ITEMS.find(item => item.category === 'skin' && item.traitFileName === `${index}.svg`)

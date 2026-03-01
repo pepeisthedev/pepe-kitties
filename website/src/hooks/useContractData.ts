@@ -15,6 +15,8 @@ export interface ContractData {
   mintPrice: string
   supply: number
   totalMinted: number
+  mintPhase: number
+  freeMints: number
 
   // MintPass
   mintPassPrice: string
@@ -64,6 +66,8 @@ export function useContractData() {
         mintPrice,
         supply,
         totalMinted,
+        mintPhase,
+        userFreeMints,
         mintPassPrice,
         mintPassSaleActive,
         maxMintPasses,
@@ -84,6 +88,8 @@ export function useContractData() {
         fregs.mintPrice(),
         fregs.supply(),
         fregs.totalMinted(),
+        fregs.mintPhase(),
+        address ? fregs.freeMints(address) : Promise.resolve(0n),
         mintPass.mintPassPrice(),
         mintPass.mintPassSaleActive(),
         mintPass.maxMintPasses(),
@@ -104,6 +110,8 @@ export function useContractData() {
 
       console.log("Contract data fetched:", {
         address,
+        mintPhase: Number(mintPhase),
+        freeMints: Number(userFreeMints),
         userMintPassBalance: Number(userMintPassBalance),
         mintPassSaleActive,
         maxMintPasses: Number(maxMintPasses),
@@ -113,6 +121,8 @@ export function useContractData() {
         mintPrice: formatEther(mintPrice),
         supply: Number(supply),
         totalMinted: Number(totalMinted),
+        mintPhase: Number(mintPhase),
+        freeMints: Number(userFreeMints),
         mintPassPrice: formatEther(mintPassPrice),
         mintPassSaleActive,
         maxMintPasses: Number(maxMintPasses),
