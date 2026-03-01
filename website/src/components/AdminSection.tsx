@@ -62,7 +62,7 @@ export default function AdminSection(): React.JSX.Element {
   const [mintPassAddresses, setMintPassAddresses] = useState("")
   const [mintPassAmount, setMintPassAmount] = useState("1")
   const [mintPassProgress, setMintPassProgress] = useState({ current: 0, total: 0 })
-  const [mintPassData, setMintPassData] = useState({ totalMinted: 0, maxMintPasses: 0 })
+  const [mintPassData, setMintPassData] = useState({ totalMinted: 0 })
 
   // Transaction state
   const [txStatus, setTxStatus] = useState<TxStatus>('idle')
@@ -109,14 +109,8 @@ export default function AdminSection(): React.JSX.Element {
         setItemTypes(types)
 
         // Fetch mint pass data
-        const [totalMinted, maxMintPasses] = await Promise.all([
-          contracts.mintPass.read.totalMinted(),
-          contracts.mintPass.read.maxMintPasses(),
-        ])
-        setMintPassData({
-          totalMinted: Number(totalMinted),
-          maxMintPasses: Number(maxMintPasses),
-        })
+        const totalMinted = await contracts.mintPass.read.totalMinted()
+        setMintPassData({ totalMinted: Number(totalMinted) })
       } catch (err) {
         console.error("Error fetching admin data:", err)
       }
@@ -361,14 +355,8 @@ export default function AdminSection(): React.JSX.Element {
       setMintPassProgress({ current: 0, total: 0 })
 
       // Refresh mint pass data
-      const [totalMinted, maxMintPasses] = await Promise.all([
-        contracts.mintPass.read.totalMinted(),
-        contracts.mintPass.read.maxMintPasses(),
-      ])
-      setMintPassData({
-        totalMinted: Number(totalMinted),
-        maxMintPasses: Number(maxMintPasses),
-      })
+      const totalMinted = await contracts.mintPass.read.totalMinted()
+      setMintPassData({ totalMinted: Number(totalMinted) })
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to airdrop mint passes")
       setTxStatus('error')
@@ -811,7 +799,7 @@ export default function AdminSection(): React.JSX.Element {
               <div className="bg-black/30 rounded-lg p-3 flex justify-between items-center">
                 <span className="font-righteous text-white/70">Total Minted:</span>
                 <span className="font-mono text-orange-400">
-                  {mintPassData.totalMinted} / {mintPassData.maxMintPasses}
+                  {mintPassData.totalMinted}
                 </span>
               </div>
 

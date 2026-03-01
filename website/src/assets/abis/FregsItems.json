@@ -682,7 +682,7 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "ethAmount",
+        "name": "coinAmount",
         "type": "uint256"
       }
     ],
@@ -801,7 +801,7 @@
   },
   {
     "inputs": [],
-    "name": "MAX_TREASURE_CHESTS",
+    "name": "MAX_CLAIM_CHESTS",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1043,7 +1043,7 @@
   },
   {
     "inputs": [],
-    "name": "chestETHAmount",
+    "name": "chestCoinReward",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1057,6 +1057,19 @@
   {
     "inputs": [],
     "name": "chestsBurned",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "claimChestCount",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1082,7 +1095,7 @@
   },
   {
     "inputs": [],
-    "name": "colorChangeWeight",
+    "name": "coinBalance",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1095,9 +1108,28 @@
   },
   {
     "inputs": [],
-    "name": "depositETH",
+    "name": "colorChangeWeight",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "depositCoins",
     "outputs": [],
-    "stateMutability": "payable",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1108,6 +1140,19 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "fregCoinContract",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -1221,7 +1266,7 @@
   },
   {
     "inputs": [],
-    "name": "getRemainingChests",
+    "name": "getRemainingClaimChests",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1768,7 +1813,20 @@
         "type": "uint256"
       }
     ],
-    "name": "setChestETHAmount",
+    "name": "setChestCoinReward",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_fregCoin",
+        "type": "address"
+      }
+    ],
+    "name": "setFregCoinContract",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -2101,6 +2159,19 @@
   },
   {
     "inputs": [],
+    "name": "totalChestsMinted",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "totalMinted",
     "outputs": [
       {
@@ -2159,19 +2230,6 @@
     "name": "transferOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "treasureChestCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -2336,9 +2394,5 @@
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
-  },
-  {
-    "stateMutability": "payable",
-    "type": "receive"
   }
 ]

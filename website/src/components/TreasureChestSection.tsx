@@ -33,7 +33,7 @@ export default function TreasureChestSection(): React.JSX.Element {
 
             setModalData({
                 success: true,
-                message: `You received ${contractData.chestETHAmount} ETH!`
+                message: `You received ${contractData.chestCoinReward} FregCoin!`
             })
             refetch()
         } catch (err: any) {
@@ -51,12 +51,12 @@ export default function TreasureChestSection(): React.JSX.Element {
                     TREASURE CHESTS
                 </h2>
                 <p className="font-righteous text-xl md:text-2xl text-theme-muted max-w-2xl mx-auto mb-2">
-                    Burn your treasure chest to claim ETH!
+                    Burn your treasure chest to claim FregCoin!
                 </p>
                 {contractData && (
                     <p className="font-righteous text-sm text-theme-subtle">
-                        {contractData.remainingChests > 0 ? (
-                            <><span className="text-theme-primary font-bold">{contractData.remainingChests}</span> chests still to be found</>
+                        {contractData.remainingClaimChests > 0 ? (
+                            <><span className="text-theme-primary font-bold">{contractData.remainingClaimChests}</span> chests still to be found</>
                         ) : (
                             <span className="text-orange-400">All chests have been found!</span>
                         )}
@@ -121,7 +121,7 @@ export default function TreasureChestSection(): React.JSX.Element {
             <ResultModal
                 isOpen={showModal}
                 onClose={() => setShowModal(false)}
-                title={modalData.success ? "ETH Claimed!" : "Error"}
+                title={modalData.success ? "FregCoin Claimed!" : "Error"}
                 description={modalData.message}
                 success={modalData.success}
             />

@@ -19,17 +19,15 @@ export interface ContractData {
   freeMints: number
 
   // MintPass
-  mintPassPrice: string
-  mintPassSaleActive: boolean
-  maxMintPasses: number
   userMintPassBalance: number
 
   // Items
-  chestETHAmount: string
-  treasureChestCount: number
-  maxTreasureChests: number
+  chestCoinReward: string
+  claimChestCount: number
+  totalChestsMinted: number
+  maxClaimChests: number
   activeChestSupply: number
-  remainingChests: number
+  remainingClaimChests: number
   colorChangeWeight: number
   headRerollWeight: number
   metalSkinWeight: number
@@ -68,15 +66,13 @@ export function useContractData() {
         totalMinted,
         mintPhase,
         userFreeMints,
-        mintPassPrice,
-        mintPassSaleActive,
-        maxMintPasses,
         userMintPassBalance,
-        chestETHAmount,
-        treasureChestCount,
-        maxTreasureChests,
+        chestCoinReward,
+        claimChestCount,
+        totalChestsMinted,
+        maxClaimChests,
         activeChestSupply,
-        remainingChests,
+        remainingClaimChests,
         colorChangeWeight,
         headRerollWeight,
         metalSkinWeight,
@@ -90,15 +86,13 @@ export function useContractData() {
         fregs.totalMinted(),
         fregs.mintPhase(),
         address ? fregs.freeMints(address) : Promise.resolve(0n),
-        mintPass.mintPassPrice(),
-        mintPass.mintPassSaleActive(),
-        mintPass.maxMintPasses(),
-        address ? mintPass.balanceOf(address, 1) : Promise.resolve(0n), // Token ID 1 for mint pass (MINT_PASS constant)
-        items.chestETHAmount(),
-        items.treasureChestCount(),
-        items.MAX_TREASURE_CHESTS(),
+        address ? mintPass.balanceOf(address, 1) : Promise.resolve(0n),
+        items.chestCoinReward(),
+        items.claimChestCount(),
+        items.totalChestsMinted(),
+        items.MAX_CLAIM_CHESTS(),
         items.getActiveChestSupply(),
-        items.getRemainingChests(),
+        items.getRemainingClaimChests(),
         items.colorChangeWeight(),
         items.headRerollWeight(),
         items.metalSkinWeight(),
@@ -108,30 +102,19 @@ export function useContractData() {
         items.treasureChestWeight(),
       ])
 
-      console.log("Contract data fetched:", {
-        address,
-        mintPhase: Number(mintPhase),
-        freeMints: Number(userFreeMints),
-        userMintPassBalance: Number(userMintPassBalance),
-        mintPassSaleActive,
-        maxMintPasses: Number(maxMintPasses),
-      })
-
       setData({
         mintPrice: formatEther(mintPrice),
         supply: Number(supply),
         totalMinted: Number(totalMinted),
         mintPhase: Number(mintPhase),
         freeMints: Number(userFreeMints),
-        mintPassPrice: formatEther(mintPassPrice),
-        mintPassSaleActive,
-        maxMintPasses: Number(maxMintPasses),
         userMintPassBalance: Number(userMintPassBalance),
-        chestETHAmount: formatEther(chestETHAmount),
-        treasureChestCount: Number(treasureChestCount),
-        maxTreasureChests: Number(maxTreasureChests),
+        chestCoinReward: formatEther(chestCoinReward),
+        claimChestCount: Number(claimChestCount),
+        totalChestsMinted: Number(totalChestsMinted),
+        maxClaimChests: Number(maxClaimChests),
         activeChestSupply: Number(activeChestSupply),
-        remainingChests: Number(remainingChests),
+        remainingClaimChests: Number(remainingClaimChests),
         colorChangeWeight: Number(colorChangeWeight),
         headRerollWeight: Number(headRerollWeight),
         metalSkinWeight: Number(metalSkinWeight),

@@ -18,11 +18,7 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     string public name = "Fregs Mint Pass";
     string public symbol = "FREGMINTPASS";
 
-    // Mint pass configuration
-    uint256 public mintPassPrice = 0.0005 ether;
-    uint256 public maxMintPasses = 1000;
     uint256 public totalMinted;
-    bool public mintPassSaleActive = false;
 
     // SpinTheWheel contract for spin wheel
     address public spinTheWheelContract;
@@ -33,19 +29,6 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
 
     constructor(string memory uri_) ERC1155(uri_) Ownable(msg.sender) {}
 
-    // ============ Mint Pass Purchase ============
-
-    function purchaseMintPass(uint256 amount) external payable nonReentrant {
-        require(mintPassSaleActive, "Mint pass sale not active");
-        require(amount > 0, "Amount must be greater than 0");
-        require(totalMinted + amount <= maxMintPasses, "Exceeds max mint passes");
-        require(msg.value >= mintPassPrice * amount, "Insufficient funds");
-
-        totalMinted += amount;
-        _mint(msg.sender, MINT_PASS, amount, "");
-
-        emit MintPassPurchased(msg.sender, amount);
-    }
 
     // ============ Burn for Mint (called by Fregs contract) ============
 
@@ -65,21 +48,9 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         _setURI(newuri);
     }
 
-    function setMintPassPrice(uint256 _price) external onlyOwner {
-        mintPassPrice = _price;
-    }
-
-    function setMaxMintPasses(uint256 _max) external onlyOwner {
-        maxMintPasses = _max;
-    }
-
-    function setMintPassSaleActive(bool _active) external onlyOwner {
-        mintPassSaleActive = _active;
-    }
 
     // Owner can mint passes for giveaways/airdrops
     function ownerMint(address to, uint256 amount) external onlyOwner {
-        require(totalMinted + amount <= maxMintPasses, "Exceeds max mint passes");
         totalMinted += amount;
         _mint(to, MINT_PASS, amount, "");
     }
@@ -87,8 +58,6 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     // Mint from SpinTheWheel spin wheel
     function mintFromCoin(address to, uint256 amount) external {
         require(msg.sender == spinTheWheelContract, "Only SpinTheWheel contract");
-        require(totalMinted + amount <= maxMintPasses, "Exceeds max mint passes");
-        totalMinted += amount;
         _mint(to, MINT_PASS, amount, "");
         emit MintedFromCoin(to, amount);
     }
@@ -105,7 +74,6 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < amounts.length; i++) {
             totalAmount += amounts[i];
         }
-        require(totalMinted + totalAmount <= maxMintPasses, "Exceeds max mint passes");
 
         totalMinted += totalAmount;
         for (uint256 i = 0; i < recipients.length; i++) {
@@ -119,12 +87,6 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
 
     function withdrawAll() external onlyOwner {
         payable(owner()).transfer(address(this).balance);
-    }
-
-    // ============ View Functions ============
-
-    function mintPassesRemaining() external view returns (uint256) {
-        return maxMintPasses - totalMinted;
     }
 
     function uri(uint256 tokenId) public view override returns (string memory) {
@@ -148,13 +110,10 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     function _encodeMetadata() internal view returns (string memory) {
         bytes memory json = abi.encodePacked(
             '{"name": "Fregs Mint Pass",',
-            '"description": "Use this pass to mint a free Freg NFT with your chosen color!",',
+            '"description": "Use this pass to mint a Freg NFT during the whitelist phase!",',
             '"image": "data:image/svg+xml;base64,',
             _encodePlaceholderSVG(),
-            '","attributes": [{"trait_type": "Type", "value": "Mint Pass"},',
-            '{"trait_type": "Remaining", "value": "',
-            (maxMintPasses - totalMinted).toString(),
-            '"}]}'
+            '","attributes": [{"trait_type": "Type", "value": "Mint Pass"}]}'
         );
         return _base64Encode(json);
     }

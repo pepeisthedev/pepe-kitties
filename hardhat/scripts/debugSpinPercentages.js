@@ -1,7 +1,7 @@
 const { ethers, network } = require("hardhat");
 const { loadDeploymentStatus } = require("./deploymentStatus");
 
-const TOTAL_SPINS = 500;
+const TOTAL_SPINS = 3500;
 const BATCH_SIZE = 50;
 
 const ITEM_NAMES = {
@@ -15,15 +15,14 @@ const PRIZE_NAMES = {
     2: "Item",
 };
 
-function printDistribution(title, counts, total, nameMap) {
+function printDistribution(title, counts, total) {
     console.log(`\n${"=".repeat(60)}`);
-    console.log(`  ${title} (${total} total)`);
+    console.log(`  ${title} (${total} total spins)`);
     console.log(`${"=".repeat(60)}`);
 
     const entries = Object.entries(counts)
-        .map(([id, count]) => ({
-            id: Number(id),
-            name: nameMap[Number(id)] || `Unknown(${id})`,
+        .map(([name, count]) => ({
+            name,
             count,
             pct: ((count / total) * 100).toFixed(2),
         }))
@@ -104,20 +103,16 @@ async function main() {
     const totalSpun = TOTAL_SPINS - failed;
     console.log(`\nSpinning done: ${totalSpun} success, ${failed} failed`);
 
-    // Print reports
-    printDistribution("SPIN OUTCOMES", prizeCounts, totalSpun, PRIZE_NAMES);
-
-    const totalItems = Object.values(itemCounts).reduce((a, b) => a + b, 0);
-    if (totalItems > 0) {
-        printDistribution("ITEM PRIZES (breakdown)", itemCounts, totalItems, ITEM_NAMES);
+    // Build combined winnings: every prize type as % of total spins
+    const allWinnings = {};
+    allWinnings["Lose"] = prizeCounts[0] || 0;
+    allWinnings["Mint Pass"] = prizeCounts[1] || 0;
+    for (const [itemType, count] of Object.entries(itemCounts)) {
+        const name = ITEM_NAMES[Number(itemType)] || `Unknown(${itemType})`;
+        allWinnings[name] = count;
     }
 
-    console.log(`\n${"=".repeat(60)}`);
-    console.log(`  SUMMARY: ${totalSpun} spins completed`);
-    console.log(`    Losses:     ${prizeCounts[0] || 0}`);
-    console.log(`    Mint Passes: ${prizeCounts[1] || 0}`);
-    console.log(`    Items:      ${prizeCounts[2] || 0}`);
-    console.log(`${"=".repeat(60)}`);
+    printDistribution("ALL WINNINGS (% of total spins)", allWinnings, totalSpun);
 }
 
 main().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
