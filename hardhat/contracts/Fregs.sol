@@ -46,6 +46,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     uint256 public supply = 3000;
     address public itemsContract;
     address public mintPassContract;
+    address public liquidityContract;
 
     // Mint phases: 0=Paused, 1=Whitelist, 2=Public
     uint256 public mintPhase;
@@ -367,6 +368,14 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         emit BodyColorChanged(tokenId, oldColor, _color);
     }
 
+    // ============ Liquidity ============
+
+    function burnForLiquidity(uint256 tokenId, address sender) external {
+        require(msg.sender == liquidityContract, "Only liquidity contract");
+        require(ownerOf(tokenId) == sender, "Not token owner");
+        _burn(tokenId);
+    }
+
     // ============ Owner Functions ============
 
     function setSVGRenderer(address _svgRenderer) public onlyOwner {
@@ -379,6 +388,10 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     function setMintPassContract(address _mintPassContract) public onlyOwner {
         mintPassContract = _mintPassContract;
+    }
+
+    function setLiquidityContract(address _liquidityContract) public onlyOwner {
+        liquidityContract = _liquidityContract;
     }
 
     function setMintPhase(uint256 _phase) public onlyOwner {

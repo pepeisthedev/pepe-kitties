@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react"
+import { formatEther } from "ethers"
 import { flushSync } from "react-dom"
 import { useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
@@ -10,7 +11,15 @@ import KittyRenderer from "./KittyRenderer"
 import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
 import { ITEM_TYPE_NAMES, getItemConfig, ITEMS } from "../config/contracts"
-import { Gift, LayoutGrid, Rows } from "lucide-react"
+import { Gift, LayoutGrid, Rows, Flame, AlertTriangle } from "lucide-react"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "./ui/dialog"
 
 // Trait names loaded from traits.json
 interface TraitInfo {
@@ -54,9 +63,12 @@ interface CarouselCardProps {
     hasClaimable: boolean
     onClick: () => void
     traitsConfig: TraitsConfig | null
+    redeemETH: string | null
+    redeemCoin: string | null
+    onBurn: (tokenId: number) => void
 }
 
-function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, traitsConfig }: CarouselCardProps) {
+function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, traitsConfig, redeemETH, redeemCoin, onBurn }: CarouselCardProps) {
     return (
         <div
             className={`flex-shrink-0 w-40 cursor-pointer transition-transform ${
@@ -149,9 +161,20 @@ function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, tra
                                 </div>
                             </div>
                         </div>
-                        <p className="text-[8px] text-theme-subtle text-center font-righteous">
-                            Click to flip
-                        </p>
+                        {redeemETH && (
+                            <div className="border-t border-theme-muted/30 pt-0.5 mt-0.5">
+                                <p className="text-[8px] text-theme-muted font-righteous text-center">Burn value:</p>
+                                <p className="text-[8px] text-theme-primary font-bangers text-center truncate">
+                                    {redeemETH} ETH + {redeemCoin} FROG
+                                </p>
+                            </div>
+                        )}
+                        <button
+                            className="mt-auto w-full text-[8px] bg-red-500/80 hover:bg-red-500 text-white rounded py-0.5 font-bangers transition-colors cursor-pointer"
+                            onClick={(e) => { e.stopPropagation(); onBurn(kitty.tokenId) }}
+                        >
+                            <Flame className="w-2.5 h-2.5 inline mr-0.5" />Burn & Redeem
+                        </button>
                     </div>
                 </div>
             </div>
@@ -174,10 +197,13 @@ export default function MyKittiesSection(): React.JSX.Element {
     const [selectedKittyId, setSelectedKittyId] = useState<number | null>(null)
     const [isClaiming, setIsClaiming] = useState(false)
     const [showModal, setShowModal] = useState(false)
-    const [modalData, setModalData] = useState<{ success: boolean; message: string; itemType?: number; itemTokenId?: number }>({ success: false, message: "" })
+    const [modalData, setModalData] = useState<{ success: boolean; message: string; itemType?: number; itemTokenId?: number; isBurn?: boolean }>({ success: false, message: "" })
     const [viewMode, setViewMode] = useState<'grid' | 'carousel'>('grid')
     const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set())
     const [traitsConfig, setTraitsConfig] = useState<TraitsConfig | null>(null)
+    const [redeemETH, setRedeemETH] = useState<string | null>(null)
+    const [redeemCoin, setRedeemCoin] = useState<string | null>(null)
+    const [burnConfirmTokenId, setBurnConfirmTokenId] = useState<number | null>(null)
 
     // Load traits config for name lookups
     useEffect(() => {
@@ -186,6 +212,15 @@ export default function MyKittiesSection(): React.JSX.Element {
             .then(data => setTraitsConfig(data))
             .catch(err => console.error('Failed to load traits config:', err))
     }, [])
+
+    // Fetch redeem amounts from liquidity contract
+    useEffect(() => {
+        if (!contracts?.liquidity) return
+        contracts.liquidity.read.getRedeemAmount().then(([eth, coin]: [bigint, bigint]) => {
+            setRedeemETH(parseFloat(formatEther(eth)).toFixed(6))
+            setRedeemCoin(parseFloat(formatEther(coin)).toFixed(0))
+        }).catch(() => {})
+    }, [contracts, kitties])
 
     // Check if a kitty can claim an item
     const canClaim = (tokenId: number) => unclaimedIds.includes(tokenId)
@@ -280,6 +315,41 @@ export default function MyKittiesSection(): React.JSX.Element {
             })
         }
     }
+
+    const handleBurn = useCallback((tokenId: number) => {
+        if (!contracts?.liquidity) return
+        setBurnConfirmTokenId(tokenId)
+    }, [contracts])
+
+    const confirmBurn = useCallback(async () => {
+        if (!contracts?.liquidity || burnConfirmTokenId === null) return
+        const tokenId = burnConfirmTokenId
+        setBurnConfirmTokenId(null)
+
+        flushSync(() => {
+            setIsModalLoading(true)
+            setModalData({ success: false, message: "", isBurn: true })
+            setShowModal(true)
+        })
+
+        try {
+            const contract = await contracts.liquidity.write()
+            const tx = await contract.burnAndClaim(tokenId, { gasLimit: 500000n })
+            await tx.wait()
+
+            setModalData({
+                success: true,
+                message: `Freg #${tokenId} burned! You received ${redeemETH} ETH + ${redeemCoin} FREGCOIN.`,
+                isBurn: true,
+            })
+
+            await refetchKitties()
+        } catch (err: any) {
+            setModalData({ success: false, message: err.message || "Burn failed", isBurn: true })
+        } finally {
+            setIsModalLoading(false)
+        }
+    }, [contracts, burnConfirmTokenId, redeemETH, redeemCoin, refetchKitties])
 
     // Count how many kitties can claim
     const claimableCount = kitties.filter(k => canClaim(k.tokenId)).length
@@ -482,9 +552,20 @@ export default function MyKittiesSection(): React.JSX.Element {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <p className="text-[9px] text-theme-subtle text-center mt-1 font-righteous">
-                                                        Click to flip
-                                                    </p>
+                                                    {redeemETH && (
+                                                        <div className="border-t border-theme-muted/30 pt-1 mt-1">
+                                                            <p className="text-[9px] text-theme-muted font-righteous text-center">Burn value:</p>
+                                                            <p className="text-[10px] text-theme-primary font-bangers text-center truncate">
+                                                                {redeemETH} ETH + {redeemCoin} FROG
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                    <button
+                                                        className="mt-auto w-full text-[10px] bg-red-500/80 hover:bg-red-500 text-white rounded py-1 font-bangers transition-colors cursor-pointer"
+                                                        onClick={(e) => { e.stopPropagation(); handleBurn(kitty.tokenId) }}
+                                                    >
+                                                        <Flame className="w-3 h-3 inline mr-0.5" />Burn & Redeem
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -521,6 +602,9 @@ export default function MyKittiesSection(): React.JSX.Element {
                                             hasClaimable={canClaim(kitty.tokenId)}
                                             onClick={() => handleKittyClick(kitty.tokenId)}
                                             traitsConfig={traitsConfig}
+                                            redeemETH={redeemETH}
+                                            redeemCoin={redeemCoin}
+                                            onBurn={handleBurn}
                                         />
                                     ))}
                                 </div>
@@ -545,6 +629,9 @@ export default function MyKittiesSection(): React.JSX.Element {
                                             hasClaimable={canClaim(kitty.tokenId)}
                                             onClick={() => handleKittyClick(kitty.tokenId)}
                                             traitsConfig={traitsConfig}
+                                            redeemETH={redeemETH}
+                                            redeemCoin={redeemCoin}
+                                            onBurn={handleBurn}
                                         />
                                     ))}
                                 </div>
@@ -566,12 +653,50 @@ export default function MyKittiesSection(): React.JSX.Element {
                 </>
             )}
 
+            {/* Burn Confirm Modal */}
+            <Dialog open={burnConfirmTokenId !== null} onOpenChange={(open) => !open && setBurnConfirmTokenId(null)}>
+                <DialogContent className="bg-theme-card border-2 border-red-500 rounded-2xl max-w-sm">
+                    <DialogHeader className="text-center">
+                        <div className="flex justify-center mb-3">
+                            <AlertTriangle className="w-14 h-14 text-red-400" />
+                        </div>
+                        <DialogTitle className="font-bangers text-2xl text-red-400 text-center">
+                            Burn Freg #{burnConfirmTokenId}?
+                        </DialogTitle>
+                        <DialogDescription className="font-righteous text-theme-muted text-sm mt-2 text-center">
+                            This is irreversible! Your Freg will be permanently destroyed.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="bg-theme-card/50 border border-theme-muted/30 rounded-xl p-3 my-2">
+                        <p className="font-righteous text-xs text-theme-muted text-center mb-1">You will receive:</p>
+                        <p className="font-bangers text-lg text-theme-primary text-center">
+                            {redeemETH} ETH + {redeemCoin} FREGCOIN
+                        </p>
+                    </div>
+                    <DialogFooter className="flex gap-3 sm:justify-center">
+                        <Button
+                            onClick={() => setBurnConfirmTokenId(null)}
+                            className="flex-1 font-bangers text-lg px-6 py-3 rounded-xl bg-theme-card border border-theme-muted/30 text-theme-muted hover:text-theme-primary"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={confirmBurn}
+                            className="flex-1 font-bangers text-lg px-6 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white cursor-pointer"
+                        >
+                            <Flame className="w-5 h-5 mr-1" />
+                            Burn
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Result Modal */}
             <ResultModal
                 isOpen={showModal}
                 onClose={() => setShowModal(false)}
-                title={isModalLoading ? "Claiming..." : modalData.success ? "Item Claimed!" : "Error"}
-                description={isModalLoading ? "Please wait while your item is being claimed" : modalData.message}
+                title={isModalLoading ? (modalData.isBurn ? "Burning..." : "Claiming...") : modalData.success ? (modalData.isBurn ? "Burned!" : "Item Claimed!") : "Error"}
+                description={isModalLoading ? (modalData.isBurn ? "Please wait while your Freg is being burned" : "Please wait while your item is being claimed") : modalData.message}
                 success={modalData.success}
                 loading={isModalLoading}
             >

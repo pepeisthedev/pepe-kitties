@@ -626,6 +626,12 @@ async function main() {
     const spinTheWheel = await deployContract(SpinTheWheel, [""], "SpinTheWheel");
     const spinTheWheelAddress = await spinTheWheel.getAddress();
 
+    // ============ Deploy FregsLiquidity ============
+    console.log("\n--- Deploying FregsLiquidity ---");
+    const FregsLiquidity = await ethers.getContractFactory("FregsLiquidity");
+    const fregsLiquidity = await deployContract(FregsLiquidity, [], "FregsLiquidity");
+    const fregsLiquidityAddress = await fregsLiquidity.getAddress();
+
     // ============ Configure Cross-Contract References ============
     console.log("\n--- Configuring Cross-Contract References ---");
 
@@ -661,6 +667,12 @@ async function main() {
     // Set FregCoin on FregsItems
     console.log("Setting FregCoin on FregsItems...");
     await sendTx(fregsItems.setFregCoinContract(fregCoinAddress));
+
+    // Configure FregsLiquidity
+    console.log("Configuring FregsLiquidity...");
+    await sendTx(fregsLiquidity.setFregs(fregsAddress));
+    await sendTx(fregsLiquidity.setFregCoin(fregCoinAddress));
+    await sendTx(fregs.setLiquidityContract(fregsLiquidityAddress));
 
     // ============ Set Mint Phase ============
     const isLocalhost = network.name === "localhost" || network.name === "hardhat";
@@ -707,6 +719,18 @@ async function main() {
         await sendTx(fregCoin.ownerMint(fregsItemsAddress, chestFunding));
         const itemsCoinBalance = await fregCoin.balanceOf(fregsItemsAddress);
         console.log(`FregsItems FregCoin balance: ${ethers.formatEther(itemsCoinBalance)}`);
+
+        // Fund FregsLiquidity with ETH and FregCoin for testing
+        console.log("\n--- Funding FregsLiquidity ---");
+        const liquidityETH = ethers.parseEther("1.0");
+        await sendTx(fregsLiquidity.depositETH({ value: liquidityETH }));
+        console.log(`FregsLiquidity ETH balance: ${ethers.formatEther(liquidityETH)}`);
+
+        const liquidityCoinAmount = ethers.parseEther("3000000000"); // 3B FregCoin
+        console.log("Minting 3B FregCoin to FregsLiquidity...");
+        await sendTx(fregCoin.ownerMint(fregsLiquidityAddress, liquidityCoinAmount));
+        const liquidityCoinBalance = await fregCoin.balanceOf(fregsLiquidityAddress);
+        console.log(`FregsLiquidity FregCoin balance: ${ethers.formatEther(liquidityCoinBalance)}`);
     }
 
     // ============ Configure Item Configs from items.json ============
@@ -738,6 +762,7 @@ async function main() {
     deploymentStatus.contracts.fregsMintPass = fregsMintPassAddress;
     deploymentStatus.contracts.fregCoin = fregCoinAddress;
     deploymentStatus.contracts.spinTheWheel = spinTheWheelAddress;
+    deploymentStatus.contracts.fregsLiquidity = fregsLiquidityAddress;
 
     // ============ Deploy Art and SVG Renderer ============
     const artAddresses = await deployArt(deploymentStatus);
@@ -832,6 +857,7 @@ async function main() {
     copyABI("FregsSVGRenderer", "FregsSVGRenderer");
     copyABI("SpinTheWheel", "SpinTheWheel");
     copyABI("FregCoin", "FregCoin");
+    copyABI("FregsLiquidity", "FregsLiquidity");
 
     console.log("ABIs copied successfully!");
 
@@ -915,6 +941,7 @@ async function main() {
     console.log("  Fregs Mint Pass: ", fregsMintPassAddress);
     console.log("  FregCoin:        ", fregCoinAddress);
     console.log("  SpinTheWheel:    ", spinTheWheelAddress);
+    console.log("  FregsLiquidity:  ", fregsLiquidityAddress);
     console.log("  SVG Renderer:    ", svgRendererAddress);
     console.log("\nArt Contracts (6 unified routers):");
     console.log("  Background:        ", artAddresses.background || "Not deployed (uses color rect)");
@@ -961,6 +988,7 @@ async function main() {
     console.log(`VITE_FREGS_MINTPASS_ADDRESS=${fregsMintPassAddress}`);
     console.log(`VITE_FREGCOIN_ADDRESS=${fregCoinAddress}`);
     console.log(`VITE_SPIN_THE_WHEEL_ADDRESS=${spinTheWheelAddress}`);
+    console.log(`VITE_FREGS_LIQUIDITY_ADDRESS=${fregsLiquidityAddress}`);
     console.log(`VITE_SVG_RENDERER_ADDRESS=${svgRendererAddress}`);
 
 }

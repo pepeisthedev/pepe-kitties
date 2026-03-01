@@ -461,7 +461,7 @@ export default function MintSection(): React.JSX.Element {
                                         : "bg-red-500 hover:bg-red-400 text-white"
                                 }`}
                             >
-                                {mintStatus === 'success' ? "Awesome!" : "Close"}
+                                {mintStatus === 'success' ? "Ribbit!" : "Close"}
                             </Button>
                         </DialogFooter>
                     )}

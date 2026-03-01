@@ -6,10 +6,12 @@ import {
   FREGS_ITEMS_ADDRESS,
   FREGS_MINTPASS_ADDRESS,
   SPIN_THE_WHEEL_ADDRESS,
+  FREGS_LIQUIDITY_ADDRESS,
   FregsABI,
   FregsItemsABI,
   FregsMintPassABI,
   SpinTheWheelABI,
+  FregsLiquidityABI,
 } from "../config/contracts"
 
 export function useContracts() {
@@ -51,6 +53,13 @@ export function useContracts() {
         write: async () => {
           const signer = await getSigner()
           return new Contract(SPIN_THE_WHEEL_ADDRESS, SpinTheWheelABI, signer)
+        },
+      } : null,
+      liquidity: FREGS_LIQUIDITY_ADDRESS ? {
+        read: new Contract(FREGS_LIQUIDITY_ADDRESS, FregsLiquidityABI, provider),
+        write: async () => {
+          const signer = await getSigner()
+          return new Contract(FREGS_LIQUIDITY_ADDRESS, FregsLiquidityABI, signer)
         },
       } : null,
     }
