@@ -14,7 +14,7 @@ interface HeaderProps {
 const navItems: { id: SectionId; label: string }[] = [
     { id: "mint", label: "Mint" },
     { id: "my-kitties", label: "My Fregs" },
-    { id: "treasure-chests", label: "Chests" },
+    { id: "treasure-chests", label: "$FREG" },
     { id: "spin-wheel", label: "Spin" },
 ]
 

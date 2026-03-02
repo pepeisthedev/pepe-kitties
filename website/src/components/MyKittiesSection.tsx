@@ -632,7 +632,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                 }`}
                             >
                                 <Backpack className="w-4 h-4" />
-                                My Items
+                                Use Items
                             </button>
                         </div>
 

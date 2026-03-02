@@ -1,4 +1,5 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
+import { formatEther } from "ethers"
 import { useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
@@ -18,6 +19,17 @@ export default function TreasureChestSection(): React.JSX.Element {
     const [burningId, setBurningId] = useState<number | null>(null)
     const [showModal, setShowModal] = useState(false)
     const [modalData, setModalData] = useState<{ success: boolean; message: string }>({ success: false, message: "" })
+    const [redeemETH, setRedeemETH] = useState<string | null>(null)
+    const [redeemCoin, setRedeemCoin] = useState<string | null>(null)
+
+    // Fetch redeem amounts from liquidity contract
+    useEffect(() => {
+        if (!contracts?.liquidity) return
+        contracts.liquidity.read.getRedeemAmount().then(([eth, coin]: [bigint, bigint]) => {
+            setRedeemETH(parseFloat(formatEther(eth)).toFixed(6))
+            setRedeemCoin(parseFloat(formatEther(coin)).toFixed(0))
+        }).catch(() => {})
+    }, [contracts])
 
     // Filter to only treasure chests
     const chests = items.filter(item => item.itemType === ITEM_TYPES.TREASURE_CHEST)
@@ -46,10 +58,47 @@ export default function TreasureChestSection(): React.JSX.Element {
 
     return (
         <Section id="treasure-chests">
+            {/* $FREG Token Info */}
             <div className="text-center mb-12">
                 <h2 className="font-bangers text-5xl md:text-7xl text-theme-primary mb-4">
-                    TREASURE CHESTS
+                    $FREG
                 </h2>
+                <p className="font-righteous text-xl md:text-2xl text-theme-muted max-w-2xl mx-auto mb-8">
+                    The official token of the Fregs ecosystem
+                </p>
+
+                {/* External Links */}
+                <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
+                    <Button
+                        onClick={() => window.open("https://dexscreener.com/base/0x3735e0fad9DcD3BB9a0e4a2E86bD24f8a86AeF17", "_blank")}
+                        className="inline-flex items-center justify-center gap-3 px-6 py-3 rounded-2xl font-bangers text-lg
+                            btn-theme-primary
+                            hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
+                    >
+                        <img src="/dexscreener-logo.svg" alt="DexScreener" className="w-6 h-6 brightness-0 invert" />
+                        DexScreener
+                    </Button>
+                    <Button
+                        onClick={() => window.open("https://app.uniswap.org/swap?outputCurrency=0x3735e0fad9DcD3BB9a0e4a2E86bD24f8a86AeF17&chain=base", "_blank")}
+                        className="inline-flex items-center justify-center gap-3 px-6 py-3 rounded-2xl font-bangers text-lg
+                            btn-theme-primary
+                            hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
+                    >
+                        <img src="/uniswap-logo.svg" alt="Uniswap" className="w-6 h-6" />
+                        Buy on Uniswap
+                    </Button>
+                </div>
+
+                
+            </div>
+
+            {/* Treasure Chests Separator */}
+            <div className="border-t-2 border-theme my-12" />
+
+            <div className="text-center mb-12">
+                <h3 className="font-bangers text-4xl md:text-5xl text-theme-primary mb-4">
+                    TREASURE CHESTS
+                </h3>
                 <p className="font-righteous text-xl md:text-2xl text-theme-muted max-w-2xl mx-auto mb-2">
                     Burn your treasure chest to claim FregCoin!
                 </p>
