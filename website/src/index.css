@@ -350,6 +350,14 @@
   background-color: var(--theme-primary-hover);
 }
 
+/* Theme-aware icon that follows button text color (black in dark, white in light) */
+.icon-theme-button {
+  filter: brightness(0);
+}
+[data-theme="light"] .icon-theme-button {
+  filter: brightness(0) invert(1);
+}
+
 /* Theme-aware spinner */
 .spinner-theme {
   border-color: var(--theme-border);

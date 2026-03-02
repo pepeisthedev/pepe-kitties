@@ -75,7 +75,7 @@ export default function TreasureChestSection(): React.JSX.Element {
                             btn-theme-primary
                             hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
                     >
-                        <img src="/dexscreener-logo.svg" alt="DexScreener" className="w-6 h-6 brightness-0 invert" />
+                        <img src="/dexscreener-logo.svg" alt="DexScreener" className="w-6 h-6 icon-theme-button" />
                         DexScreener
                     </Button>
                     <Button
@@ -84,7 +84,7 @@ export default function TreasureChestSection(): React.JSX.Element {
                             btn-theme-primary
                             hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
                     >
-                        <img src="/uniswap-logo.svg" alt="Uniswap" className="w-6 h-6" />
+                        <img src="/uniswap-logo.svg" alt="Uniswap" className="w-6 h-6 icon-theme-button" />
                         Buy on Uniswap
                     </Button>
                 </div>
@@ -102,15 +102,7 @@ export default function TreasureChestSection(): React.JSX.Element {
                 <p className="font-righteous text-xl md:text-2xl text-theme-muted max-w-2xl mx-auto mb-2">
                     Burn your treasure chest to claim FregCoin!
                 </p>
-                {contractData && (
-                    <p className="font-righteous text-sm text-theme-subtle">
-                        {contractData.remainingClaimChests > 0 ? (
-                            <><span className="text-theme-primary font-bold">{contractData.remainingClaimChests}</span> chests still to be found</>
-                        ) : (
-                            <span className="text-orange-400">All chests have been found!</span>
-                        )}
-                    </p>
-                )}
+            
             </div>
 
             {!isConnected ? (
