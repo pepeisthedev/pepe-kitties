@@ -23,3 +23,7 @@ typechain-types
 
 .DS_Store
 .env
+
+# Deployment status (per-network) and history
+deployment-status*.json
+/deployment-history

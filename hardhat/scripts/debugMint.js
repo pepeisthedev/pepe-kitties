@@ -1,6 +1,5 @@
-const { ethers } = require("hardhat");
-const fs = require("fs");
-const path = require("path");
+const { ethers, network } = require("hardhat");
+const { loadDeploymentStatus } = require("./deploymentStatus");
 
 const NONE = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
@@ -17,7 +16,7 @@ const ITEM_NAMES = {
 };
 
 async function main() {
-    const status = JSON.parse(fs.readFileSync(path.join(__dirname, "../deployment-status.json"), "utf8"));
+    const status = loadDeploymentStatus(network.name);
     const [deployer] = await ethers.getSigners();
 
     const fregs = await ethers.getContractAt("Fregs", status.contracts.fregs);

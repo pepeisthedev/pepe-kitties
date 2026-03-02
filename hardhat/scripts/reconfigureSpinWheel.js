@@ -1,9 +1,5 @@
 const { ethers, network } = require("hardhat");
-const fs = require("fs");
-const path = require("path");
-
-// ============ CONFIGURATION ============
-const DEPLOYMENT_STATUS_PATH = path.join(__dirname, "../deployment-status.json");
+const { loadDeploymentStatus } = require("./deploymentStatus");
 
 async function sendTx(txPromise, confirmations = 1) {
     const tx = await txPromise;
@@ -26,17 +22,17 @@ async function main() {
     console.log("Deployer:", deployerAddress);
 
     // Load deployment status
-    if (!fs.existsSync(DEPLOYMENT_STATUS_PATH)) {
-        console.error("\n Error: deployment-status.json not found!");
+    const deploymentStatus = loadDeploymentStatus(network.name);
+    if (!deploymentStatus.contracts || Object.keys(deploymentStatus.contracts).length === 0) {
+        console.error(`\n Error: No deployment status found for network ${network.name}!`);
         process.exit(1);
     }
-    const deploymentStatus = JSON.parse(fs.readFileSync(DEPLOYMENT_STATUS_PATH, "utf8"));
 
-    const fregCoinAddress = deploymentStatus.contracts?.fregCoin;
+    const spinTheWheelAddress = deploymentStatus.contracts?.spinTheWheel;
     const fregsItemsAddress = deploymentStatus.contracts?.fregsItems;
 
-    if (!fregCoinAddress) {
-        console.error("\n Error: FregCoin address not found in deployment-status.json!");
+    if (!spinTheWheelAddress) {
+        console.error("\n Error: SpinTheWheel address not found in deployment-status.json!");
         process.exit(1);
     }
     if (!fregsItemsAddress) {
@@ -45,35 +41,35 @@ async function main() {
     }
 
     console.log("\nContracts:");
-    console.log("  FregCoin:", fregCoinAddress);
+    console.log("  SpinTheWheel:", spinTheWheelAddress);
     console.log("  FregsItems:", fregsItemsAddress);
 
-    const fregCoin = await ethers.getContractAt("FregCoin", fregCoinAddress);
+    const spinTheWheel = await ethers.getContractAt("SpinTheWheel", spinTheWheelAddress);
     const fregsItems = await ethers.getContractAt("FregsItems", fregsItemsAddress);
 
-    // ============ Update FregCoin Prize Weights ============
-    console.log("\n--- Updating FregCoin Prize Configuration ---");
+    // ============ Update SpinTheWheel Prize Weights ============
+    console.log("\n--- Updating SpinTheWheel Prize Configuration ---");
 
     console.log("Setting lose weight to 0 (no lose)...");
-    await sendTx(fregCoin.setLoseWeight(0));
+    await sendTx(spinTheWheel.setLoseWeight(0));
 
     console.log("Setting MintPass weight to 9000 (90%)...");
-    await sendTx(fregCoin.setMintPassWeight(9000));
+    await sendTx(spinTheWheel.setMintPassWeight(9000));
 
     console.log("Removing Silver Skin prize (item type 200)...");
-    await sendTx(fregCoin.removeItemPrize(200));
+    await sendTx(spinTheWheel.removeItemPrize(200));
 
     console.log("Removing Neon Skin prize (item type 201)...");
-    await sendTx(fregCoin.removeItemPrize(201));
+    await sendTx(spinTheWheel.removeItemPrize(201));
 
     console.log("Adding Hoodie prize (item type 9, weight 300 = 3%)...");
-    await sendTx(fregCoin.addItemPrize(9, 300));
+    await sendTx(spinTheWheel.addItemPrize(9, 300));
 
     console.log("Adding Frogsuit prize (item type 10, weight 300 = 3%)...");
-    await sendTx(fregCoin.addItemPrize(10, 300));
+    await sendTx(spinTheWheel.addItemPrize(10, 300));
 
     console.log("Adding Treasure Chest prize (item type 6, weight 400 = 4%)...");
-    await sendTx(fregCoin.addItemPrize(6, 400));
+    await sendTx(spinTheWheel.addItemPrize(6, 400));
 
     // ============ Ensure Prize Item Types Are Configured ============
     console.log("\n--- Ensuring Prize Item Types Are Configured ---");

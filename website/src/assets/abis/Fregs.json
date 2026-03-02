@@ -604,6 +604,24 @@
   {
     "inputs": [
       {
+        "internalType": "address[]",
+        "name": "wallets",
+        "type": "address[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "counts",
+        "type": "uint256[]"
+      }
+    ],
+    "name": "addFreeMintWallets",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "to",
         "type": "address"
@@ -690,19 +708,6 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "bellyNoneChance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -743,19 +748,38 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "_color",
-        "type": "string"
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
       },
       {
         "internalType": "address",
-        "name": "_sender",
+        "name": "sender",
         "type": "address"
       }
     ],
-    "name": "freeMint",
+    "name": "burnForLiquidity",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "freeMints",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -877,32 +901,6 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "headDefaultTrait",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "headNoneChance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "address",
@@ -940,6 +938,19 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "liquidityContract",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "string",
@@ -960,6 +971,19 @@
         "internalType": "address",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "mintPhase",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -999,25 +1023,31 @@
   },
   {
     "inputs": [],
-    "name": "mouthNoneChance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "name",
     "outputs": [
       {
         "internalType": "string",
         "name": "",
         "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "noneTraitId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -1053,6 +1083,19 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address[]",
+        "name": "wallets",
+        "type": "address[]"
+      }
+    ],
+    "name": "removeFreeMintWallets",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1231,11 +1274,37 @@
     "inputs": [
       {
         "internalType": "address",
+        "name": "_liquidityContract",
+        "type": "address"
+      }
+    ],
+    "name": "setLiquidityContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "_mintPassContract",
         "type": "address"
       }
     ],
     "name": "setMintPassContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_phase",
+        "type": "uint256"
+      }
+    ],
+    "name": "setMintPhase",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1311,26 +1380,21 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_head",
+        "name": "traitType",
         "type": "uint256"
       },
       {
-        "internalType": "uint256",
-        "name": "_mouth",
-        "type": "uint256"
+        "internalType": "uint256[]",
+        "name": "weights",
+        "type": "uint256[]"
       },
       {
         "internalType": "uint256",
-        "name": "_belly",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_headDefault",
+        "name": "_noneTraitId",
         "type": "uint256"
       }
     ],
-    "name": "setTraitNoneChances",
+    "name": "setTraitWeights",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

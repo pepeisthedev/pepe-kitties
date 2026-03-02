@@ -7,6 +7,7 @@ import "./utils/BasicRoyalties.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IFregs {
     function ownerOf(uint256 tokenId) external view returns (address);
@@ -73,6 +74,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     IFregs public fregs;
     ISVGItemsRenderer public svgRenderer;
     address public spinTheWheelContract;
+    address public fregCoinContract;
 
     uint256 private _tokenIdCounter;
     uint256 private randomNonce;
@@ -84,10 +86,11 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     mapping(uint256 => uint256) public itemType;
 
     // Treasure chest tracking
-    uint256 public treasureChestCount;      // Total chests ever found (max 5)
-    uint256 public chestsBurned;            // Total chests burned (for calculating active supply)
-    uint256 public constant MAX_TREASURE_CHESTS = 5;
-    uint256 public chestETHAmount = 0.1 ether;
+    uint256 public claimChestCount;         // Chests minted via claims (max 300)
+    uint256 public totalChestsMinted;       // All chests ever minted (claims + spins)
+    uint256 public chestsBurned;            // Total chests burned
+    uint256 public constant MAX_CLAIM_CHESTS = 300;
+    uint256 public chestCoinReward = 133_700_000 ether;  // 0.01% of 1.337T FregCoin supply
 
     // Rarity weights for claimable items
     uint256 public colorChangeWeight = 5500;    // 55%
@@ -137,7 +140,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     event TreasureChestBurned(
         uint256 indexed itemTokenId,
         address indexed owner,
-        uint256 ethAmount
+        uint256 coinAmount
     );
 
     event ItemTypeAdded(
@@ -243,8 +246,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
         hasClaimed[fregId] = true;
 
-        // Check if treasure chests are still available (max 5 ever)
-        bool chestsAvailable = treasureChestCount < MAX_TREASURE_CHESTS;
+        // Check if claim chests are still available (max 300)
+        bool chestsAvailable = claimChestCount < MAX_CLAIM_CHESTS;
 
         // Calculate total weight from claimable items only
         uint256 totalWeight = colorChangeWeight + headRerollWeight +
@@ -267,7 +270,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
                 _safeMint(msg.sender, 1);
                 _tokenIdCounter += 1;
                 itemType[chestId] = TREASURE_CHEST;
-                treasureChestCount += 1;
+                claimChestCount += 1;
+                totalChestsMinted += 1;
 
                 emit TreasureChestMinted(chestId, msg.sender);
                 emit ItemClaimed(fregId, chestId, msg.sender, TREASURE_CHEST);
@@ -422,15 +426,17 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     function burnChest(uint256 chestTokenId) external nonReentrant {
         require(ownerOf(chestTokenId) == msg.sender, "Not chest owner");
         require(itemType[chestTokenId] == TREASURE_CHEST, "Not a treasure chest");
-        require(address(this).balance >= chestETHAmount, "Insufficient contract balance");
+        require(
+            IERC20(fregCoinContract).balanceOf(address(this)) >= chestCoinReward,
+            "Insufficient coin balance"
+        );
 
         _burn(chestTokenId);
         chestsBurned += 1;
-        // Note: treasureChestCount is NOT decremented because it tracks total chests ever found (max 5)
 
-        payable(msg.sender).transfer(chestETHAmount);
+        IERC20(fregCoinContract).transfer(msg.sender, chestCoinReward);
 
-        emit TreasureChestBurned(chestTokenId, msg.sender, chestETHAmount);
+        emit TreasureChestBurned(chestTokenId, msg.sender, chestCoinReward);
     }
 
     // ============ Owner Functions ============
@@ -463,11 +469,19 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         _tokenIdCounter += 1;
         itemType[newItemId] = _itemType;
 
+        if (_itemType == TREASURE_CHEST) {
+            totalChestsMinted += 1;
+        }
+
         emit MintedFromCoin(newItemId, to, _itemType);
     }
 
     function setSpinTheWheelContract(address _spinTheWheel) external onlyOwner {
         spinTheWheelContract = _spinTheWheel;
+    }
+
+    function setFregCoinContract(address _fregCoin) external onlyOwner {
+        fregCoinContract = _fregCoin;
     }
 
     // Add a new dynamic item type
@@ -602,8 +616,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         svgRenderer = ISVGItemsRenderer(_svgRenderer);
     }
 
-    function setChestETHAmount(uint256 _amount) external onlyOwner {
-        chestETHAmount = _amount;
+    function setChestCoinReward(uint256 _amount) external onlyOwner {
+        chestCoinReward = _amount;
     }
 
     function setTreasureChestWeight(uint256 _weight) external onlyOwner {
@@ -634,13 +648,16 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function withdrawExcess() external onlyOwner {
-        uint256 activeChests = treasureChestCount - chestsBurned;
-        uint256 reserved = activeChests * chestETHAmount;
-        require(address(this).balance > reserved, "No excess funds");
-        payable(owner()).transfer(address(this).balance - reserved);
+        uint256 activeChests = totalChestsMinted - chestsBurned;
+        uint256 reserved = activeChests * chestCoinReward;
+        uint256 balance = IERC20(fregCoinContract).balanceOf(address(this));
+        require(balance > reserved, "No excess coins");
+        IERC20(fregCoinContract).transfer(owner(), balance - reserved);
     }
 
-    function depositETH() external payable onlyOwner {}
+    function depositCoins(uint256 amount) external onlyOwner {
+        IERC20(fregCoinContract).transferFrom(msg.sender, address(this), amount);
+    }
 
     // ============ View Functions ============
 
@@ -650,11 +667,11 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
 
     function getActiveChestSupply() public view returns (uint256) {
-        return treasureChestCount - chestsBurned;
+        return totalChestsMinted - chestsBurned;
     }
 
-    function getRemainingChests() public view returns (uint256) {
-        return MAX_TREASURE_CHESTS - treasureChestCount;
+    function getRemainingClaimChests() public view returns (uint256) {
+        return MAX_CLAIM_CHESTS - claimChestCount;
     }
 
     function getItemInfo(uint256 itemTokenId)
@@ -719,6 +736,12 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         return unclaimed;
     }
 
+    // ============ View Functions (continued) ============
+
+    function coinBalance() public view returns (uint256) {
+        return IERC20(fregCoinContract).balanceOf(address(this));
+    }
+
     // ============ Required Overrides ============
 
     function supportsInterface(bytes4 interfaceId)
@@ -734,7 +757,4 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     function _requireCallerIsContractOwner() internal view override {
         _checkOwner();
     }
-
-    // Allow contract to receive ETH for chest rewards
-    receive() external payable {}
 }

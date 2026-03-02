@@ -248,7 +248,7 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                                 playsInline
                                 className="w-full h-auto object-contain bg-black"
                             >
-                                <source src={`${VIDEO_BASE_URL}/roadmap.mp4`} type="video/mp4" />
+                                <source src={`${VIDEO_BASE_URL}/roadmap_hd.MP4`} type="video/mp4" />
                             </video>
                         </div>
                     </div>
@@ -293,8 +293,8 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                             src={`${VIDEO_BASE_URL}/HatFreg.MP4`}
                             clickable={false}
                         />
-                        <ImageCard
-                            src="/frogz/freg1.png"
+                     <VideoCard
+                            src={`${VIDEO_BASE_URL}/skeleton.MP4`}
                             clickable={false}
                         />
                     </div>

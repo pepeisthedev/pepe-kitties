@@ -333,7 +333,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
         <div className="flex flex-col items-center gap-8 relative">
 
           {/* Spin Wheel: rotating disc + static frame overlay */}
-          <div className="relative w-80 h-80 md:w-140 md:h-140 mt-40 md:mt-0">
+          <div className="relative w-80 h-80 md:w-140 md:h-140 2xl:w-[44rem] 2xl:h-[44rem] mt-40 md:mt-0 2xl:mt-60">
             {/* Rotating wheel disc (behind the frame) */}
             <div
               ref={wheelImgRef}

@@ -17,7 +17,7 @@ const FROGZ_PATH = "/frogz/default"
 const FROM_ITEMS_PATH = "/frogz/from_items"
 
 // Base trait counts - heads with IDs above this are item heads (stored in added/head folder)
-const BASE_HEAD_COUNT = 19
+const BASE_HEAD_COUNT = 22
 
 
 // Cache for original SVG content to avoid repeated fetches
@@ -160,7 +160,7 @@ export default function KittyRenderer({
       )}
 
       {/* Head - each head trait includes eyes in its SVG
-          Base heads (1-19) are in default/head/, item heads (20+) are in from_items/head/ */}
+          Base heads (1-22) are in default/head/, item heads (23+) are in from_items/head/ */}
       {head > BASE_HEAD_COUNT ? (
         <img
           src={`${FROM_ITEMS_PATH}/head/${head - BASE_HEAD_COUNT}.svg`}

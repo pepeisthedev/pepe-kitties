@@ -74,9 +74,11 @@ export default function MintSection(): React.JSX.Element {
 
     const paletteColors = generatePalette(hue)
 
-    // Check if user has mint passes for free mint
+    // Mint phase and free mint status
+    const mintPhase = contractData?.mintPhase ?? 0
+    const userFreeMints = contractData?.freeMints ?? 0
     const hasMintPass = contractData && contractData.userMintPassBalance > 0
-    const mintPassCount = contractData?.userMintPassBalance || 0
+    const hasFreeMint = userFreeMints > 0
 
     const parseFregMintedEvent = (receipt: any) => {
         const NONE_TRAIT = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
@@ -113,16 +115,13 @@ export default function MintSection(): React.JSX.Element {
         setErrorMessage("")
 
         try {
-            let tx
-            if (hasMintPass) {
-                // Free mint using mint pass
-                const contract = await contracts.mintPass.write()
-                tx = await contract.mintFreg(skinColor, { gasLimit: 500000n })
-            } else {
-                // Paid mint
-                const contract = await contracts.fregs.write()
-                tx = await contract.mint(skinColor, { value: parseEther(contractData.mintPrice), gasLimit: 500000n })
-            }
+            const contract = await contracts.fregs.write()
+            // Only free mint wallets skip ETH payment — everyone else pays
+            const needsPayment = !hasFreeMint
+            const tx = await contract.mint(skinColor, {
+                value: needsPayment ? parseEther(contractData.mintPrice) : 0n,
+                gasLimit: 500000n,
+            })
 
             setMintStatus('confirming')
             const receipt = await tx.wait()
@@ -178,20 +177,22 @@ export default function MintSection(): React.JSX.Element {
 
                 {/* Mint Controls */}
                 <div className="space-y-2 xl:space-y-6 flex flex-col justify-center">
+     
+
                     {/* Price Display */}
                     <div className="text-center">
                         <p className="font-righteous text-theme-muted text-xs xl:text-lg mb-0.5">Price</p>
                         <div className="font-bangers text-2xl xl:text-5xl text-theme-primary">
                             {dataLoading ? (
                                 <LoadingSpinner size="sm" />
-                            ) : hasMintPass ? (
+                            ) : hasFreeMint ? (
                                 <div className="flex flex-col items-center gap-0.5">
                                     <div className="flex items-center gap-2">
                                         <Gift className="w-5 h-5 xl:w-8 xl:h-8" />
                                         <span>FREE</span>
                                     </div>
                                     <span className="text-xs xl:text-base text-theme-subtle font-righteous">
-                                        with Mint Pass ({mintPassCount} remaining)
+                                        Free Mint ({userFreeMints} left)
                                     </span>
                                 </div>
                             ) : (
@@ -312,22 +313,36 @@ export default function MintSection(): React.JSX.Element {
                     {/* Mint Button */}
                     <Button
                         onClick={handleMint}
-                        disabled={(isConnected && !isValidHexColor(skinColor)) || mintStatus !== 'idle'}
+                        disabled={
+                            (isConnected && !isValidHexColor(skinColor)) ||
+                            mintStatus !== 'idle' ||
+                            (isConnected && mintPhase === 0) ||
+                            (isConnected && mintPhase === 1 && !hasFreeMint && !hasMintPass)
+                        }
                         className="w-full py-3 xl:py-7 rounded-xl xl:rounded-2xl font-bangers text-lg xl:text-2xl
                             btn-theme-primary
                             transform hover:scale-105 transition-all duration-300
                             shadow-lg
                             disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                     >
-                        {hasMintPass ? (
+                        {!isConnected ? (
+                            <>
+                                <Sparkles className="w-5 h-5 xl:w-6 xl:h-6 mr-2" />
+                                CONNECT TO MINT
+                            </>
+                        ) : mintPhase === 0 ? (
+                            "MINTING PAUSED"
+                        ) : mintPhase === 1 && !hasFreeMint && !hasMintPass ? (
+                            "WHITELIST ONLY"
+                        ) : hasFreeMint ? (
                             <>
                                 <Gift className="w-5 h-5 xl:w-6 xl:h-6 mr-2" />
-                                {isConnected ? "MINT FREE!" : "CONNECT TO MINT"}
+                                MINT FREE!
                             </>
                         ) : (
                             <>
                                 <Sparkles className="w-5 h-5 xl:w-6 xl:h-6 mr-2" />
-                                {isConnected ? `MINT (${contractData?.mintPrice || "0"} ETH)` : "CONNECT TO MINT"}
+                                MINT ({contractData?.mintPrice || "0"} ETH)
                             </>
                         )}
                     </Button>
@@ -446,7 +461,7 @@ export default function MintSection(): React.JSX.Element {
                                         : "bg-red-500 hover:bg-red-400 text-white"
                                 }`}
                             >
-                                {mintStatus === 'success' ? "Awesome!" : "Close"}
+                                {mintStatus === 'success' ? "Ribbit!" : "Close"}
                             </Button>
                         </DialogFooter>
                     )}

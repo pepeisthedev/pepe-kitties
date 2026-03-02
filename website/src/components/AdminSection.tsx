@@ -4,7 +4,7 @@ import Section from "./Section"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
-import { Settings, Package, Plus, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket } from "lucide-react"
+import { Settings, Package, Plus, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users } from "lucide-react"
 import { useContractData, useContracts } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog"
@@ -22,7 +22,9 @@ export default function AdminSection(): React.JSX.Element {
   const { data: contractData, refetch } = useContractData()
 
   // Panel visibility
-  const [showSettings, setShowSettings] = useState(true)
+  const [showMintPhase, setShowMintPhase] = useState(true)
+  const [showFreeMints, setShowFreeMints] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [showMintItems, setShowMintItems] = useState(false)
   const [showCreateItem, setShowCreateItem] = useState(false)
   const [showMintPass, setShowMintPass] = useState(false)
@@ -49,11 +51,18 @@ export default function AdminSection(): React.JSX.Element {
   const [newItemClaimable, setNewItemClaimable] = useState(false)
   const [newItemClaimWeight, setNewItemClaimWeight] = useState("0")
 
+  // Free mint wallets form
+  const [freeMintAddresses, setFreeMintAddresses] = useState("")
+  const [freeMintCount, setFreeMintCount] = useState("1")
+
+  // Current mint phase from contract
+  const currentMintPhase = contractData?.mintPhase ?? 0
+
   // Mint pass form
   const [mintPassAddresses, setMintPassAddresses] = useState("")
   const [mintPassAmount, setMintPassAmount] = useState("1")
   const [mintPassProgress, setMintPassProgress] = useState({ current: 0, total: 0 })
-  const [mintPassData, setMintPassData] = useState({ totalMinted: 0, maxMintPasses: 0 })
+  const [mintPassData, setMintPassData] = useState({ totalMinted: 0 })
 
   // Transaction state
   const [txStatus, setTxStatus] = useState<TxStatus>('idle')
@@ -100,14 +109,8 @@ export default function AdminSection(): React.JSX.Element {
         setItemTypes(types)
 
         // Fetch mint pass data
-        const [totalMinted, maxMintPasses] = await Promise.all([
-          contracts.mintPass.read.totalMinted(),
-          contracts.mintPass.read.maxMintPasses(),
-        ])
-        setMintPassData({
-          totalMinted: Number(totalMinted),
-          maxMintPasses: Number(maxMintPasses),
-        })
+        const totalMinted = await contracts.mintPass.read.totalMinted()
+        setMintPassData({ totalMinted: Number(totalMinted) })
       } catch (err) {
         console.error("Error fetching admin data:", err)
       }
@@ -254,6 +257,64 @@ export default function AdminSection(): React.JSX.Element {
     }
   }
 
+  const handleSetMintPhase = async (phase: number) => {
+    if (!contracts) return
+    setTxStatus('pending')
+    setTxMessage(`Setting mint phase to ${['Paused', 'Whitelist', 'Public'][phase]}...`)
+
+    try {
+      const contract = await contracts.fregs.write()
+      const tx = await contract.setMintPhase(phase)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Mint phase set to ${['Paused', 'Whitelist', 'Public'][phase]}!`)
+      refetch()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to set mint phase")
+      setTxStatus('error')
+    }
+  }
+
+  const handleAddFreeMintWallets = async () => {
+    if (!contracts) return
+
+    const addresses = freeMintAddresses
+      .split('\n')
+      .map(a => a.trim())
+      .filter(a => isAddress(a))
+
+    if (addresses.length === 0) {
+      setErrorMessage("No valid addresses provided")
+      setTxStatus('error')
+      return
+    }
+
+    const count = Number(freeMintCount)
+    if (count <= 0) {
+      setErrorMessage("Count must be greater than 0")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Adding ${addresses.length} free mint wallets (${count} mints each)...`)
+
+    try {
+      const contract = await contracts.fregs.write()
+      const counts = addresses.map(() => count)
+      const tx = await contract.addFreeMintWallets(addresses, counts)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Added ${addresses.length} free mint wallets!`)
+      setFreeMintAddresses("")
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to add free mint wallets")
+      setTxStatus('error')
+    }
+  }
+
   const handleMintPassAirdrop = async () => {
     if (!contracts) return
 
@@ -294,14 +355,8 @@ export default function AdminSection(): React.JSX.Element {
       setMintPassProgress({ current: 0, total: 0 })
 
       // Refresh mint pass data
-      const [totalMinted, maxMintPasses] = await Promise.all([
-        contracts.mintPass.read.totalMinted(),
-        contracts.mintPass.read.maxMintPasses(),
-      ])
-      setMintPassData({
-        totalMinted: Number(totalMinted),
-        maxMintPasses: Number(maxMintPasses),
-      })
+      const totalMinted = await contracts.mintPass.read.totalMinted()
+      setMintPassData({ totalMinted: Number(totalMinted) })
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to airdrop mint passes")
       setTxStatus('error')
@@ -315,6 +370,11 @@ export default function AdminSection(): React.JSX.Element {
   }
 
   const validAddressCount = addressesInput
+    .split('\n')
+    .map(a => a.trim())
+    .filter(a => isAddress(a)).length
+
+  const validFreeMintAddressCount = freeMintAddresses
     .split('\n')
     .map(a => a.trim())
     .filter(a => isAddress(a)).length
@@ -334,6 +394,119 @@ export default function AdminSection(): React.JSX.Element {
       </div>
 
       <div className="space-y-4">
+        {/* Mint Phase Panel */}
+        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+          <button
+            onClick={() => setShowMintPhase(!showMintPhase)}
+            className="w-full p-4 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Shield className="w-6 h-6 text-orange-400" />
+              <span className="font-bangers text-2xl text-orange-400">Mint Phase</span>
+              <span className={`font-righteous text-xs px-2 py-0.5 rounded-full ${
+                currentMintPhase === 0 ? "bg-red-500/20 text-red-400" :
+                currentMintPhase === 1 ? "bg-yellow-500/20 text-yellow-400" :
+                "bg-green-500/20 text-green-400"
+              }`}>
+                {['Paused', 'Whitelist', 'Public'][currentMintPhase]}
+              </span>
+            </div>
+            {showMintPhase ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+          </button>
+
+          {showMintPhase && (
+            <CardContent className="p-6 pt-0 space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <Button
+                  onClick={() => handleSetMintPhase(0)}
+                  className={`font-bangers text-lg py-4 rounded-xl transition-all ${
+                    currentMintPhase === 0
+                      ? "bg-red-500 text-black ring-2 ring-red-300"
+                      : "bg-black/50 border-2 border-red-400/50 text-red-400 hover:bg-red-500/20"
+                  }`}
+                >
+                  Paused
+                </Button>
+                <Button
+                  onClick={() => handleSetMintPhase(1)}
+                  className={`font-bangers text-lg py-4 rounded-xl transition-all ${
+                    currentMintPhase === 1
+                      ? "bg-yellow-500 text-black ring-2 ring-yellow-300"
+                      : "bg-black/50 border-2 border-yellow-400/50 text-yellow-400 hover:bg-yellow-500/20"
+                  }`}
+                >
+                  Whitelist
+                </Button>
+                <Button
+                  onClick={() => handleSetMintPhase(2)}
+                  className={`font-bangers text-lg py-4 rounded-xl transition-all ${
+                    currentMintPhase === 2
+                      ? "bg-green-500 text-black ring-2 ring-green-300"
+                      : "bg-black/50 border-2 border-green-400/50 text-green-400 hover:bg-green-500/20"
+                  }`}
+                >
+                  Public
+                </Button>
+              </div>
+              <p className="font-righteous text-white/50 text-sm">
+                Paused: only owner can mint. Whitelist: mint pass + free mint wallets. Public: everyone.
+              </p>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Free Mint Wallets Panel */}
+        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+          <button
+            onClick={() => setShowFreeMints(!showFreeMints)}
+            className="w-full p-4 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Users className="w-6 h-6 text-orange-400" />
+              <span className="font-bangers text-2xl text-orange-400">Free Mint Wallets</span>
+            </div>
+            {showFreeMints ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+          </button>
+
+          {showFreeMints && (
+            <CardContent className="p-6 pt-0 space-y-4">
+              <div>
+                <label className="font-righteous text-white/70 block mb-2">
+                  Wallet Addresses (one per line):
+                </label>
+                <textarea
+                  value={freeMintAddresses}
+                  onChange={(e) => setFreeMintAddresses(e.target.value)}
+                  className="w-full h-32 bg-black/50 border-2 border-orange-400/50 text-white font-mono p-3 rounded-md resize-none"
+                  placeholder="0x1234...&#10;0x5678...&#10;0x9abc..."
+                />
+                <p className="text-white/50 text-sm mt-1 font-righteous">
+                  {validFreeMintAddressCount} valid address{validFreeMintAddressCount !== 1 ? 'es' : ''} detected
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <label className="font-righteous text-white/70 w-32">Mints each:</label>
+                <Input
+                  type="number"
+                  value={freeMintCount}
+                  onChange={(e) => setFreeMintCount(e.target.value)}
+                  min="1"
+                  className="w-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                />
+              </div>
+
+              <Button
+                onClick={handleAddFreeMintWallets}
+                disabled={validFreeMintAddressCount === 0}
+                className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4 disabled:opacity-50"
+              >
+                Add {validFreeMintAddressCount} Free Mint Wallet{validFreeMintAddressCount !== 1 ? 's' : ''}
+              </Button>
+            </CardContent>
+          )}
+        </Card>
+
         {/* Settings Panel */}
         <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
           <button
@@ -626,7 +799,7 @@ export default function AdminSection(): React.JSX.Element {
               <div className="bg-black/30 rounded-lg p-3 flex justify-between items-center">
                 <span className="font-righteous text-white/70">Total Minted:</span>
                 <span className="font-mono text-orange-400">
-                  {mintPassData.totalMinted} / {mintPassData.maxMintPasses}
+                  {mintPassData.totalMinted}
                 </span>
               </div>
 

@@ -6,6 +6,7 @@ const {
     storeSvgData,
     processSvgFile,
 } = require("./deployUtils");
+const { loadDeploymentStatus, saveDeploymentStatus } = require("./deploymentStatus");
 
 // Helper to send transaction with retry and proper waiting
 async function sendTx(txPromise, confirmations = 1) {
@@ -46,10 +47,10 @@ const ADDITIONAL_MINTPASS_RECIPIENT = "0x70997970C51812dc3A010C7d01b50e0d17dc79C
 
 // SpinTheWheel configuration (weights out of 10000)
 const SPIN_LOSE_WEIGHT = 0;                  // 0% chance to lose (every spin wins)
-const SPIN_MINTPASS_WEIGHT = 9000;           // 90% chance to win MintPass
-const SPIN_HOODIE_WEIGHT = 300;              // 3% chance to win Hoodie
-const SPIN_FROGSUIT_WEIGHT = 300;            // 3% chance to win Frogsuit
-const SPIN_CHEST_WEIGHT = 400;               // 4% chance to win Treasure Chest
+const SPIN_MINTPASS_WEIGHT = 7800;           // 78% chance to win MintPass
+const SPIN_HOODIE_WEIGHT = 100;              // 1% chance to win Hoodie (max 30)
+const SPIN_FROGSUIT_WEIGHT = 100;            // 1% chance to win Frogsuit (max 30)
+const SPIN_CHEST_WEIGHT = 2000;              // 20% chance to win Treasure Chest (max 700)
 const HOODIE_ITEM_TYPE = 9;
 const FROGSUIT_ITEM_TYPE = 10;
 const CHEST_ITEM_TYPE = 6;
@@ -66,9 +67,6 @@ const TRAITS_JSON_PATH = path.join(DEFAULT_TRAITS_PATH, "traits.json");
 
 // Path to the items SVG folder
 const ITEMS_PATH = path.join(__dirname, "../../website/public/items");
-
-// Path to deployment status file
-const DEPLOYMENT_STATUS_PATH = path.join(__dirname, "../deployment-status.json");
 
 // Path to from_items traits.json (for special items configuration)
 const FROM_ITEMS_TRAITS_JSON_PATH = path.join(FROM_ITEMS_PATH, "traits.json");
@@ -88,7 +86,19 @@ function loadTraitsConfig() {
     for (const [traitType, traits] of Object.entries(traitsConfig)) {
         traitNames[traitType] = traits.map(t => t.name);
     }
-    return { traitsConfig, traitNames };
+
+    // Extract rarity weights and noneTraitIds per trait type
+    // traitType mapping: head=2 (TRAIT_HEAD), mouth=3 (TRAIT_MOUTH), stomach=4 (TRAIT_BELLY)
+    const traitWeights = {};
+    const noneTraitIds = {};
+    for (const [traitType, traits] of Object.entries(traitsConfig)) {
+        if (!traits[0]?.rarity && traits[0]?.rarity !== 0) continue; // Skip types without rarity
+        traitWeights[traitType] = traits.map(t => t.rarity || 0);
+        const noneIndex = traits.findIndex(t => t.isNone);
+        noneTraitIds[traitType] = noneIndex >= 0 ? noneIndex + 1 : 0; // 1-based ID, 0 = no none
+    }
+
+    return { traitsConfig, traitNames, traitWeights, noneTraitIds };
 }
 
 // Load items.json - single source of truth for all items
@@ -142,7 +152,7 @@ function buildTraitItemMappings(itemsConfig, baseTraitCounts) {
             console.log(`    Skin mapping: ${item.name} (id ${item.id}) → trait value ${traitValue}`);
         } else if (item.category === 'head') {
             // Head: baseHeadCount + fileNumber
-            const baseHeadCount = baseTraitCounts?.head || 19;
+            const baseHeadCount = baseTraitCounts?.head || 22;
             traitValue = baseHeadCount + fileNumber;
             console.log(`    Head mapping: ${item.name} (id ${item.id}) → trait value ${traitValue} (base ${baseHeadCount} + file ${fileNumber})`);
         } else {
@@ -153,28 +163,6 @@ function buildTraitItemMappings(itemsConfig, baseTraitCounts) {
     }
 
     return mappings;
-}
-
-// ============ DEPLOYMENT STATUS ============
-function loadDeploymentStatus() {
-    if (fs.existsSync(DEPLOYMENT_STATUS_PATH)) {
-        return JSON.parse(fs.readFileSync(DEPLOYMENT_STATUS_PATH, "utf8"));
-    }
-    return {
-        network: null,
-        lastUpdated: null,
-        contracts: {},
-        routers: {},
-        defaultTraits: {},
-        addedTraits: {},
-        itemTypes: {}
-    };
-}
-
-function saveDeploymentStatus(status) {
-    status.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(DEPLOYMENT_STATUS_PATH, JSON.stringify(status, null, 2));
-    console.log(`  Deployment status saved to: ${DEPLOYMENT_STATUS_PATH}`);
 }
 
 // Copy ABI from artifacts to website
@@ -516,7 +504,7 @@ async function deployArt(deploymentStatus) {
     }
 
     // Load traits from JSON
-    const { traitsConfig, traitNames } = loadTraitsConfig();
+    const { traitsConfig, traitNames, traitWeights, noneTraitIds } = loadTraitsConfig();
     console.log("  Loaded traits config from:", TRAITS_JSON_PATH);
 
     // Deploy SVGPartWriter
@@ -549,9 +537,11 @@ async function deployArt(deploymentStatus) {
         const address = await deployTraitFolder(folder, svgPartWriter, names, deploymentStatus);
         if (address) {
             artAddresses[folder] = address;
-            const folderPath = path.join(DEFAULT_TRAITS_PATH, folder);
             if (folder !== 'skin') { // skin uses from_items, not default
-                baseTraitCounts[folder] = names.length || fs.readdirSync(folderPath).filter(f => f.endsWith('.svg')).length;
+                // Count only traits that have SVG files (exclude isNone traits)
+                const traits = traitsConfig[folder] || [];
+                const deployableCount = traits.filter(t => !t.isNone).length;
+                baseTraitCounts[folder] = deployableCount;
             }
         }
     }
@@ -565,6 +555,10 @@ async function deployArt(deploymentStatus) {
         artAddresses.items = itemsRouter;
         deploymentStatus.routers.items = itemsRouter;
     }
+
+    // Attach weight info for main() to configure Fregs
+    artAddresses.traitWeights = traitWeights;
+    artAddresses.noneTraitIds = noneTraitIds;
 
     return artAddresses;
 }
@@ -595,7 +589,7 @@ async function main() {
     console.log("Verify Contracts:", VERIFY_CONTRACTS);
 
     // Load or initialize deployment status
-    const deploymentStatus = loadDeploymentStatus();
+    const deploymentStatus = loadDeploymentStatus(network.name);
     deploymentStatus.network = network.name;
 
     // Configuration
@@ -620,11 +614,23 @@ async function main() {
     const fregsMintPass = await deployContract(FregsMintPass, [""], "FregsMintPass");
     const fregsMintPassAddress = await fregsMintPass.getAddress();
 
+    // ============ Deploy FregCoin ============
+    console.log("\n--- Deploying FregCoin ---");
+    const FregCoin = await ethers.getContractFactory("FregCoin");
+    const fregCoin = await deployContract(FregCoin, [], "FregCoin");
+    const fregCoinAddress = await fregCoin.getAddress();
+
     // ============ Deploy SpinTheWheel ============
     console.log("\n--- Deploying SpinTheWheel ---");
     const SpinTheWheel = await ethers.getContractFactory("SpinTheWheel");
     const spinTheWheel = await deployContract(SpinTheWheel, [""], "SpinTheWheel");
     const spinTheWheelAddress = await spinTheWheel.getAddress();
+
+    // ============ Deploy FregsLiquidity ============
+    console.log("\n--- Deploying FregsLiquidity ---");
+    const FregsLiquidity = await ethers.getContractFactory("FregsLiquidity");
+    const fregsLiquidity = await deployContract(FregsLiquidity, [], "FregsLiquidity");
+    const fregsLiquidityAddress = await fregsLiquidity.getAddress();
 
     // ============ Configure Cross-Contract References ============
     console.log("\n--- Configuring Cross-Contract References ---");
@@ -636,7 +642,7 @@ async function main() {
     await sendTx(fregs.setMintPassContract(fregsMintPassAddress));
 
     console.log("Setting Fregs on MintPass...");
-    await sendTx(fregsMintPass.setFregs(fregsAddress));
+    await sendTx(fregsMintPass.setFregsContract(fregsAddress));
 
     // Configure SpinTheWheel
     console.log("Configuring SpinTheWheel...");
@@ -648,13 +654,37 @@ async function main() {
     await sendTx(spinTheWheel.addItemPrize(FROGSUIT_ITEM_TYPE, SPIN_FROGSUIT_WEIGHT));
     await sendTx(spinTheWheel.addItemPrize(CHEST_ITEM_TYPE, SPIN_CHEST_WEIGHT));
 
+    // Set max supply caps for spin prizes
+    await sendTx(spinTheWheel.setItemMaxSupply(CHEST_ITEM_TYPE, 700));
+    await sendTx(spinTheWheel.setItemMaxSupply(HOODIE_ITEM_TYPE, 30));
+    await sendTx(spinTheWheel.setItemMaxSupply(FROGSUIT_ITEM_TYPE, 30));
+
     // Set SpinTheWheel on MintPass and Items
     console.log("Setting SpinTheWheel on MintPass and Items...");
     await sendTx(fregsMintPass.setSpinTheWheelContract(spinTheWheelAddress));
     await sendTx(fregsItems.setSpinTheWheelContract(spinTheWheelAddress));
 
-    // ============ Mint Mint Passes to Deployer (localhost only) ============
+    // Set FregCoin on FregsItems
+    console.log("Setting FregCoin on FregsItems...");
+    await sendTx(fregsItems.setFregCoinContract(fregCoinAddress));
+
+    // Configure FregsLiquidity
+    console.log("Configuring FregsLiquidity...");
+    await sendTx(fregsLiquidity.setFregs(fregsAddress));
+    await sendTx(fregsLiquidity.setFregCoin(fregCoinAddress));
+    await sendTx(fregs.setLiquidityContract(fregsLiquidityAddress));
+
+    // ============ Set Mint Phase ============
     const isLocalhost = network.name === "localhost" || network.name === "hardhat";
+    if (isLocalhost) {
+        console.log("\n--- Setting mint phase to Public (2) for localhost ---");
+        await sendTx(fregs.setMintPhase(2));
+    } else {
+        console.log("\n--- Setting mint phase to Paused (0) for live network ---");
+        await sendTx(fregs.setMintPhase(0));
+    }
+
+    // ============ Mint Mint Passes to Deployer (localhost only) ============
     let mintPassBalance = 0n;
     if (isLocalhost) {
         console.log("\n--- Minting Mint Passes ---");
@@ -682,6 +712,25 @@ async function main() {
         await sendTx(spinTheWheel.ownerMint(deployerAddress, INITIAL_SPIN_TOKENS_TO_MINT));
         spinTokenBalance = await spinTheWheel.balanceOf(deployerAddress, 1);
         console.log(`Deployer SpinToken balance: ${spinTokenBalance}`);
+
+        // Fund FregsItems with FregCoin for chest rewards (1000 chests x 133.7M = 133.7B)
+        const chestFunding = ethers.parseEther("133700000000");
+        console.log("Minting 133.7B FregCoin to FregsItems for chest rewards...");
+        await sendTx(fregCoin.ownerMint(fregsItemsAddress, chestFunding));
+        const itemsCoinBalance = await fregCoin.balanceOf(fregsItemsAddress);
+        console.log(`FregsItems FregCoin balance: ${ethers.formatEther(itemsCoinBalance)}`);
+
+        // Fund FregsLiquidity with ETH and FregCoin for testing
+        console.log("\n--- Funding FregsLiquidity ---");
+        const liquidityETH = ethers.parseEther("1.0");
+        await sendTx(fregsLiquidity.depositETH({ value: liquidityETH }));
+        console.log(`FregsLiquidity ETH balance: ${ethers.formatEther(liquidityETH)}`);
+
+        const liquidityCoinAmount = ethers.parseEther("3000000000"); // 3B FregCoin
+        console.log("Minting 3B FregCoin to FregsLiquidity...");
+        await sendTx(fregCoin.ownerMint(fregsLiquidityAddress, liquidityCoinAmount));
+        const liquidityCoinBalance = await fregCoin.balanceOf(fregsLiquidityAddress);
+        console.log(`FregsLiquidity FregCoin balance: ${ethers.formatEther(liquidityCoinBalance)}`);
     }
 
     // ============ Configure Item Configs from items.json ============
@@ -711,7 +760,9 @@ async function main() {
     deploymentStatus.contracts.fregs = fregsAddress;
     deploymentStatus.contracts.fregsItems = fregsItemsAddress;
     deploymentStatus.contracts.fregsMintPass = fregsMintPassAddress;
+    deploymentStatus.contracts.fregCoin = fregCoinAddress;
     deploymentStatus.contracts.spinTheWheel = spinTheWheelAddress;
+    deploymentStatus.contracts.fregsLiquidity = fregsLiquidityAddress;
 
     // ============ Deploy Art and SVG Renderer ============
     const artAddresses = await deployArt(deploymentStatus);
@@ -753,6 +804,22 @@ async function main() {
     await sendTx(fregs.setSVGRenderer(svgRendererAddress));
     console.log("SVG Renderer set on Fregs!");
 
+    // Configure weighted trait selection on Fregs
+    // Trait type mapping: head=2 (TRAIT_HEAD), mouth=3 (TRAIT_MOUTH), stomach=4 (TRAIT_BELLY)
+    const TRAIT_TYPE_MAP = { head: 2, mouth: 3, stomach: 4 };
+    if (artAddresses.traitWeights) {
+        console.log("\n--- Configuring Trait Weights on Fregs ---");
+        for (const [traitName, traitTypeId] of Object.entries(TRAIT_TYPE_MAP)) {
+            const weights = artAddresses.traitWeights[traitName];
+            const noneId = artAddresses.noneTraitIds[traitName] || 0;
+            if (weights && weights.length > 0) {
+                console.log(`  Setting ${traitName} weights: [${weights.join(', ')}], noneTraitId: ${noneId}`);
+                await sendTx(fregs.setTraitWeights(traitTypeId, weights, noneId));
+                console.log(`  ${traitName} weights configured!`);
+            }
+        }
+    }
+
     // Set Items SVG Renderer on FregsItems
     if (artAddresses.items) {
         console.log("Setting SVG Renderer on FregsItems...");
@@ -789,6 +856,8 @@ async function main() {
     copyABI("FregsMintPass", "FregsMintPass");
     copyABI("FregsSVGRenderer", "FregsSVGRenderer");
     copyABI("SpinTheWheel", "SpinTheWheel");
+    copyABI("FregCoin", "FregCoin");
+    copyABI("FregsLiquidity", "FregsLiquidity");
 
     console.log("ABIs copied successfully!");
 
@@ -870,7 +939,9 @@ async function main() {
     console.log("  Fregs:           ", fregsAddress);
     console.log("  Fregs Items:     ", fregsItemsAddress);
     console.log("  Fregs Mint Pass: ", fregsMintPassAddress);
+    console.log("  FregCoin:        ", fregCoinAddress);
     console.log("  SpinTheWheel:    ", spinTheWheelAddress);
+    console.log("  FregsLiquidity:  ", fregsLiquidityAddress);
     console.log("  SVG Renderer:    ", svgRendererAddress);
     console.log("\nArt Contracts (6 unified routers):");
     console.log("  Background:        ", artAddresses.background || "Not deployed (uses color rect)");
@@ -898,13 +969,14 @@ async function main() {
     console.log("  Frogsuit:", SPIN_FROGSUIT_WEIGHT / 100, "%");
     console.log("  Treasure Chest:", SPIN_CHEST_WEIGHT / 100, "%");
     console.log("\nNext Steps:");
-    console.log("  1. Fund items contract for chest rewards:");
-    console.log("     await fregsItems.depositETH({ value: ethers.parseEther('0.5') })");
+    console.log("  1. Fund items contract with FregCoin for chest rewards (1000 chests x 133.7M = 133.7B):");
+    console.log("     - Approve: await fregCoin.approve(fregsItemsAddress, ethers.parseEther('133700000000'))");
+    console.log("     - Deposit: await fregsItems.depositCoins(ethers.parseEther('133700000000'))");
     console.log("  2. Activate mint pass sale:");
     console.log("     await fregsMintPass.setMintPassSaleActive(true)");
     // ============ Save Deployment Status ============
     console.log("\n--- Saving Deployment Status ---");
-    saveDeploymentStatus(deploymentStatus);
+    saveDeploymentStatus(deploymentStatus, network.name);
 
     console.log("\n" + "=".repeat(60));
 
@@ -914,7 +986,9 @@ async function main() {
     console.log(`VITE_FREGS_ADDRESS=${fregsAddress}`);
     console.log(`VITE_FREGS_ITEMS_ADDRESS=${fregsItemsAddress}`);
     console.log(`VITE_FREGS_MINTPASS_ADDRESS=${fregsMintPassAddress}`);
+    console.log(`VITE_FREGCOIN_ADDRESS=${fregCoinAddress}`);
     console.log(`VITE_SPIN_THE_WHEEL_ADDRESS=${spinTheWheelAddress}`);
+    console.log(`VITE_FREGS_LIQUIDITY_ADDRESS=${fregsLiquidityAddress}`);
     console.log(`VITE_SVG_RENDERER_ADDRESS=${svgRendererAddress}`);
 
 }

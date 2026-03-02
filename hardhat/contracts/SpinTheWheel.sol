@@ -21,8 +21,8 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     // Token ID for the SpinToken (ERC1155 single token type)
     uint256 public constant SPIN_TOKEN = 1;
 
-    string public name = "SpinToken";
-    string public symbol = "SPIN";
+    string public name = "FregSpinToken";
+    string public symbol = "FREGSPIN";
 
     // External contracts
     IFregsMintPass public mintPassContract;
@@ -44,6 +44,10 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     }
     ItemPrize[] public itemPrizes;
     uint256 public totalItemWeight;
+
+    // Item supply caps (0 = unlimited)
+    mapping(uint256 => uint256) public itemMaxSupply;
+    mapping(uint256 => uint256) public itemMintCount;
 
     // Randomness
     uint256 private randomNonce;
@@ -101,8 +105,18 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < itemPrizes.length; i++) {
             cumulative += itemPrizes[i].weight;
             if (rand < cumulative) {
-                itemsContract.mintFromCoin(msg.sender, itemPrizes[i].itemType);
-                emit SpinResult(msg.sender, true, PRIZE_ITEM, itemPrizes[i].itemType);
+                uint256 iType = itemPrizes[i].itemType;
+
+                // If item is sold out, give a MintPass instead
+                if (itemMaxSupply[iType] > 0 && itemMintCount[iType] >= itemMaxSupply[iType]) {
+                    mintPassContract.mintFromCoin(msg.sender, 1);
+                    emit SpinResult(msg.sender, true, PRIZE_MINTPASS, 0);
+                    return;
+                }
+
+                itemMintCount[iType]++;
+                itemsContract.mintFromCoin(msg.sender, iType);
+                emit SpinResult(msg.sender, true, PRIZE_ITEM, iType);
                 return;
             }
         }
@@ -216,6 +230,10 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         revert("Item type not found");
     }
 
+    function setItemMaxSupply(uint256 itemType, uint256 maxSupply) external onlyOwner {
+        itemMaxSupply[itemType] = maxSupply;
+    }
+
     function setURI(string memory newuri) external onlyOwner {
         _setURI(newuri);
     }
@@ -241,6 +259,11 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         }
 
         return (itemTypes, weights);
+    }
+
+    function getRemainingItemSupply(uint256 itemType) external view returns (uint256) {
+        if (itemMaxSupply[itemType] == 0) return type(uint256).max;
+        return itemMaxSupply[itemType] - itemMintCount[itemType];
     }
 
     function getTotalWeight() external view returns (uint256) {
