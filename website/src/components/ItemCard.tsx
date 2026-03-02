@@ -58,7 +58,7 @@ export default function ItemCard({
       onClick={onClick}
       className={`
         relative ${sizeClass.padding} rounded-xl transition-all duration-200
-        ${selected ? "border-2 border-theme ring-2 ring-theme scale-105" : "border-0 hover:scale-102"}
+        ${selected ? "border-2 border-theme ring-2 ring-theme" : "border-0"}
         ${onClick ? "cursor-pointer" : "cursor-default"}
       `}
     >
@@ -95,12 +95,6 @@ export default function ItemCard({
         </p>
       )}
 
-      {/* Selection indicator */}
-      {selected && (
-        <div className="absolute -top-2 -right-2 w-6 h-6 bg-theme-primary rounded-full flex items-center justify-center">
-          <span className="text-black font-bold text-sm">✓</span>
-        </div>
-      )}
     </button>
   )
 }
