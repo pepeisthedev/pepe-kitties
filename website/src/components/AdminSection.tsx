@@ -4,7 +4,7 @@ import Section from "./Section"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
-import { Settings, Package, Plus, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users } from "lucide-react"
+import { Settings, Package, Plus, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users, Dices } from "lucide-react"
 import { useContractData, useContracts } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog"
@@ -63,6 +63,11 @@ export default function AdminSection(): React.JSX.Element {
   const [mintPassAmount, setMintPassAmount] = useState("1")
   const [mintPassProgress, setMintPassProgress] = useState({ current: 0, total: 0 })
   const [mintPassData, setMintPassData] = useState({ totalMinted: 0 })
+
+  // Spin token airdrop form
+  const [showSpinAirdrop, setShowSpinAirdrop] = useState(false)
+  const [spinAddresses, setSpinAddresses] = useState("")
+  const [spinAmount, setSpinAmount] = useState("1")
 
   // Transaction state
   const [txStatus, setTxStatus] = useState<TxStatus>('idle')
@@ -363,6 +368,47 @@ export default function AdminSection(): React.JSX.Element {
     }
   }
 
+  const handleSpinAirdrop = async () => {
+    if (!contracts) return
+
+    const addresses = spinAddresses
+      .split('\n')
+      .map(a => a.trim())
+      .filter(a => isAddress(a))
+
+    if (addresses.length === 0) {
+      setErrorMessage("No valid addresses provided")
+      setTxStatus('error')
+      return
+    }
+
+    const amount = Number(spinAmount)
+    if (amount <= 0) {
+      setErrorMessage("Amount must be greater than 0")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Airdropping ${amount} spin token(s) to ${addresses.length} wallets...`)
+
+    try {
+      const contract = await contracts.spinTheWheel.write()
+      const amounts = addresses.map(() => amount)
+      const tx = await contract.airdrop(addresses, amounts)
+
+      setTxStatus('confirming')
+      await tx.wait()
+
+      setTxStatus('success')
+      setTxMessage(`Airdropped ${amount} spin token(s) to ${addresses.length} wallets!`)
+      setSpinAddresses("")
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to airdrop spin tokens")
+      setTxStatus('error')
+    }
+  }
+
   const closeModal = () => {
     setTxStatus('idle')
     setTxMessage("")
@@ -380,6 +426,11 @@ export default function AdminSection(): React.JSX.Element {
     .filter(a => isAddress(a)).length
 
   const validMintPassAddressCount = mintPassAddresses
+    .split('\n')
+    .map(a => a.trim())
+    .filter(a => isAddress(a)).length
+
+  const validSpinAddressCount = spinAddresses
     .split('\n')
     .map(a => a.trim())
     .filter(a => isAddress(a)).length
@@ -853,6 +904,61 @@ export default function AdminSection(): React.JSX.Element {
                 className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4 disabled:opacity-50"
               >
                 Airdrop to {validMintPassAddressCount} wallet{validMintPassAddressCount !== 1 ? 's' : ''}
+              </Button>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Spin Token Airdrop Panel */}
+        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+          <button
+            onClick={() => setShowSpinAirdrop(!showSpinAirdrop)}
+            className="w-full p-4 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Dices className="w-6 h-6 text-orange-400" />
+              <span className="font-bangers text-2xl text-orange-400">Spin Token Airdrop</span>
+            </div>
+            {showSpinAirdrop ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+          </button>
+
+          {showSpinAirdrop && (
+            <CardContent className="p-6 pt-0 space-y-4">
+              {/* Addresses Input */}
+              <div>
+                <label className="font-righteous text-white/70 block mb-2">
+                  Recipient Addresses (one per line):
+                </label>
+                <textarea
+                  value={spinAddresses}
+                  onChange={(e) => setSpinAddresses(e.target.value)}
+                  className="w-full h-32 bg-black/50 border-2 border-orange-400/50 text-white font-mono p-3 rounded-md resize-none"
+                  placeholder="0x1234...&#10;0x5678...&#10;0x9abc..."
+                />
+                <p className="text-white/50 text-sm mt-1 font-righteous">
+                  {validSpinAddressCount} valid address{validSpinAddressCount !== 1 ? 'es' : ''} detected
+                </p>
+              </div>
+
+              {/* Amount per address */}
+              <div className="flex items-center gap-4">
+                <label className="font-righteous text-white/70 w-32">Amount each:</label>
+                <Input
+                  type="number"
+                  value={spinAmount}
+                  onChange={(e) => setSpinAmount(e.target.value)}
+                  min="1"
+                  className="w-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                />
+              </div>
+
+              {/* Airdrop Button */}
+              <Button
+                onClick={handleSpinAirdrop}
+                disabled={validSpinAddressCount === 0}
+                className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4 disabled:opacity-50"
+              >
+                Airdrop to {validSpinAddressCount} wallet{validSpinAddressCount !== 1 ? 's' : ''}
               </Button>
             </CardContent>
           )}
