@@ -1,9 +1,4 @@
 import React, { useState, useRef, useCallback, useEffect } from "react"
-import { Button } from "./ui/button"
-
-interface LandingSectionProps {
-    onEnter: () => void
-}
 
 // Social link URLs - update these with actual links
 const SOCIAL_LINKS = {
@@ -153,7 +148,7 @@ function ImageCard({ src, href, className = "", clickable = true }: { src: strin
     )
 }
 
-export default function LandingSection({ onEnter }: LandingSectionProps): React.JSX.Element {
+export default function LandingSection(): React.JSX.Element {
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
     const videoRef = useRef<HTMLVideoElement>(null)
     const isSingleVideo = BACKGROUND_VIDEOS.length === 1
@@ -204,19 +199,6 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                     <source src={BACKGROUND_VIDEOS[currentVideoIndex]} type="video/mp4" />
                 </video>
 
-
-                {/* CTA Button */}
-                <div className="absolute left-6 md:left-16 lg:left-24 bottom-24 md:bottom-18 z-20">
-                    <Button
-                        onClick={onEnter}
-                        className="px-8 py-4 md:px-12 md:py-6 rounded-full font-bangers text-xl md:text-2xl
-                            text-white
-                            transition duration-200 hover:opacity-90"
-                        style={{ backgroundColor: '#7CB342' }}
-                    >
-                        Spin to win
-                    </Button>
-                </div>
 
                 {/* Scroll Down Arrow */}
                 <button
@@ -273,22 +255,24 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                             src={`${VIDEO_BASE_URL}/HoodieFreg.MOV`}
                             clickable={false}
                         />
-                        <LinkCard
-                            href={SOCIAL_LINKS.opensea}
-                            icon={OpenSeaLogo}
-                            label="OpenSea"
-                            bgColor="bg-emerald-400"
-                        />
+                        <div
+                            className="bg-emerald-400 rounded-3xl p-4 md:p-5 flex flex-col items-center justify-center
+                                w-full aspect-square opacity-50 cursor-default"
+                        >
+                            <OpenSeaLogo className="w-8 h-8 md:w-11 md:h-11 text-black mb-2 md:mb-3" />
+                            <span className="text-black font-bold text-sm md:text-lg text-center">Coming soon</span>
+                        </div>
                         <VideoCard
                             src={`${VIDEO_BASE_URL}/MetalFreg.MP4`}
                             clickable={false}
                         />
-                        <LinkCard
-                            href={SOCIAL_LINKS.etherscan}
-                            icon={EtherscanLogo}
-                            label="Etherscan"
-                            bgColor="bg-teal-400"
-                        />
+                        <div
+                            className="bg-teal-400 rounded-3xl p-4 md:p-5 flex flex-col items-center justify-center
+                                w-full aspect-square opacity-50 cursor-default"
+                        >
+                            <EtherscanLogo className="w-8 h-8 md:w-11 md:h-11 text-black mb-2 md:mb-3" />
+                            <span className="text-black font-bold text-sm md:text-lg text-center">Coming soon</span>
+                        </div>
                         <VideoCard
                             src={`${VIDEO_BASE_URL}/HatFreg.MP4`}
                             clickable={false}
