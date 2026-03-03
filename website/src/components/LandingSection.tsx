@@ -7,7 +7,7 @@ interface LandingSectionProps {
 
 // Social link URLs - update these with actual links
 const SOCIAL_LINKS = {
-    x: "https://x.com/fregsNFT",
+    x: "https://x.com/Fregs_io",
     opensea: "https://opensea.io/collection/fregs",
     etherscan: "https://basescan.org/address/0x...",
 }
