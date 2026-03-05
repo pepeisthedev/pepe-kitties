@@ -186,16 +186,16 @@ export default function LandingSection(): React.JSX.Element {
         <div className="relative w-full bg-black">
             {/* Hero Section - full viewport with top/bottom bars */}
             <div className="relative h-screen w-full flex flex-col" style={{ background: '#14532d' }}>
-                {/* Top bar with logo */}
-                <div className="flex items-center px-6 md:px-16 lg:px-24 py-3 z-10">
+                {/* Top bar with logo - mobile only */}
+                <div className="flex md:hidden items-center px-6 py-3 z-10">
                     <img
                         src="/fregs.svg"
                         alt="Fregs"
-                        className="w-20 h-20 md:w-24 md:h-24 rounded-full shadow-lg"
+                        className="w-20 h-20 rounded-full shadow-lg"
                     />
                 </div>
 
-                {/* Video area - fills remaining space */}
+                {/* Video area - fills remaining space on mobile, full screen on desktop */}
                 <div className="relative flex-1 overflow-hidden">
                     <video
                         ref={videoRef}
@@ -208,10 +208,19 @@ export default function LandingSection(): React.JSX.Element {
                     >
                         <source src={BACKGROUND_VIDEOS[currentVideoIndex]} type="video/mp4" />
                     </video>
+
+                    {/* Scroll arrow - absolutely positioned on desktop */}
+                    <button
+                        onClick={scrollToCards}
+                        className="hidden md:block absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-bounce"
+                        aria-label="Scroll down"
+                    >
+                        <ScrollArrow className="w-10 h-10 text-white/80 hover:text-black transition-colors cursor-pointer" />
+                    </button>
                 </div>
 
-                {/* Bottom bar - same height as top bar */}
-                <div className="flex items-center justify-center px-6 md:px-16 lg:px-24 py-3 z-10">
+                {/* Bottom bar with scroll arrow - mobile only */}
+                <div className="flex md:hidden items-center justify-center px-6 py-3 z-10">
                     <button
                         onClick={scrollToCards}
                         className="animate-bounce"
