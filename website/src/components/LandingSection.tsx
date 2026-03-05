@@ -184,56 +184,51 @@ export default function LandingSection(): React.JSX.Element {
 
     return (
         <div className="relative w-full bg-black">
-            {/* Hero Section - shorter on mobile to show more of wide video */}
-            <div className="relative h-[100vh] md:h-screen w-full overflow-hidden">
-                {/* Background Video */}
-                <video
-                    ref={videoRef}
-                    autoPlay
-                    loop={isSingleVideo}
-                    muted
-                    playsInline
-                    onEnded={!isSingleVideo ? handleVideoEnded : undefined}
-                    className="absolute inset-0 w-full h-full object-cover"
-                >
-                    <source src={BACKGROUND_VIDEOS[currentVideoIndex]} type="video/mp4" />
-                </video>
+            {/* Hero Section - full viewport with top/bottom bars */}
+            <div className="relative h-screen w-full flex flex-col" style={{ background: '#14532d' }}>
+                {/* Top bar with logo */}
+                <div className="flex items-center px-6 md:px-16 lg:px-24 py-3 z-10">
+                    <img
+                        src="/fregs.svg"
+                        alt="Fregs"
+                        className="w-20 h-20 md:w-24 md:h-24 rounded-full shadow-lg"
+                    />
+                </div>
 
+                {/* Video area - fills remaining space */}
+                <div className="relative flex-1 overflow-hidden">
+                    <video
+                        ref={videoRef}
+                        autoPlay
+                        loop={isSingleVideo}
+                        muted
+                        playsInline
+                        onEnded={!isSingleVideo ? handleVideoEnded : undefined}
+                        className="absolute inset-0 w-full h-full object-cover"
+                    >
+                        <source src={BACKGROUND_VIDEOS[currentVideoIndex]} type="video/mp4" />
+                    </video>
+                </div>
 
-                {/* Scroll Down Arrow */}
-                <button
-                    onClick={scrollToCards}
-                    className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-bounce"
-                    aria-label="Scroll down"
-                >
-                    <ScrollArrow className="w-10 h-10 text-white/80 hover:text-black transition-colors cursor-pointer" />
-                </button>
+                {/* Bottom bar - same height as top bar */}
+                <div className="flex items-center justify-center px-6 md:px-16 lg:px-24 py-3 z-10">
+                    <button
+                        onClick={scrollToCards}
+                        className="animate-bounce"
+                        aria-label="Scroll down"
+                    >
+                        <ScrollArrow className="w-10 h-10 text-white/80 hover:text-black transition-colors cursor-pointer" />
+                    </button>
+                </div>
             </div>
 
             {/* Cards Section */}
             <div
                 id="cards-section"
                 className="w-full py-16 md:py-24 px-6 md:px-16 lg:px-24"
-                style={{ background: 'linear-gradient(135deg, #134e4a 0%, #064e3b 25%, #14532d 50%, #1a2e05 100%)' }}
+                style={{ background: '#14532d' }}
             >
                 <div className="max-w-6xl mx-auto">
-                    {/* Roadmap video block */}
-                    <div className="mb-10 md:mb-14">
-                        <h2 className="text-white text-5xl md:text-8xl font-bold tracking-tight mb-4 md:mb-6">
-                            Roadmap
-                        </h2>
-                        <div className="rounded-3xl overflow-hidden border border-white/10 bg-black/30">
-                            <video
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                className="w-full h-auto object-contain bg-black"
-                            >
-                                <source src={`${VIDEO_BASE_URL}/roadmap_hd.MP4`} type="video/mp4" />
-                            </video>
-                        </div>
-                    </div>
           <h2 className="text-white text-5xl md:text-8xl font-bold tracking-tight mb-4 md:mb-6">
                             Socials
                         </h2>
