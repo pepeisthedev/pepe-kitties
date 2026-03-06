@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react"
-import { parseEther, formatEther, isAddress } from "ethers"
+import { parseEther, formatEther, isAddress, Contract } from "ethers"
 import Section from "./Section"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
-import { Settings, Package, Plus, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users, Dices } from "lucide-react"
+import { Settings, Package, Plus, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users, Dices, Droplets } from "lucide-react"
 import { useContractData, useContracts } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog"
@@ -69,6 +69,16 @@ export default function AdminSection(): React.JSX.Element {
   const [spinAddresses, setSpinAddresses] = useState("")
   const [spinAmount, setSpinAmount] = useState("1")
 
+  // Liquidity panel
+  const [showLiquidity, setShowLiquidity] = useState(false)
+  const [liquidityActive, setLiquidityActive] = useState(false)
+  const [liquidityEthBalance, setLiquidityEthBalance] = useState("0")
+  const [liquidityDepositAmount, setLiquidityDepositAmount] = useState("")
+  const [liquidityWithdrawAmount, setLiquidityWithdrawAmount] = useState("")
+  const [liquidityCoinBalance, setLiquidityCoinBalance] = useState("0")
+  const [liquidityCoinDepositAmount, setLiquidityCoinDepositAmount] = useState("")
+  const [liquidityCoinWithdrawAmount, setLiquidityCoinWithdrawAmount] = useState("")
+
   // Transaction state
   const [txStatus, setTxStatus] = useState<TxStatus>('idle')
   const [txMessage, setTxMessage] = useState("")
@@ -116,6 +126,27 @@ export default function AdminSection(): React.JSX.Element {
         // Fetch mint pass data
         const totalMinted = await contracts.mintPass.read.totalMinted()
         setMintPassData({ totalMinted: Number(totalMinted) })
+
+        // Fetch liquidity data
+        if (contracts.liquidity) {
+          const liqAddress = await contracts.liquidity.read.getAddress()
+          const [active, liqBalance] = await Promise.all([
+            contracts.liquidity.read.active(),
+            contracts.provider.getBalance(liqAddress),
+          ])
+          setLiquidityActive(active)
+          setLiquidityEthBalance(formatEther(liqBalance))
+
+          // Fetch FregCoin balance if set
+          try {
+            const fregCoinAddr = await contracts.liquidity.read.fregCoin()
+            if (fregCoinAddr !== "0x0000000000000000000000000000000000000000") {
+              const fregCoinContract = new Contract(fregCoinAddr, ["function balanceOf(address) view returns (uint256)"], contracts.provider)
+              const coinBal = await fregCoinContract.balanceOf(liqAddress)
+              setLiquidityCoinBalance(formatEther(coinBal))
+            }
+          } catch {}
+        }
       } catch (err) {
         console.error("Error fetching admin data:", err)
       }
@@ -405,6 +436,123 @@ export default function AdminSection(): React.JSX.Element {
       setSpinAddresses("")
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to airdrop spin tokens")
+      setTxStatus('error')
+    }
+  }
+
+  const handleToggleLiquidity = async () => {
+    if (!contracts?.liquidity) return
+    const newActive = !liquidityActive
+    setTxStatus('pending')
+    setTxMessage(`${newActive ? 'Activating' : 'Deactivating'} liquidity contract...`)
+
+    try {
+      const contract = await contracts.liquidity.write()
+      const tx = await contract.setActive(newActive)
+      setTxStatus('confirming')
+      await tx.wait()
+      setLiquidityActive(newActive)
+      setTxStatus('success')
+      setTxMessage(`Liquidity contract ${newActive ? 'activated' : 'deactivated'}!`)
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to toggle liquidity")
+      setTxStatus('error')
+    }
+  }
+
+  const handleLiquidityDeposit = async () => {
+    if (!contracts?.liquidity || !liquidityDepositAmount) return
+    setTxStatus('pending')
+    setTxMessage(`Depositing ${liquidityDepositAmount} ETH...`)
+
+    try {
+      const contract = await contracts.liquidity.write()
+      const tx = await contract.depositETH({ value: parseEther(liquidityDepositAmount) })
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Deposited ${liquidityDepositAmount} ETH!`)
+      setLiquidityDepositAmount("")
+      const balance = await contracts.provider.getBalance(await contracts.liquidity.read.getAddress())
+      setLiquidityEthBalance(formatEther(balance))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to deposit ETH")
+      setTxStatus('error')
+    }
+  }
+
+  const handleLiquidityWithdraw = async () => {
+    if (!contracts?.liquidity || !liquidityWithdrawAmount) return
+    setTxStatus('pending')
+    setTxMessage(`Withdrawing ${liquidityWithdrawAmount} ETH...`)
+
+    try {
+      const contract = await contracts.liquidity.write()
+      const tx = await contract.withdrawETH(parseEther(liquidityWithdrawAmount))
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Withdrew ${liquidityWithdrawAmount} ETH!`)
+      setLiquidityWithdrawAmount("")
+      const balance = await contracts.provider.getBalance(await contracts.liquidity.read.getAddress())
+      setLiquidityEthBalance(formatEther(balance))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to withdraw ETH")
+      setTxStatus('error')
+    }
+  }
+
+  const handleLiquidityCoinDeposit = async () => {
+    if (!contracts?.liquidity || !liquidityCoinDepositAmount) return
+    setTxStatus('pending')
+    setTxMessage(`Sending ${liquidityCoinDepositAmount} FREG to liquidity contract...`)
+
+    try {
+      const liqAddress = await contracts.liquidity.read.getAddress()
+      const fregCoinAddr = await contracts.liquidity.read.fregCoin()
+      const signer = await contracts.getSigner()
+      const fregCoin = new Contract(fregCoinAddr, [
+        "function transfer(address, uint256) returns (bool)",
+        "function balanceOf(address) view returns (uint256)",
+      ], signer)
+
+      const amount = parseEther(liquidityCoinDepositAmount)
+      const tx = await fregCoin.transfer(liqAddress, amount)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Deposited ${liquidityCoinDepositAmount} FREG!`)
+      setLiquidityCoinDepositAmount("")
+
+      const coinBal = await fregCoin.balanceOf(liqAddress)
+      setLiquidityCoinBalance(formatEther(coinBal))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to deposit FREG")
+      setTxStatus('error')
+    }
+  }
+
+  const handleLiquidityCoinWithdraw = async () => {
+    if (!contracts?.liquidity || !liquidityCoinWithdrawAmount) return
+    setTxStatus('pending')
+    setTxMessage(`Withdrawing ${liquidityCoinWithdrawAmount} FREG...`)
+
+    try {
+      const contract = await contracts.liquidity.write()
+      const tx = await contract.withdrawCoins(parseEther(liquidityCoinWithdrawAmount))
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Withdrew ${liquidityCoinWithdrawAmount} FREG!`)
+      setLiquidityCoinWithdrawAmount("")
+
+      const liqAddress = await contracts.liquidity.read.getAddress()
+      const fregCoinAddr = await contracts.liquidity.read.fregCoin()
+      const fregCoin = new Contract(fregCoinAddr, ["function balanceOf(address) view returns (uint256)"], contracts.provider)
+      const coinBal = await fregCoin.balanceOf(liqAddress)
+      setLiquidityCoinBalance(formatEther(coinBal))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to withdraw FREG")
       setTxStatus('error')
     }
   }
@@ -963,6 +1111,123 @@ export default function AdminSection(): React.JSX.Element {
             </CardContent>
           )}
         </Card>
+        {/* Liquidity Panel */}
+        {contracts?.liquidity && (
+        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+          <button
+            onClick={() => setShowLiquidity(!showLiquidity)}
+            className="w-full p-4 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Droplets className="w-6 h-6 text-orange-400" />
+              <span className="font-bangers text-2xl text-orange-400">Liquidity</span>
+              <span className={`font-righteous text-xs px-2 py-0.5 rounded-full ${
+                liquidityActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+              }`}>
+                {liquidityActive ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+            {showLiquidity ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+          </button>
+
+          {showLiquidity && (
+            <CardContent className="p-6 pt-0 space-y-4">
+              {/* Toggle active */}
+              <div className="flex items-center justify-between">
+                <span className="font-righteous text-white/70">Contract status:</span>
+                <Button
+                  onClick={handleToggleLiquidity}
+                  className={`font-bangers text-lg px-6 py-2 rounded-xl ${
+                    liquidityActive
+                      ? "bg-red-500 hover:bg-red-400 text-white"
+                      : "bg-green-500 hover:bg-green-400 text-black"
+                  }`}
+                >
+                  {liquidityActive ? 'Deactivate' : 'Activate'}
+                </Button>
+              </div>
+
+              {/* ETH Balance */}
+              <div className="border-t border-white/20 pt-4">
+                <p className="font-righteous text-white/70 mb-3">
+                  Contract Balance: <span className="text-orange-400">{Number(liquidityEthBalance).toFixed(4)} ETH</span>
+                </p>
+
+                {/* Deposit */}
+                <div className="flex items-center gap-4 mb-3">
+                  <label className="font-righteous text-white/70 w-32">Deposit:</label>
+                  <Input
+                    type="text"
+                    value={liquidityDepositAmount}
+                    onChange={(e) => setLiquidityDepositAmount(e.target.value)}
+                    className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="0.0"
+                  />
+                  <span className="text-white/70 font-righteous">ETH</span>
+                  <Button onClick={handleLiquidityDeposit} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
+                    Deposit
+                  </Button>
+                </div>
+
+                {/* Withdraw ETH */}
+                <div className="flex items-center gap-4">
+                  <label className="font-righteous text-white/70 w-32">Withdraw:</label>
+                  <Input
+                    type="text"
+                    value={liquidityWithdrawAmount}
+                    onChange={(e) => setLiquidityWithdrawAmount(e.target.value)}
+                    className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="0.0"
+                  />
+                  <span className="text-white/70 font-righteous">ETH</span>
+                  <Button onClick={handleLiquidityWithdraw} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
+                    Withdraw
+                  </Button>
+                </div>
+              </div>
+
+              {/* FREG Coin */}
+              <div className="border-t border-white/20 pt-4">
+                <p className="font-righteous text-white/70 mb-3">
+                  FREG Balance: <span className="text-orange-400">{Number(liquidityCoinBalance).toFixed(2)} FREG</span>
+                </p>
+
+                {/* Deposit FREG */}
+                <div className="flex items-center gap-4 mb-3">
+                  <label className="font-righteous text-white/70 w-32">Deposit:</label>
+                  <Input
+                    type="text"
+                    value={liquidityCoinDepositAmount}
+                    onChange={(e) => setLiquidityCoinDepositAmount(e.target.value)}
+                    className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="0.0"
+                  />
+                  <span className="text-white/70 font-righteous">FREG</span>
+                  <Button onClick={handleLiquidityCoinDeposit} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
+                    Deposit
+                  </Button>
+                </div>
+
+                {/* Withdraw FREG */}
+                <div className="flex items-center gap-4">
+                  <label className="font-righteous text-white/70 w-32">Withdraw:</label>
+                  <Input
+                    type="text"
+                    value={liquidityCoinWithdrawAmount}
+                    onChange={(e) => setLiquidityCoinWithdrawAmount(e.target.value)}
+                    className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="0.0"
+                  />
+                  <span className="text-white/70 font-righteous">FREG</span>
+                  <Button onClick={handleLiquidityCoinWithdraw} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
+                    Withdraw
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+        )}
       </div>
 
       {/* Transaction Modal */}

@@ -8,13 +8,13 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 interface IFregsForLiquidity {
     function ownerOf(uint256 tokenId) external view returns (address);
     function burnForLiquidity(uint256 tokenId, address sender) external;
+    function totalSupply() external view returns (uint256);
 }
 
 contract FregsLiquidity is Ownable, ReentrancyGuard {
     IFregsForLiquidity public fregs;
     IERC20 public fregCoin;
-
-    uint256 public constant TOTAL_SUPPLY = 3000;
+    bool public active;
 
     event NftBurnedAndClaimed(
         uint256 indexed tokenId,
@@ -30,12 +30,16 @@ contract FregsLiquidity is Ownable, ReentrancyGuard {
     // ============ Core ============
 
     function burnAndClaim(uint256 tokenId) external nonReentrant {
+        require(active, "Contract not active");
         require(address(fregs) != address(0), "Fregs not set");
         require(fregs.ownerOf(tokenId) == msg.sender, "Not token owner");
 
-        uint256 ethShare = address(this).balance / TOTAL_SUPPLY;
+        uint256 supply = fregs.totalSupply();
+        require(supply > 0, "No supply");
+
+        uint256 ethShare = address(this).balance / supply;
         uint256 coinShare = address(fregCoin) != address(0)
-            ? fregCoin.balanceOf(address(this)) / TOTAL_SUPPLY
+            ? fregCoin.balanceOf(address(this)) / supply
             : 0;
 
         fregs.burnForLiquidity(tokenId, msg.sender);
@@ -53,9 +57,9 @@ contract FregsLiquidity is Ownable, ReentrancyGuard {
     // ============ View ============
 
     function getRedeemAmount() external view returns (uint256 ethAmount, uint256 coinAmount) {
-        ethAmount = address(this).balance / TOTAL_SUPPLY;
+        ethAmount = address(this).balance / fregs.totalSupply();
         coinAmount = address(fregCoin) != address(0)
-            ? fregCoin.balanceOf(address(this)) / TOTAL_SUPPLY
+            ? fregCoin.balanceOf(address(this)) / fregs.totalSupply()
             : 0;
     }
 
@@ -83,6 +87,10 @@ contract FregsLiquidity is Ownable, ReentrancyGuard {
 
     function setFregCoin(address _fregCoin) external onlyOwner {
         fregCoin = IERC20(_fregCoin);
+    }
+
+    function setActive(bool _active) external onlyOwner {
+        active = _active;
     }
 
     // Accept ETH deposits
