@@ -187,6 +187,10 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
         document.getElementById('cards-section')?.scrollIntoView({ behavior: 'smooth' })
     }
 
+    const scrollToAbout = () => {
+        document.getElementById('about-section')?.scrollIntoView({ behavior: 'smooth' })
+    }
+
     return (
         <div className="relative w-full bg-black">
             {/* Hero Section - shorter on mobile to show more of wide video */}
@@ -297,6 +301,122 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                             src={`${VIDEO_BASE_URL}/skeleton.MP4`}
                             clickable={false}
                         />
+                    </div>
+
+                    {/* Scroll to About arrow */}
+                    <div className="flex flex-col items-center mt-16">
+                        <span className="text-white/60 font-bold text-sm tracking-widest uppercase mb-2">About</span>
+                        <button
+                            onClick={scrollToAbout}
+                            className="animate-bounce"
+                            aria-label="Scroll to about section"
+                        >
+                            <ScrollArrow className="w-10 h-10 text-white/80 hover:text-white transition-colors cursor-pointer" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* About Section */}
+            <div
+                id="about-section"
+                className="w-full py-16 md:py-24 px-6 md:px-16 lg:px-24"
+                style={{ background: 'linear-gradient(135deg, #1a2e05 0%, #14532d 25%, #064e3b 50%, #134e4a 100%)' }}
+            >
+                <div className="max-w-6xl mx-auto">
+                    <h2 className="text-white text-5xl md:text-8xl font-bold tracking-tight mb-10 md:mb-14">
+                        About
+                    </h2>
+
+                    <div className="space-y-12 md:space-y-16">
+                        {/* 100% On-Chain */}
+                        <div>
+                            <h3 className="text-white text-2xl md:text-4xl font-bold mb-3 md:mb-4">
+                                100% On-Chain
+                            </h3>
+                            <p className="text-white/70 font-righteous text-base md:text-lg leading-relaxed">
+                                All Freg images are generated and stored entirely on-chain across X smart contracts.
+                                No IPFS, no external hosting — your Freg lives on the blockchain forever.
+                            </p>
+                        </div>
+
+                        {/* Part One — Spin the Wheel */}
+                        <div>
+                            <h3 className="text-white text-2xl md:text-4xl font-bold mb-3 md:mb-4">
+                                Part One — Spin the Wheel
+                            </h3>
+                            <p className="text-white/70 font-righteous text-base md:text-lg leading-relaxed mb-4">
+                                Before mint opens, SpinToken holders can spin the wheel. It costs 1 SpinToken per spin.
+                                Prizes include:
+                            </p>
+                            <ul className="text-white/70 font-righteous text-base md:text-lg leading-relaxed list-disc list-inside space-y-2 ml-2">
+                                <li><span className="text-white font-bold">Mint Pass</span> — whitelist access to mint a Freg</li>
+                                <li><span className="text-white font-bold">Treasure Chest</span> — burn later for $FREG coins</li>
+                                <li><span className="text-white font-bold">Hoodie</span> — exclusive head item, ONLY available from the wheel, never again</li>
+                                <li><span className="text-white font-bold">Frogsuit</span> — exclusive transformation, ONLY available from the wheel, never again</li>
+                            </ul>
+                        </div>
+
+                        {/* Mint Pass & Whitelist */}
+                        <div>
+                            <h3 className="text-white text-2xl md:text-4xl font-bold mb-3 md:mb-4">
+                                Mint Pass & Whitelist
+                            </h3>
+                            <p className="text-white/70 font-righteous text-base md:text-lg leading-relaxed">
+                                The Mint Pass is your whitelist ticket. Phase 1 requires a Mint Pass + the mint price to create your Freg.
+                                Mint Passes are won exclusively through Spin the Wheel.
+                            </p>
+                        </div>
+
+                        {/* Minting Your Freg */}
+                        <div>
+                            <h3 className="text-white text-2xl md:text-4xl font-bold mb-3 md:mb-4">
+                                Minting Your Freg
+                            </h3>
+                            <p className="text-white/70 font-righteous text-base md:text-lg leading-relaxed">
+                                Choose your skin and background color via a hue slider — any hex color is yours.
+                                Head, mouth, and belly traits are randomly assigned with weighted probabilities, making every Freg unique.
+                            </p>
+                        </div>
+
+                        {/* Claiming Items */}
+                        <div>
+                            <h3 className="text-white text-2xl md:text-4xl font-bold mb-3 md:mb-4">
+                                Claiming Items
+                            </h3>
+                            <p className="text-white/70 font-righteous text-base md:text-lg leading-relaxed mb-4">
+                                Each Freg can claim one item after minting. Items are randomly assigned with weighted probabilities:
+                            </p>
+                            <ul className="text-white/70 font-righteous text-base md:text-lg leading-relaxed list-disc list-inside space-y-2 ml-2">
+                                <li><span className="text-white font-bold">Color Change</span> (55%) — change your body color</li>
+                                <li><span className="text-white font-bold">Head Reroll</span> (30%) — reroll your head trait</li>
+                                <li><span className="text-white font-bold">Treasure Chest</span> (10%) — burn for $FREG</li>
+                                <li><span className="text-white font-bold">Robot Skin</span> (2%), <span className="text-white font-bold">Gold Skin</span> (1%), <span className="text-white font-bold">Diamond Skin</span> (1%), <span className="text-white font-bold">Skeleton</span> (0.5%)</li>
+                            </ul>
+                        </div>
+
+                        {/* Treasure Chests & $FREG */}
+                        <div>
+                            <h3 className="text-white text-2xl md:text-4xl font-bold mb-3 md:mb-4">
+                                Treasure Chests & $FREG
+                            </h3>
+                            <p className="text-white/70 font-righteous text-base md:text-lg leading-relaxed">
+                                Treasure Chests are found through item claims or Spin the Wheel. Burn a chest to receive $FREG coins.
+                                Chests from claims are limited supply — once they're gone, they're gone.
+                            </p>
+                        </div>
+
+                        {/* The Liquidity Pool */}
+                        <div>
+                            <h3 className="text-white text-2xl md:text-4xl font-bold mb-3 md:mb-4">
+                                The Liquidity Pool
+                            </h3>
+                            <p className="text-white/70 font-righteous text-base md:text-lg leading-relaxed">
+                                Part of mint funds, royalties from secondary sales, and $FREG are deposited into the Liquidity contract.
+                                Burn your Freg NFT to claim a proportional share of ETH and $FREG from the pool.
+                                As more Fregs are burned, each remaining Freg's share grows — creating a deflationary floor price mechanism.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
