@@ -632,6 +632,12 @@ async function main() {
     const fregsLiquidity = await deployContract(FregsLiquidity, [], "FregsLiquidity");
     const fregsLiquidityAddress = await fregsLiquidity.getAddress();
 
+    // ============ Deploy FregShop ============
+    console.log("\n--- Deploying FregShop ---");
+    const FregShop = await ethers.getContractFactory("FregShop");
+    const fregShop = await deployContract(FregShop, [], "FregShop");
+    const fregShopAddress = await fregShop.getAddress();
+
     // ============ Configure Cross-Contract References ============
     console.log("\n--- Configuring Cross-Contract References ---");
 
@@ -673,6 +679,13 @@ async function main() {
     await sendTx(fregsLiquidity.setFregs(fregsAddress));
     await sendTx(fregsLiquidity.setFregCoin(fregCoinAddress));
     await sendTx(fregs.setLiquidityContract(fregsLiquidityAddress));
+
+    // Configure FregShop
+    console.log("Configuring FregShop...");
+    await sendTx(fregShop.setFregCoinContract(fregCoinAddress));
+    await sendTx(fregShop.setItemsContract(fregsItemsAddress));
+    await sendTx(fregsItems.setShopContract(fregShopAddress));
+    await sendTx(fregCoin.setShopContract(fregShopAddress));
 
     // ============ Set Mint Phase ============
     const isLocalhost = network.name === "localhost" || network.name === "hardhat";
@@ -763,6 +776,7 @@ async function main() {
     deploymentStatus.contracts.fregCoin = fregCoinAddress;
     deploymentStatus.contracts.spinTheWheel = spinTheWheelAddress;
     deploymentStatus.contracts.fregsLiquidity = fregsLiquidityAddress;
+    deploymentStatus.contracts.fregShop = fregShopAddress;
 
     // ============ Deploy Art and SVG Renderer ============
     const artAddresses = await deployArt(deploymentStatus);
@@ -858,6 +872,7 @@ async function main() {
     copyABI("SpinTheWheel", "SpinTheWheel");
     copyABI("FregCoin", "FregCoin");
     copyABI("FregsLiquidity", "FregsLiquidity");
+    copyABI("FregShop", "FregShop");
 
     console.log("ABIs copied successfully!");
 
@@ -926,6 +941,18 @@ async function main() {
         } catch (error) {
             console.log("SpinTheWheel verification failed:", error.message);
         }
+
+        // Verify FregShop
+        try {
+            console.log("Verifying FregShop...");
+            await run("verify:verify", {
+                address: fregShopAddress,
+                constructorArguments: []
+            });
+            console.log("FregShop verified!");
+        } catch (error) {
+            console.log("FregShop verification failed:", error.message);
+        }
     } else if (!VERIFY_CONTRACTS) {
         console.log("\n--- Skipping Contract Verification (VERIFY_CONTRACTS = false) ---");
     }
@@ -942,6 +969,7 @@ async function main() {
     console.log("  FregCoin:        ", fregCoinAddress);
     console.log("  SpinTheWheel:    ", spinTheWheelAddress);
     console.log("  FregsLiquidity:  ", fregsLiquidityAddress);
+    console.log("  FregShop:        ", fregShopAddress);
     console.log("  SVG Renderer:    ", svgRendererAddress);
     console.log("\nArt Contracts (6 unified routers):");
     console.log("  Background:        ", artAddresses.background || "Not deployed (uses color rect)");
@@ -989,6 +1017,7 @@ async function main() {
     console.log(`VITE_FREGCOIN_ADDRESS=${fregCoinAddress}`);
     console.log(`VITE_SPIN_THE_WHEEL_ADDRESS=${spinTheWheelAddress}`);
     console.log(`VITE_FREGS_LIQUIDITY_ADDRESS=${fregsLiquidityAddress}`);
+    console.log(`VITE_FREG_SHOP_ADDRESS=${fregShopAddress}`);
     console.log(`VITE_SVG_RENDERER_ADDRESS=${svgRendererAddress}`);
 
 }

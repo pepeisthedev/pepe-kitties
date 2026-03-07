@@ -497,6 +497,31 @@
         "internalType": "uint256",
         "name": "itemType",
         "type": "uint256"
+      }
+    ],
+    "name": "MintedFromShop",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "itemType",
+        "type": "uint256"
       },
       {
         "indexed": false,
@@ -1528,6 +1553,24 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_itemType",
+        "type": "uint256"
+      }
+    ],
+    "name": "mintFromShop",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "name",
     "outputs": [
@@ -1939,6 +1982,19 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "_shop",
+        "type": "address"
+      }
+    ],
+    "name": "setShopContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "itemType_",
         "type": "uint256"
@@ -2027,6 +2083,19 @@
     "name": "setTreasureChestWeight",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "shopContract",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {

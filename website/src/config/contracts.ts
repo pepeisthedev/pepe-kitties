@@ -3,6 +3,8 @@ import FregsItemsABI from "../assets/abis/FregsItems.json"
 import FregsMintPassABI from "../assets/abis/FregsMintPass.json"
 import SpinTheWheelABI from "../assets/abis/SpinTheWheel.json"
 import FregsLiquidityABI from "../assets/abis/FregsLiquidity.json"
+import FregShopABI from "../assets/abis/FregShop.json"
+import FregCoinABI from "../assets/abis/FregCoin.json"
 import itemsData from "./items.json"
 
 // Contract addresses from environment variables
@@ -11,9 +13,11 @@ export const FREGS_ITEMS_ADDRESS = import.meta.env.VITE_FREGS_ITEMS_ADDRESS as s
 export const FREGS_MINTPASS_ADDRESS = import.meta.env.VITE_FREGS_MINTPASS_ADDRESS as string
 export const SPIN_THE_WHEEL_ADDRESS = import.meta.env.VITE_SPIN_THE_WHEEL_ADDRESS as string
 export const FREGS_LIQUIDITY_ADDRESS = import.meta.env.VITE_FREGS_LIQUIDITY_ADDRESS as string
+export const FREG_SHOP_ADDRESS = import.meta.env.VITE_FREG_SHOP_ADDRESS as string
+export const FREG_COIN_ADDRESS = import.meta.env.VITE_FREGCOIN_ADDRESS as string
 
 // Export ABIs
-export { FregsABI, FregsItemsABI, FregsMintPassABI, SpinTheWheelABI, FregsLiquidityABI }
+export { FregsABI, FregsItemsABI, FregsMintPassABI, SpinTheWheelABI, FregsLiquidityABI, FregShopABI, FregCoinABI }
 
 // Item configuration loaded from items.json (single source of truth)
 export interface ItemConfig {

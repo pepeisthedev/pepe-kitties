@@ -8,7 +8,7 @@ import { Settings, Package, Plus, ChevronDown, ChevronUp, CheckCircle, XCircle, 
 import { useContractData, useContracts } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog"
-import { TRAIT_TYPES, ITEM_TYPES, ITEM_TYPE_NAMES } from "../config/contracts"
+import { TRAIT_TYPES, ITEM_TYPES } from "../config/contracts"
 
 type TxStatus = 'idle' | 'pending' | 'confirming' | 'success' | 'error'
 
@@ -36,7 +36,7 @@ export default function AdminSection(): React.JSX.Element {
   const [contractBalance, setContractBalance] = useState("0")
 
   // Mint items form
-  const [selectedItemType, setSelectedItemType] = useState<number>(ITEM_TYPES.COLOR_CHANGE)
+  const [selectedItemType, setSelectedItemType] = useState<number>(101)
   const [addressesInput, setAddressesInput] = useState("")
   const [mintAmount, setMintAmount] = useState("1")
   const [mintProgress, setMintProgress] = useState({ current: 0, total: 0 })
@@ -101,11 +101,8 @@ export default function AdminSection(): React.JSX.Element {
         const balance = await contracts.provider.getBalance(await contracts.fregs.read.getAddress())
         setContractBalance(formatEther(balance))
 
-        // Fetch built-in item types
-        const types: ItemType[] = Object.entries(ITEM_TYPE_NAMES).map(([id, name]) => ({
-          id: Number(id),
-          name,
-        }))
+        // Only fetch dynamic item types (101+) - built-in items cannot be owner-minted
+        const types: ItemType[] = []
 
         // Fetch dynamic item types (starting from 101)
         for (let id = 101; id < 200; id++) {

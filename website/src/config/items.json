@@ -9,7 +9,7 @@
       "isClaimable": true,
       "claimWeight": 5500,
       "claimPercent": 55,
-      "isOwnerMintable": true
+      "isOwnerMintable": false
     },
     {
       "id": 2,
@@ -20,7 +20,7 @@
       "isClaimable": true,
       "claimWeight": 3000,
       "claimPercent": 30,
-      "isOwnerMintable": true
+      "isOwnerMintable": false
     },
 {
       "id": 4,
@@ -33,7 +33,7 @@
       "isClaimable": true,
       "claimWeight": 200,
       "claimPercent": 2,
-      "isOwnerMintable": true
+      "isOwnerMintable": false
     },
     {
       "id": 5,
@@ -46,7 +46,7 @@
       "isClaimable": true,
       "claimWeight": 100,
       "claimPercent": 1,
-      "isOwnerMintable": true
+      "isOwnerMintable": false
     },
     {
       "id": 6,
@@ -58,7 +58,7 @@
       "claimWeight": 1000,
       "claimPercent": 10,
       "maxSupply": 5,
-      "isOwnerMintable": true
+      "isOwnerMintable": false
     },
     {
       "id": 8,
@@ -71,7 +71,7 @@
       "isClaimable": true,
       "claimWeight": 100,
       "claimPercent": 1,
-      "isOwnerMintable": true
+      "isOwnerMintable": false
     },
     {
       "id": 9,
@@ -83,7 +83,7 @@
       "traitFileName": "2.svg",
       "isClaimable": false,
       "claimWeight": 0,
-      "isOwnerMintable": true,
+      "isOwnerMintable": false,
       "incompatibleWithSkins": [4],
       "spinWheelExclusive": true
     },
@@ -97,7 +97,7 @@
       "traitFileName": "3.svg",
       "isClaimable": false,
       "claimWeight": 0,
-      "isOwnerMintable": true,
+      "isOwnerMintable": false,
       "incompatibleWithSkins": [4],
       "spinWheelExclusive": true
     },
@@ -112,7 +112,7 @@
       "isClaimable": true,
       "claimWeight": 50,
       "claimPercent": 0.5,
-      "isOwnerMintable": true,
+      "isOwnerMintable": false,
       "incompatibleWithHeads": [21, 22]
     }
   ],

@@ -107,10 +107,11 @@ interface CarouselCardProps {
     traitsConfig: TraitsConfig | null
     redeemETH: string | null
     redeemCoin: string | null
+    liquidityActive: boolean
     onBurn: (tokenId: number) => void
 }
 
-function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, traitsConfig, redeemETH, redeemCoin, onBurn }: CarouselCardProps) {
+function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, traitsConfig, redeemETH, redeemCoin, liquidityActive, onBurn }: CarouselCardProps) {
     return (
         <div
             className={`flex-shrink-0 w-40 cursor-pointer transition-transform ${
@@ -212,10 +213,13 @@ function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, tra
                             </div>
                         )}
                         <button
-                            className="mt-auto w-full text-[8px] bg-red-500/80 hover:bg-red-500 text-white rounded py-0.5 font-bangers transition-colors cursor-pointer"
+                            className={`mt-auto w-full text-[8px] text-white rounded py-0.5 font-bangers transition-colors ${
+                                liquidityActive ? "bg-red-500/80 hover:bg-red-500 cursor-pointer" : "bg-gray-500/50 cursor-not-allowed opacity-50"
+                            }`}
+                            disabled={!liquidityActive}
                             onClick={(e) => { e.stopPropagation(); onBurn(kitty.tokenId) }}
                         >
-                            <Flame className="w-2.5 h-2.5 inline mr-0.5" />Burn & Redeem
+                            <Flame className="w-2.5 h-2.5 inline mr-0.5" />{liquidityActive ? "Burn & Redeem" : "Redeem Inactive"}
                         </button>
                     </div>
                 </div>
@@ -246,6 +250,7 @@ export default function MyKittiesSection(): React.JSX.Element {
     const [traitsConfig, setTraitsConfig] = useState<TraitsConfig | null>(null)
     const [redeemETH, setRedeemETH] = useState<string | null>(null)
     const [redeemCoin, setRedeemCoin] = useState<string | null>(null)
+    const [liquidityActive, setLiquidityActive] = useState(false)
     const [burnConfirmTokenId, setBurnConfirmTokenId] = useState<number | null>(null)
 
     // Items tab state (separate selection from fregs tab)
@@ -276,9 +281,12 @@ export default function MyKittiesSection(): React.JSX.Element {
             .catch(err => console.error('Failed to load traits config:', err))
     }, [])
 
-    // Fetch redeem amounts from liquidity contract
+    // Fetch redeem amounts and active state from liquidity contract
     useEffect(() => {
         if (!contracts?.liquidity) return
+        contracts.liquidity.read.active().then((isActive: boolean) => {
+            setLiquidityActive(isActive)
+        }).catch(() => setLiquidityActive(false))
         contracts.liquidity.read.getRedeemAmount().then(([eth, coin]: [bigint, bigint]) => {
             setRedeemETH(parseFloat(formatEther(eth)).toFixed(6))
             setRedeemCoin(parseFloat(formatEther(coin)).toFixed(0))
@@ -475,19 +483,21 @@ export default function MyKittiesSection(): React.JSX.Element {
             const contract = await contracts.items.write()
             let tx
 
+            const gasOpts = { gasLimit: 500000n }
+
             if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) {
                 if (!isValidHexColor(newColor)) throw new Error("Invalid hex color")
-                tx = await contract.useColorChange(selectedItem.tokenId, selectedKitty.tokenId, newColor)
+                tx = await contract.useColorChange(selectedItem.tokenId, selectedKitty.tokenId, newColor, gasOpts)
             } else if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) {
-                tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId)
+                tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE) {
-                tx = await contract.useSpecialDice(selectedItem.tokenId, selectedKitty.tokenId)
+                tx = await contract.useSpecialDice(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (isSkinItem(selectedItem.itemType)) {
-                tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId)
+                tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (isHeadItem(selectedItem.itemType)) {
-                tx = await contract.useHeadTraitItem(selectedItem.tokenId, selectedKitty.tokenId)
+                tx = await contract.useHeadTraitItem(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (isDynamicTraitItem(selectedItem)) {
-                tx = await contract.useDynamicTraitItem(selectedItem.tokenId, selectedKitty.tokenId)
+                tx = await contract.useDynamicTraitItem(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else {
                 throw new Error(`Unknown item type: ${selectedItem.itemType}`)
             }
@@ -778,10 +788,13 @@ export default function MyKittiesSection(): React.JSX.Element {
                                                         </div>
                                                     )}
                                                     <button
-                                                        className="mt-auto w-full text-[10px] bg-red-500/80 hover:bg-red-500 text-white rounded py-1 font-bangers transition-colors cursor-pointer"
+                                                        className={`mt-auto w-full text-[10px] text-white rounded py-1 font-bangers transition-colors ${
+                                                            liquidityActive ? "bg-red-500/80 hover:bg-red-500 cursor-pointer" : "bg-gray-500/50 cursor-not-allowed opacity-50"
+                                                        }`}
+                                                        disabled={!liquidityActive}
                                                         onClick={(e) => { e.stopPropagation(); handleBurn(kitty.tokenId) }}
                                                     >
-                                                        <Flame className="w-3 h-3 inline mr-0.5" />Burn & Redeem
+                                                        <Flame className="w-3 h-3 inline mr-0.5" />{liquidityActive ? "Burn & Redeem" : "Redeem Inactive"}
                                                     </button>
                                                 </div>
                                             </div>
@@ -821,6 +834,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                             traitsConfig={traitsConfig}
                                             redeemETH={redeemETH}
                                             redeemCoin={redeemCoin}
+                                            liquidityActive={liquidityActive}
                                             onBurn={handleBurn}
                                         />
                                     ))}
@@ -848,6 +862,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                             traitsConfig={traitsConfig}
                                             redeemETH={redeemETH}
                                             redeemCoin={redeemCoin}
+                                            liquidityActive={liquidityActive}
                                             onBurn={handleBurn}
                                         />
                                     ))}

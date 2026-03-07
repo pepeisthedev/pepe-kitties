@@ -75,6 +75,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     ISVGItemsRenderer public svgRenderer;
     address public spinTheWheelContract;
     address public fregCoinContract;
+    address public shopContract;
 
     uint256 private _tokenIdCounter;
     uint256 private randomNonce;
@@ -169,6 +170,12 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         address indexed owner,
         uint256 traitType,
         uint256 traitValue
+    );
+
+    event MintedFromShop(
+        uint256 indexed itemTokenId,
+        address indexed to,
+        uint256 itemType
     );
 
     constructor(
@@ -444,7 +451,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     // Owner mint function for minting any item type to any address
     function ownerMint(address to, uint256 _itemType, uint256 amount) external onlyOwner {
         require(amount > 0, "Amount must be greater than 0");
-        // Item type must be configured (have a name set via setBuiltInItemConfig or addItemType)
+        require(_itemType >= 101, "Cannot owner-mint built-in items");
         require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Item type not configured");
 
         uint256 startTokenId = _tokenIdCounter;
@@ -474,6 +481,24 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         }
 
         emit MintedFromCoin(newItemId, to, _itemType);
+    }
+
+    // Mint from FregShop
+    function mintFromShop(address to, uint256 _itemType) external {
+        require(msg.sender == shopContract, "Only shop contract");
+        require(_itemType >= 101, "Only dynamic items");
+        require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Item type not configured");
+
+        uint256 newItemId = _tokenIdCounter;
+        _safeMint(to, 1);
+        _tokenIdCounter += 1;
+        itemType[newItemId] = _itemType;
+
+        emit MintedFromShop(newItemId, to, _itemType);
+    }
+
+    function setShopContract(address _shop) external onlyOwner {
+        shopContract = _shop;
     }
 
     function setSpinTheWheelContract(address _spinTheWheel) external onlyOwner {

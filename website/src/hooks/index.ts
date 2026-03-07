@@ -14,3 +14,8 @@ export { useContracts } from "./useContracts"
 export { useIsOwner } from "./useIsOwner"
 
 export { useSpinTokenBalance } from "./useSpinTokenBalance"
+
+export { useShopItems } from "./useShopItems"
+export type { ShopItem } from "./useShopItems"
+
+export { useFregCoinBalance } from "./useFregCoinBalance"

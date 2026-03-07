@@ -16,6 +16,7 @@ const navItems: { id: SectionId; label: string }[] = [
     { id: "my-kitties", label: "My Fregs" },
     { id: "treasure-chests", label: "$FREG" },
     { id: "spin-wheel", label: "Spin" },
+    { id: "shop", label: "Shop" },
 ]
 
 export default function Header({ activeSection, onSectionChange }: HeaderProps): React.JSX.Element {
