@@ -146,8 +146,8 @@ async function main() {
     console.log(`  Items SVGRouter: ${itemsRouterAddress}`);
     const itemsRouter = await ethers.getContractAt("SVGRouter", itemsRouterAddress);
 
-    // Process and store the icon SVG (no class prefix for item icons)
-    const iconSvgData = processSvgFile(ITEM_ICON_SVG_PATH, "");
+    // Process and store the icon SVG (keepSvgTag=true since item icons are standalone)
+    const iconSvgData = processSvgFile(ITEM_ICON_SVG_PATH, "", true);
     console.log(`  Icon SVG data size: ${iconSvgData.length} bytes`);
 
     const iconChunkAddresses = [];

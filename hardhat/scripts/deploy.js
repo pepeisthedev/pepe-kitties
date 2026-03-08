@@ -452,25 +452,34 @@ async function deployItems(svgPartWriter) {
         return null;
     }
 
-    const files = fs.readdirSync(ITEMS_PATH)
-        .filter(f => f.endsWith('.svg'))
-        .sort((a, b) => parseInt(a.replace('.svg', '')) - parseInt(b.replace('.svg', '')));
+    // Load items.json to get the mapping from item type ID to SVG file
+    const itemsConfig = JSON.parse(fs.readFileSync(ITEMS_JSON_PATH, "utf8"));
+    const items = itemsConfig.items.filter(item => item.svgFile);
 
-    if (files.length === 0) {
-        console.log("  No item SVGs found, skipping...");
+    if (items.length === 0) {
+        console.log("  No items with SVG files found, skipping...");
         return null;
     }
 
-    console.log(`  Deploying items (${files.length} SVGs)...`);
+    console.log(`  Deploying items (${items.length} SVGs) with explicit type IDs...`);
 
     const svgRendererAddresses = [];
+    const typeIds = [];
     const chunkSize = 16 * 1024;
 
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const filePath = path.join(ITEMS_PATH, file);
-        // Items don't need class prefixing since they're standalone
-        const svgData = processSvgFile(filePath, '');
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const filePath = path.join(ITEMS_PATH, item.svgFile);
+
+        if (!fs.existsSync(filePath)) {
+            console.log(`  WARNING: SVG file not found for item ${item.id} (${item.name}): ${item.svgFile}, skipping...`);
+            continue;
+        }
+
+        console.log(`  Deploying item ${item.id}: ${item.name} (${item.svgFile})...`);
+
+        // Items are standalone SVGs - keep the <svg> wrapper for tokenURI rendering
+        const svgData = processSvgFile(filePath, '', true);
 
         const totalChunks = Math.ceil(svgData.length / chunkSize);
         const addresses = [];
@@ -482,15 +491,17 @@ async function deployItems(svgPartWriter) {
         }
 
         const SVGRenderer = await ethers.getContractFactory("SVGRenderer");
-        const renderer = await deployContract(SVGRenderer, [addresses], `Item ${file}`);
+        const renderer = await deployContract(SVGRenderer, [addresses], `Item ${item.name} (type ${item.id})`);
         svgRendererAddresses.push(await renderer.getAddress());
+        typeIds.push(item.id);
     }
 
-    // Deploy router for items
+    // Deploy router for items with explicit type IDs
     const SVGRouter = await ethers.getContractFactory("SVGRouter");
     const router = await deployContract(SVGRouter, [], "Items router");
 
-    await sendTx(router.setRenderContractsBatch(svgRendererAddresses));
+    console.log(`  Setting item router with typeIds: [${typeIds.join(', ')}]`);
+    await sendTx(router.setRenderContractsBatchWithTypeIds(typeIds, svgRendererAddresses));
 
     const routerAddress = await router.getAddress();
     return routerAddress;

@@ -5,7 +5,6 @@ import {ERC721AC} from "@limitbreak/creator-token-standards/src/erc721c/ERC721AC
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./utils/BasicRoyalties.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -192,10 +191,6 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         fregs = IFregs(_fregs);
     }
 
-    function _baseURI() internal pure override returns (string memory) {
-        return "data:application/json;base64,";
-    }
-
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(_exists(tokenId), "Token does not exist");
         require(address(svgRenderer) != address(0), "SVG renderer not set");
@@ -203,30 +198,25 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         string memory itemName = _getItemName(itemType[tokenId]);
         string memory itemDescription = _getItemDescription(itemType[tokenId]);
 
-        // Item types are 1-indexed, but SVGRouter is 0-indexed
-        string memory svg = svgRenderer.render(itemType[tokenId] - 1);
+        string memory svg = svgRenderer.render(itemType[tokenId]);
 
-        string memory json = Base64.encode(
-            bytes(
-                string(
-                    abi.encodePacked(
-                        '{"name": "',
-                        itemName,
-                        ' #',
-                        Strings.toString(tokenId),
-                        '","description": "',
-                        itemDescription,
-                        '","image": "data:image/svg+xml;base64,',
-                        Base64.encode(bytes(svg)),
-                        '","attributes": [{"trait_type": "Item Type","value": "',
-                        itemName,
-                        '"}]}'
-                    )
-                )
+        // Build JSON with embedded SVG (no base64 encoding)
+        // SVG uses single quotes so it can be embedded in JSON double-quoted strings
+        return string(
+            abi.encodePacked(
+                'data:application/json,{"name":"',
+                itemName,
+                ' #',
+                Strings.toString(tokenId),
+                '","description":"',
+                itemDescription,
+                '","image":"data:image/svg+xml,',
+                svg,
+                '","attributes":[{"trait_type":"Item Type","value":"',
+                itemName,
+                '"}]}'
             )
         );
-
-        return string(abi.encodePacked(_baseURI(), json));
     }
 
     function _getItemName(uint256 _itemType) internal view returns (string memory) {

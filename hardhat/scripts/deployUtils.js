@@ -53,31 +53,36 @@ async function storeSvgData(svgPartWriter, data) {
 
 /**
  * Process SVG file for on-chain storage with proper escaping for JSON embedding
- * - Strips XML declaration and SVG wrapper
+ * - Strips XML declaration and SVG wrapper (unless keepSvgTag is true)
  * - Replaces double quotes with single quotes (for JSON compatibility)
  * - Removes newlines, tabs, and excessive whitespace (for JSON compatibility)
  * - Prefixes CSS class names to avoid collisions between layers
  * @param svgFilePath - Path to the SVG file
  * @param classPrefix - Unique prefix for CSS class names (e.g., 'body', 'head1')
+ * @param keepSvgTag - If true, keeps the <svg> wrapper (needed for standalone SVGs like item icons)
  */
-function processSvgFile(svgFilePath, classPrefix = '') {
+function processSvgFile(svgFilePath, classPrefix = '', keepSvgTag = false) {
     let svgData = fs.readFileSync(svgFilePath, "utf8");
 
     // Replace double quotes with single quotes for JSON compatibility
     svgData = svgData.replace(/"/g, "'");
 
-    // Strip XML declaration and SVG wrapper
+    // Strip XML declaration (always)
     const svgStartIndex = svgData.indexOf('<svg');
     if (svgStartIndex > 0) {
         svgData = svgData.substring(svgStartIndex);
     }
-    const svgTagEndIndex = svgData.indexOf('>');
-    if (svgTagEndIndex !== -1) {
-        svgData = svgData.substring(svgTagEndIndex + 1);
-    }
-    const closingTagIndex = svgData.lastIndexOf('</svg>');
-    if (closingTagIndex !== -1) {
-        svgData = svgData.substring(0, closingTagIndex);
+
+    // Strip SVG wrapper unless keepSvgTag is set (standalone SVGs need the wrapper)
+    if (!keepSvgTag) {
+        const svgTagEndIndex = svgData.indexOf('>');
+        if (svgTagEndIndex !== -1) {
+            svgData = svgData.substring(svgTagEndIndex + 1);
+        }
+        const closingTagIndex = svgData.lastIndexOf('</svg>');
+        if (closingTagIndex !== -1) {
+            svgData = svgData.substring(0, closingTagIndex);
+        }
     }
 
     // Prefix CSS class names to avoid collisions between layers

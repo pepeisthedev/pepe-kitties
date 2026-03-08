@@ -451,7 +451,7 @@ async function deployBody(svgPartWriter) {
 
 /**
  * Deploy item SVGs and create a router for them
- * Items are stored at indices matching their item type (1-6)
+ * Uses items.json to map SVG files to their correct item type IDs
  */
 async function deployItems(svgPartWriter) {
     if (!fs.existsSync(ITEMS_PATH)) {
@@ -459,41 +459,44 @@ async function deployItems(svgPartWriter) {
         return null;
     }
 
-    // Get all SVG files in the items folder
-    const files = fs.readdirSync(ITEMS_PATH)
-        .filter(f => f.endsWith('.svg'))
-        .sort((a, b) => {
-            const numA = parseInt(a.replace('.svg', ''));
-            const numB = parseInt(b.replace('.svg', ''));
-            return numA - numB;
-        });
+    // Load items.json to get the mapping from item type ID to SVG file
+    const itemsJsonPath = path.join(__dirname, "../../../website/src/config/items.json");
+    const itemsConfig = JSON.parse(fs.readFileSync(itemsJsonPath, "utf8"));
+    const items = itemsConfig.items.filter(item => item.svgFile);
 
-    if (files.length === 0) {
-        console.log("⚠️  No SVG files found in items folder, skipping...");
+    if (items.length === 0) {
+        console.log("⚠️  No items with SVG files found, skipping...");
         return null;
     }
 
     console.log(`\n${'='.repeat(60)}`);
-    console.log(`🎁 Deploying ITEM SVGs (${files.length} items)`);
+    console.log(`🎁 Deploying ITEM SVGs (${items.length} items) with explicit type IDs`);
     console.log(`${'='.repeat(60)}`);
 
     const svgRendererAddresses = [];
+    const typeIds = [];
     let totalContracts = 0;
 
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const filePath = path.join(ITEMS_PATH, file);
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const filePath = path.join(ITEMS_PATH, item.svgFile);
 
-        console.log(`\n📦 Deploying item ${file} (${i + 1}/${files.length})...`);
+        if (!fs.existsSync(filePath)) {
+            console.log(`⚠️  SVG not found for item ${item.id} (${item.name}): ${item.svgFile}, skipping...`);
+            continue;
+        }
+
+        console.log(`\n📦 Deploying item ${item.id}: ${item.name} (${item.svgFile}) (${i + 1}/${items.length})...`);
 
         try {
             const { address, chunkCount } = await deploySvg(filePath, svgPartWriter);
             svgRendererAddresses.push(address);
+            typeIds.push(item.id);
             totalContracts += chunkCount;
-            console.log(`✅ Item ${file} deployed at: ${address}`);
+            console.log(`✅ Item ${item.name} (type ${item.id}) deployed at: ${address}`);
         } catch (error) {
-            console.error(`❌ Failed to deploy item ${file}:`, error);
-            throw new Error(`Failed to deploy item ${file}. Cannot continue.`);
+            console.error(`❌ Failed to deploy item ${item.name}:`, error);
+            throw new Error(`Failed to deploy item ${item.name}. Cannot continue.`);
         }
     }
 
@@ -512,13 +515,12 @@ async function deployItems(svgPartWriter) {
         }
     }
 
-    // Add all item SVG addresses to the router
-    // Note: Item type 1 will be at index 0, type 2 at index 1, etc.
-    console.log(`📋 Adding ${svgRendererAddresses.length} items to router...`);
+    // Add item SVGs to router with explicit type IDs matching item type constants
+    console.log(`📋 Adding ${svgRendererAddresses.length} items to router with typeIds: [${typeIds.join(', ')}]...`);
     try {
-        const tx = await svgRouter.setRenderContractsBatch(svgRendererAddresses);
+        const tx = await svgRouter.setRenderContractsBatchWithTypeIds(typeIds, svgRendererAddresses);
         const receipt = await tx.wait();
-        console.log(`✅ All items added! Gas used: ${receipt.gasUsed}`);
+        console.log(`✅ All items added with explicit typeIds! Gas used: ${receipt.gasUsed}`);
     } catch (error) {
         console.error(`❌ Failed to configure items router:`, error);
         throw error;
@@ -529,7 +531,7 @@ async function deployItems(svgPartWriter) {
 
     return {
         routerAddress,
-        itemCount: files.length,
+        itemCount: items.length,
         contractCount: totalContracts
     };
 }
