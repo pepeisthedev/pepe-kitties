@@ -16,8 +16,9 @@ interface KittyRendererProps {
 const FROGZ_PATH = "/frogz/default"
 const FROM_ITEMS_PATH = "/frogz/from_items"
 
-// Base trait counts - heads with IDs above this are item heads (stored in added/head folder)
+// Base trait counts - IDs above these are item traits (stored in from_items/ folder)
 const BASE_HEAD_COUNT = 22
+const BASE_STOMACH_COUNT = 4
 
 
 // Cache for original SVG content to avoid repeated fetches
@@ -150,13 +151,22 @@ export default function KittyRenderer({
         )
       )}
 
-      {/* Stomach - only renders for default body (special skins cover the belly), 0 = None */}
+      {/* Stomach - only renders for default body (special skins cover the belly), 0 = None
+          Base stomachs (1-4) are in default/stomach/, item stomachs (5+) are in from_items/stomach/ */}
       {!hideTraits && !hasSpecialBody && stomach > 0 && (
-        <img
-          src={`${FROGZ_PATH}/stomach/${stomach}.svg`}
-          alt={`Stomach ${stomach}`}
-          className="absolute inset-0 w-full h-full object-contain"
-        />
+        stomach > BASE_STOMACH_COUNT ? (
+          <img
+            src={`${FROM_ITEMS_PATH}/stomach/${stomach - BASE_STOMACH_COUNT}.svg`}
+            alt={`Stomach ${stomach}`}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        ) : (
+          <img
+            src={`${FROGZ_PATH}/stomach/${stomach}.svg`}
+            alt={`Stomach ${stomach}`}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        )
       )}
 
       {/* Head - each head trait includes eyes in its SVG
