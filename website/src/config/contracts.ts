@@ -90,6 +90,14 @@ export function checkItemIncompatibility(
   fregBody: number,
   fregHead: number
 ): { incompatible: boolean; reason: string } {
+  // Stomach items have no effect on special skins (they cover the belly area)
+  if (itemConfig.category === 'stomach' && fregBody > 0) {
+    return {
+      incompatible: true,
+      reason: "Cannot apply stomach trait on special skin!"
+    }
+  }
+
   // Check if item is incompatible with freg's current skin
   if (itemConfig.incompatibleWithSkins?.includes(fregBody)) {
     return {
