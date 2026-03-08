@@ -81,6 +81,9 @@ export function getItemsByCategory(category: string): ItemConfig[] {
 // Base head count for calculating head trait values from fileNames
 export const BASE_HEAD_COUNT = 22
 
+// Base stomach count for calculating stomach trait values from fileNames
+export const BASE_STOMACH_COUNT = 4
+
 // Check if an item is incompatible with a freg's current traits
 export function checkItemIncompatibility(
   itemConfig: ItemConfig,

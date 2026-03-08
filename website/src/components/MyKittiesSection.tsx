@@ -11,7 +11,7 @@ import LoadingSpinner from "./LoadingSpinner"
 import KittyRenderer from "./KittyRenderer"
 import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
-import { ITEM_TYPE_NAMES, ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, ITEMS, checkItemIncompatibility } from "../config/contracts"
+import { ITEM_TYPE_NAMES, ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, ITEMS, checkItemIncompatibility, BASE_HEAD_COUNT, BASE_STOMACH_COUNT } from "../config/contracts"
 import { Gift, LayoutGrid, Rows, Flame, AlertTriangle, Wand2, Palette, Backpack } from "lucide-react"
 import {
     Dialog,
@@ -96,6 +96,31 @@ const getItemDescription = (item: Item): string => {
 }
 
 const isValidHexColor = (color: string): boolean => /^#[0-9A-Fa-f]{6}$/.test(color)
+
+const traitTypeToKittyKey = (traitType: number): keyof Kitty | null => {
+    if (traitType === TRAIT_TYPES.BODY) return 'body'
+    if (traitType === TRAIT_TYPES.HEAD) return 'head'
+    if (traitType === TRAIT_TYPES.STOMACH) return 'stomach'
+    if (traitType === TRAIT_TYPES.MOUTH) return 'mouth'
+    if (traitType === TRAIT_TYPES.BACKGROUND) return 'background'
+    return null
+}
+
+const getPreviewProps = (kitty: Kitty, item: Item): Partial<Kitty> | null => {
+    const config = getItemConfig(item.itemType)
+    if (!config || !config.traitFileName) {
+        if (isDynamicTraitItem(item) && item.targetTraitType !== undefined && item.traitValue !== undefined) {
+            const traitKey = traitTypeToKittyKey(item.targetTraitType)
+            return traitKey ? { [traitKey]: item.traitValue } : null
+        }
+        return null
+    }
+    const fileNum = parseInt(config.traitFileName.replace('.svg', ''))
+    if (config.category === 'skin') return { body: fileNum }
+    if (config.category === 'head') return { head: BASE_HEAD_COUNT + fileNum }
+    if (config.category === 'stomach') return { stomach: BASE_STOMACH_COUNT + fileNum }
+    return null
+}
 
 // Carousel Card component with flip support
 interface CarouselCardProps {
@@ -1116,35 +1141,93 @@ export default function MyKittiesSection(): React.JSX.Element {
                     <Card className="bg-black/95 border-2 border-yellow-400 rounded-2xl max-w-lg w-full">
                         <CardContent className="p-6">
                             <p className="font-bangers text-2xl text-yellow-400 text-center mb-4">Confirm Action</p>
-                            {selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE ? (
-                                <>
-                                    <p className="font-righteous text-white/70 text-center mb-6">{getConfirmMessage()}</p>
-                                    <div className="flex items-center justify-center gap-6 mb-6">
-                                        <div className="text-center">
-                                            <p className="font-righteous text-white/50 text-sm mb-2">Before</p>
-                                            <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                                <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
+                            {(() => {
+                                const previewProps = selectedItem.itemType !== ITEM_TYPES.COLOR_CHANGE ? getPreviewProps(selectedKitty, selectedItem) : null
+                                const isRandomItem = selectedItem.itemType === ITEM_TYPES.HEAD_REROLL || selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE
+
+                                if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) {
+                                    // Branch A: Color Change — before/after with new color
+                                    return (
+                                        <>
+                                            <p className="font-righteous text-white/70 text-center mb-6">{getConfirmMessage()}</p>
+                                            <div className="flex items-center justify-center gap-6 mb-6">
+                                                <div className="text-center">
+                                                    <p className="font-righteous text-white/50 text-sm mb-2">Before</p>
+                                                    <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                        <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
+                                                    </div>
+                                                </div>
+                                                <div className="text-3xl text-yellow-400">&rarr;</div>
+                                                <div className="text-center">
+                                                    <p className="font-righteous text-lime-400 text-sm mb-2">After</p>
+                                                    <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                        <KittyRenderer {...selectedKitty} bodyColor={newColor} size="sm" className="w-full h-full" />
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className="text-3xl text-yellow-400">&rarr;</div>
-                                        <div className="text-center">
-                                            <p className="font-righteous text-lime-400 text-sm mb-2">After</p>
-                                            <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                                <KittyRenderer {...selectedKitty} bodyColor={newColor} size="sm" className="w-full h-full" />
+                                        </>
+                                    )
+                                } else if (previewProps) {
+                                    // Branch B: Deterministic items — before/after with trait preview
+                                    return (
+                                        <>
+                                            <p className="font-righteous text-white/70 text-center mb-6">{getConfirmMessage()}</p>
+                                            <div className="flex items-center justify-center gap-6 mb-6">
+                                                <div className="text-center">
+                                                    <p className="font-righteous text-white/50 text-sm mb-2">Before</p>
+                                                    <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                        <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
+                                                    </div>
+                                                </div>
+                                                <div className="text-3xl text-yellow-400">&rarr;</div>
+                                                <div className="text-center">
+                                                    <p className="font-righteous text-lime-400 text-sm mb-2">After</p>
+                                                    <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                        <KittyRenderer {...selectedKitty} {...previewProps} size="sm" className="w-full h-full" />
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="flex justify-center mb-4">
-                                        <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                            <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
-                                        </div>
-                                    </div>
-                                    <p className="font-righteous text-white/70 text-center mb-6">{getConfirmMessage()}</p>
-                                </>
-                            )}
+                                        </>
+                                    )
+                                } else if (isRandomItem) {
+                                    // Branch C: Random items — show the affected trait before + dice mystery after
+                                    const headSrc = selectedKitty.head > 22
+                                        ? `/frogz/from_items/head/${selectedKitty.head - 22}.svg`
+                                        : `/frogz/default/head/${selectedKitty.head}.svg`
+                                    return (
+                                        <>
+                                            <p className="font-righteous text-white/70 text-center mb-6">{getConfirmMessage()}</p>
+                                            <div className="flex items-center justify-center gap-6 mb-6">
+                                                <div className="text-center">
+                                                    <p className="font-righteous text-white/50 text-sm mb-2">Before</p>
+                                                    <div className="overflow-hidden rounded-lg bg-black w-32 flex items-center justify-center" style={{ aspectRatio: '1' }}>
+                                                        <img src={headSrc} alt="Current head trait" className="w-full h-full object-contain" />
+                                                    </div>
+                                                </div>
+                                                <div className="text-3xl text-yellow-400">&rarr;</div>
+                                                <div className="text-center">
+                                                    <p className="font-righteous text-white/50 text-sm mb-2">After</p>
+                                                    <div className="overflow-hidden rounded-lg bg-black w-32 flex items-center justify-center" style={{ aspectRatio: '1' }}>
+                                                        <span className="text-4xl font-bangers text-yellow-500">?</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )
+                                } else {
+                                    // Branch D: Fallback — single frog + text
+                                    return (
+                                        <>
+                                            <div className="flex justify-center mb-4">
+                                                <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                    <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
+                                                </div>
+                                            </div>
+                                            <p className="font-righteous text-white/70 text-center mb-6">{getConfirmMessage()}</p>
+                                        </>
+                                    )
+                                }
+                            })()}
                             <div className="flex gap-4">
                                 <Button onClick={() => setShowConfirmModal(false)} className="flex-1 py-3 rounded-xl font-bangers text-lg bg-gray-600 hover:bg-gray-500 text-white">Cancel</Button>
                                 <Button onClick={handleConfirmApply} className="flex-1 py-3 rounded-xl font-bangers text-lg btn-theme-primary">Confirm</Button>
