@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { useAppKitAccount, useAppKit } from "@reown/appkit/react"
 import { parseEther } from "ethers"
 import Section from "./Section"
@@ -18,6 +18,7 @@ import {
 } from "./ui/dialog"
 
 type MintStatus = 'idle' | 'pending' | 'confirming' | 'success' | 'error'
+type RevealPhase = 'hidden' | 'exploding' | 'revealed'
 
 // Convert HSL to Hex
 const hslToHex = (h: number, s: number, l: number): string => {
@@ -71,6 +72,42 @@ export default function MintSection(): React.JSX.Element {
         mouth: number
         stomach: number
     } | null>(null)
+
+    const [revealPhase, setRevealPhase] = useState<RevealPhase>('hidden')
+    const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; angle: number; delay: number; size: number; color: string }>>([])
+
+    // Reset reveal when modal closes or new mint starts
+    useEffect(() => {
+        if (mintStatus === 'pending') {
+            setRevealPhase('hidden')
+            setParticles([])
+        }
+    }, [mintStatus])
+
+    const handleReveal = useCallback(() => {
+        if (revealPhase !== 'hidden') return
+        // Generate explosion particles
+        const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#A3E635', '#FF9F1C', '#E040FB', '#00E5FF', '#FFEB3B']
+        const newParticles = Array.from({ length: 24 }, (_, i) => {
+            const angle = ((i * 15) + Math.random() * 10) * (Math.PI / 180)
+            const distance = 80 + Math.random() * 60
+            return {
+                id: i,
+                x: 50 + (Math.random() - 0.5) * 20,
+                y: 50 + (Math.random() - 0.5) * 20,
+                tx: Math.cos(angle) * distance,
+                ty: Math.sin(angle) * distance,
+                angle: 0,
+                delay: Math.random() * 0.15,
+                size: 4 + Math.random() * 8,
+                color: colors[Math.floor(Math.random() * colors.length)],
+            }
+        })
+        setParticles(newParticles)
+        setRevealPhase('exploding')
+        // After explosion, reveal the freg
+        setTimeout(() => setRevealPhase('revealed'), 600)
+    }, [revealPhase])
 
     const paletteColors = generatePalette(hue)
 
@@ -369,8 +406,8 @@ export default function MintSection(): React.JSX.Element {
             </div>
 
             {/* Mint Modal */}
-            <Dialog open={mintStatus !== 'idle'} onOpenChange={(open) => !open && (mintStatus === 'success' || mintStatus === 'error') && closeModal()}>
-                <DialogContent className="bg-theme-card border-2 border-theme rounded-2xl max-w-md">
+            <Dialog open={mintStatus !== 'idle'} onOpenChange={(open) => !open && ((mintStatus === 'success' && revealPhase === 'revealed') || mintStatus === 'error') && closeModal()}>
+                <DialogContent className="bg-theme-mint-modal border-2 border-theme rounded-2xl max-w-md">
                     <DialogHeader className="text-center">
                         {/* Pending State - Waiting for wallet */}
                         {mintStatus === 'pending' && (
@@ -403,17 +440,26 @@ export default function MintSection(): React.JSX.Element {
                         )}
 
                         {/* Success State */}
-                        {mintStatus === 'success' && (
+                        {mintStatus === 'success' && revealPhase === 'hidden' && (
                             <>
-                                <div className="flex justify-center mb-4">
-                                    <CheckCircle className="w-16 h-16 text-theme-primary" />
-                                </div>
                                 <DialogTitle className="font-bangers text-3xl text-theme-primary text-center">
-                                    Success!
+                                    Freg #{mintedKitty?.tokenId ?? '?'} Minted!
                                 </DialogTitle>
-                                <DialogDescription className="font-righteous text-theme-muted text-base mt-2 text-center">
-                                    Freg #{mintedKitty?.tokenId ?? '?'} has been minted!
-                                </DialogDescription>
+                                <DialogDescription className="sr-only">Click the egg to reveal your Freg</DialogDescription>
+                            </>
+                        )}
+                        {mintStatus === 'success' && revealPhase === 'revealed' && (
+                            <>
+                                <DialogTitle className="font-bangers text-3xl text-theme-primary text-center animate-reveal-title">
+                                    Freg #{mintedKitty?.tokenId ?? '?'}
+                                </DialogTitle>
+                                <DialogDescription className="sr-only">Your revealed Freg</DialogDescription>
+                            </>
+                        )}
+                        {mintStatus === 'success' && revealPhase === 'exploding' && (
+                            <>
+                                <DialogTitle className="sr-only">Revealing...</DialogTitle>
+                                <DialogDescription className="sr-only">Revealing your Freg</DialogDescription>
                             </>
                         )}
 
@@ -433,25 +479,97 @@ export default function MintSection(): React.JSX.Element {
                         )}
                     </DialogHeader>
 
-                    {/* Show minted kitty on success */}
+                    {/* Reveal mechanic on success */}
                     {mintStatus === 'success' && mintedKitty && (
                         <div className="py-4 flex justify-center">
-                            <div className="rounded-2xl overflow-hidden bg-white" style={{ aspectRatio: '617.49 / 644.18', width: '256px' }}>
-                                <KittyRenderer
-                                    bodyColor={mintedKitty.bodyColor}
-                                    body={0}
-                                    head={mintedKitty.head}
-                                    mouth={mintedKitty.mouth}
-                                    stomach={mintedKitty.stomach}
-                                    size="sm"
-                                    className="w-full h-full"
-                                />
+                            <div className="relative" style={{ width: '256px', height: '267px' }}>
+                                {/* Explosion particles */}
+                                {revealPhase === 'exploding' && particles.map(p => (
+                                    <div
+                                        key={p.id}
+                                        className="absolute rounded-full animate-particle-burst"
+                                        style={{
+                                            left: `${p.x}%`,
+                                            top: `${p.y}%`,
+                                            width: p.size,
+                                            height: p.size,
+                                            backgroundColor: p.color,
+                                            animationDelay: `${p.delay}s`,
+                                            '--particle-tx': `${p.tx}px`,
+                                            '--particle-ty': `${p.ty}px`,
+                                        } as React.CSSProperties}
+                                    />
+                                ))}
+
+                                {/* Card back - click to reveal */}
+                                {revealPhase === 'hidden' && (
+                                    <button
+                                        onClick={handleReveal}
+                                        className="w-full h-full cursor-pointer group"
+                                    >
+                                        <div className="w-full h-full rounded-2xl overflow-hidden
+                                            border-2 transition-all duration-300 group-hover:scale-[1.02]
+                                            flex flex-col items-center justify-center gap-3 relative"
+                                            style={{
+                                                background: `linear-gradient(to bottom right, ${skinColor}22, ${skinColor}88, ${skinColor}22)`,
+                                                borderColor: `${skinColor}80`,
+                                                boxShadow: `0 0 20px ${skinColor}50`,
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.borderColor = skinColor
+                                                e.currentTarget.style.boxShadow = `0 0 40px ${skinColor}99`
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.borderColor = `${skinColor}80`
+                                                e.currentTarget.style.boxShadow = `0 0 20px ${skinColor}50`
+                                            }}
+                                        >
+                                            {/* Pattern overlay */}
+                                            <div className="absolute inset-0 opacity-10"
+                                                style={{
+                                                    backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, ${skinColor}4D 10px, ${skinColor}4D 11px)`,
+                                                }}
+                                            />
+                                            {/* Shimmer */}
+                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer overflow-hidden rounded-2xl" />
+                                            {/* Content */}
+                                            <span className="text-6xl select-none relative">?</span>
+                                            <span className="font-bangers text-xl relative animate-pulse" style={{ color: skinColor }}>
+                                                TAP TO REVEAL
+                                            </span>
+                                        </div>
+                                    </button>
+                                )}
+
+                                {/* Exploding state - brief flash */}
+                                {revealPhase === 'exploding' && (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <div className="w-32 h-32 rounded-full animate-reveal-flash" style={{ backgroundColor: skinColor, '--flash-color': skinColor } as React.CSSProperties} />
+                                    </div>
+                                )}
+
+                                {/* Revealed freg */}
+                                {revealPhase === 'revealed' && (
+                                    <div className="animate-reveal-freg">
+                                        <div className="rounded-2xl overflow-hidden bg-white animate-reveal-glow" style={{ aspectRatio: '617.49 / 644.18', width: '256px', '--glow-color': skinColor } as React.CSSProperties}>
+                                            <KittyRenderer
+                                                bodyColor={mintedKitty.bodyColor}
+                                                body={0}
+                                                head={mintedKitty.head}
+                                                mouth={mintedKitty.mouth}
+                                                stomach={mintedKitty.stomach}
+                                                size="sm"
+                                                className="w-full h-full"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
 
-                    {/* Footer buttons only for success/error states */}
-                    {(mintStatus === 'success' || mintStatus === 'error') && (
+                    {/* Footer buttons only for revealed success/error states */}
+                    {((mintStatus === 'success' && revealPhase === 'revealed') || mintStatus === 'error') && (
                         <DialogFooter className="sm:justify-center">
                             <Button
                                 onClick={closeModal}
