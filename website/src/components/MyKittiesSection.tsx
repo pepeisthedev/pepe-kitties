@@ -288,6 +288,7 @@ export default function MyKittiesSection(): React.JSX.Element {
     const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [itemModalData, setItemModalData] = useState<{ success: boolean; message: string }>({ success: false, message: "" })
     const [resultKitty, setResultKitty] = useState<Kitty | null>(null)
+    const [resultWasRandom, setResultWasRandom] = useState(false)
 
     const paletteColors = generatePalette(hue)
     const usableItems = items.filter(item => item.itemType !== ITEM_TYPES.TREASURE_CHEST)
@@ -454,7 +455,6 @@ export default function MyKittiesSection(): React.JSX.Element {
         const config = getItemConfig(selectedItem.itemType)
         if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) return "Are you sure you want to change the color of this Pepe?"
         if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) return "Are you sure you want to re-roll the head trait? This will randomly change the head."
-        if (selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE) return "Are you sure you want to roll the Special Dice? This will randomly apply a special trait!"
         if (config?.category === 'skin') return `Are you sure you want to apply ${selectedItem.name}? This will apply a special body skin.`
         if (config?.category === 'head') return `Are you sure you want to apply ${selectedItem.name}? This will change your Freg's head.`
         return `Are you sure you want to use ${selectedItem.name}?`
@@ -487,7 +487,7 @@ export default function MyKittiesSection(): React.JSX.Element {
             } catch { /* Not this event */ }
             try {
                 const parsed = itemsContract.interface.parseLog({ topics: log.topics as string[], data: log.data })
-                if (parsed?.name === "SpecialDiceUsed") return { traitType: Number(parsed.args.traitType), traitValue: Number(parsed.args.traitValue) }
+                if (parsed?.name === "TraitSet") return { traitType: Number(parsed.args.traitType), traitValue: Number(parsed.args.traitValue) }
             } catch { /* Not this event */ }
         }
         return null
@@ -496,11 +496,14 @@ export default function MyKittiesSection(): React.JSX.Element {
     const handleConfirmApply = useCallback(async () => {
         if (!contracts || !selectedKitty || !selectedItem) return
 
+        const isRandom = selectedItem.itemType === ITEM_TYPES.HEAD_REROLL
+
         flushSync(() => {
             setShowConfirmModal(false)
             setIsApplying(true)
             setItemModalData({ success: false, message: "" })
             setResultKitty(null)
+            setResultWasRandom(isRandom)
             setShowItemResultModal(true)
         })
 
@@ -515,8 +518,6 @@ export default function MyKittiesSection(): React.JSX.Element {
                 tx = await contract.useColorChange(selectedItem.tokenId, selectedKitty.tokenId, newColor, gasOpts)
             } else if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) {
                 tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
-            } else if (selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE) {
-                tx = await contract.useSpecialDice(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (isSkinItem(selectedItem.itemType)) {
                 tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (isHeadItem(selectedItem.itemType)) {
@@ -536,7 +537,6 @@ export default function MyKittiesSection(): React.JSX.Element {
                 const newHead = parseHeadRerolledEvent(receipt)
                 if (newHead !== null) updatedKitty.head = newHead
             } else if (
-                selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE ||
                 isSkinItem(selectedItem.itemType) || isHeadItem(selectedItem.itemType) || isDynamicTraitItem(selectedItem)
             ) {
                 const traitResult = parseTraitEvent(receipt)
@@ -1143,7 +1143,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                             <p className="font-bangers text-2xl text-yellow-400 text-center mb-4">Confirm Action</p>
                             {(() => {
                                 const previewProps = selectedItem.itemType !== ITEM_TYPES.COLOR_CHANGE ? getPreviewProps(selectedKitty, selectedItem) : null
-                                const isRandomItem = selectedItem.itemType === ITEM_TYPES.HEAD_REROLL || selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE
+                                const isRandomItem = selectedItem.itemType === ITEM_TYPES.HEAD_REROLL
 
                                 if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) {
                                     // Branch A: Color Change — before/after with new color
@@ -1245,10 +1245,12 @@ export default function MyKittiesSection(): React.JSX.Element {
                 description={isApplying ? "Please wait while your item is being applied" : itemModalData.success ? undefined : itemModalData.message}
                 success={itemModalData.success}
                 loading={isApplying}
+                reveal={resultWasRandom}
+                revealColor={resultKitty?.bodyColor}
             >
                 {!isApplying && itemModalData.success && resultKitty && (
                     <div className="flex justify-center">
-                        <div className="overflow-hidden rounded-xl bg-white" style={{ aspectRatio: '617.49 / 644.18', width: '256px' }}>
+                        <div className={`overflow-hidden rounded-xl bg-white ${resultWasRandom ? 'animate-reveal-glow' : ''}`} style={{ aspectRatio: '617.49 / 644.18', width: '256px', ...(resultWasRandom ? { '--glow-color': resultKitty.bodyColor } as React.CSSProperties : {}) }}>
                             <KittyRenderer
                                 bodyColor={resultKitty.bodyColor}
                                 background={resultKitty.background}
