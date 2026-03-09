@@ -117,7 +117,7 @@ export default function KittyRenderer({
   }, [backgroundSvgUrl, bodySvgUrl, hasSpecialBody])
 
   return (
-    <div className={`relative ${sizeClasses[size]} ${className}`}>
+    <div className={`relative bg-white ${sizeClasses[size]} ${className}`}>
       {/* Loading placeholder */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-200 animate-pulse rounded-lg">
