@@ -1,0 +1,16 @@
+{
+  "name": "fregs-api",
+  "private": true,
+  "version": "1.0.0",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check:api": "node --check api/index.js && node --check api/[...route].js && node --check api/fregs-handler.js && node --check lib/abis.js && node --check lib/blockchain.js && node --check lib/config.js && node --check lib/http.js && node --check lib/metadata.js && node --check lib/router.js && node --check lib/traits.js",
+    "dev:vercel": "npx vercel dev"
+  },
+  "dependencies": {
+    "ethers": "^6.15.0"
+  }
+}

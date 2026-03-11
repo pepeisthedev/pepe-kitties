@@ -1,0 +1,143 @@
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "Color Change",
+      "description": "Change your Freg's body color to any hex color",
+      "category": "utility",
+      "svgFile": "ink.svg",
+      "isClaimable": true,
+      "claimWeight": 5500,
+      "claimPercent": 55,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 2,
+      "name": "Head Reroll",
+      "description": "Use this item to reroll your Freg's head trait",
+      "category": "utility",
+      "svgFile": "dice3.svg",
+      "isClaimable": true,
+      "claimWeight": 3000,
+      "claimPercent": 30,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 4,
+      "name": "Robot",
+      "description": "Apply a robotic skin to your Freg",
+      "category": "skin",
+      "svgFile": "robot.svg",
+      "targetTraitType": 1,
+      "traitFileName": "3.svg",
+      "isClaimable": true,
+      "claimWeight": 200,
+      "claimPercent": 2,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 5,
+      "name": "Gold Skin",
+      "description": "Apply a golden skin to your Freg",
+      "category": "skin",
+      "svgFile": "goldskin.svg",
+      "targetTraitType": 1,
+      "traitFileName": "1.svg",
+      "isClaimable": true,
+      "claimWeight": 100,
+      "claimPercent": 1,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 6,
+      "name": "Treasure Chest",
+      "description": "Burn this chest to claim ETH rewards",
+      "category": "special",
+      "svgFile": "chest.svg",
+      "isClaimable": true,
+      "claimWeight": 1000,
+      "claimPercent": 10,
+      "maxSupply": 5,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 8,
+      "name": "Diamond Skin",
+      "description": "Apply a dazzling diamond skin to your Freg",
+      "category": "skin",
+      "svgFile": "diamond.svg",
+      "targetTraitType": 1,
+      "traitFileName": "2.svg",
+      "isClaimable": true,
+      "claimWeight": 100,
+      "claimPercent": 1,
+      "isOwnerMintable": true
+    },
+    {
+      "id": 9,
+      "name": "Hoodie",
+      "description": "A cozy hoodie for your Freg - exclusive spin wheel prize",
+      "category": "head",
+      "svgFile": "hoodie.svg",
+      "targetTraitType": 2,
+      "traitFileName": "2.svg",
+      "isClaimable": false,
+      "claimWeight": 0,
+      "isOwnerMintable": true,
+      "incompatibleWithSkins": [4],
+      "spinWheelExclusive": true
+    },
+    {
+      "id": 10,
+      "name": "Frogsuit",
+      "description": "Transform your Freg into a frog - exclusive spin wheel prize",
+      "category": "head",
+      "svgFile": "frog.svg",
+      "targetTraitType": 2,
+      "traitFileName": "3.svg",
+      "isClaimable": false,
+      "claimWeight": 0,
+      "isOwnerMintable": true,
+      "incompatibleWithSkins": [4],
+      "spinWheelExclusive": true
+    },
+    {
+      "id": 11,
+      "name": "Bone",
+      "description": "Transform your Freg into a bony skeleton",
+      "category": "skin",
+      "svgFile": "bone.svg",
+      "targetTraitType": 1,
+      "traitFileName": "4.svg",
+      "isClaimable": true,
+      "claimWeight": 50,
+      "claimPercent": 0.5,
+      "isOwnerMintable": true,
+      "incompatibleWithHeads": [21, 22]
+    }
+  ],
+  "categories": {
+    "utility": {
+      "description": "Items that modify your Freg without applying a specific trait"
+    },
+    "skin": {
+      "description": "Special skins that replace the body trait (targetTraitType: 1)",
+      "traitType": 1
+    },
+    "head": {
+      "description": "Special heads that replace the head trait (targetTraitType: 2)",
+      "traitType": 2,
+      "traitValueOffset": "baseHeadCount"
+    },
+    "special": {
+      "description": "Special items with unique behaviors"
+    }
+  },
+  "traitTypes": {
+    "0": "background",
+    "1": "body",
+    "2": "head",
+    "3": "mouth",
+    "4": "belly"
+  }
+}
