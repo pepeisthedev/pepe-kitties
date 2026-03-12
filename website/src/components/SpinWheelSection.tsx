@@ -322,9 +322,9 @@ export default function SpinWheelSection(): React.JSX.Element | null {
         <div className="mx-auto relative z-10 max-w-6xl">
 
       {!isConnected ? (
-        <Card className="bg-black/40 border-4 border-purple-400 rounded-3xl">
+        <Card className="bg-black/80 border-4 border-purple-400 rounded-3xl">
           <CardContent className="p-12 text-center">
-            <p className="font-righteous text-xl text-white/70">
+            <p className="font-righteous text-xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
               Connect your wallet to spin the wheel
             </p>
           </CardContent>
@@ -360,8 +360,8 @@ export default function SpinWheelSection(): React.JSX.Element | null {
           {/* Spin Button */}
           <Button
             onClick={spinPhase === "result" ? handleCloseResult : handleSpin}
-            disabled={isSpinning || spinPhase === "revealing" || (spinPhase !== "result" && balance < 1)}
-            className="px-12 py-6 rounded-2xl font-bangers text-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isSpinning || spinPhase === "revealing"}
+            className={`px-12 py-6 rounded-2xl font-bangers text-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-white disabled:opacity-50 disabled:cursor-not-allowed ${spinPhase !== "result" && balance < 1 ? "cursor-default" : "hover:from-purple-500 hover:to-pink-500"}`}
           >
             {isSpinning ? (
               <>
