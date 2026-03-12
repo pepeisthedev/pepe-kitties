@@ -38,6 +38,8 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     using Strings for uint256;
 
     ISVGRenderer public svgRenderer;
+    ISVGRenderer public mutationRenderer;
+    mapping(uint256 => bool) public isMutated;
 
     uint256 private _tokenIdCounter;
     uint256 private randomNonce;
@@ -96,6 +98,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     );
 
     event TraitSet(uint256 indexed tokenId, uint256 traitType, uint256 traitValue);
+    event Mutated(uint256 indexed tokenId, address indexed owner);
     event BodyColorChanged(uint256 indexed tokenId, string oldColor, string newColor);
 
     constructor(
@@ -112,7 +115,10 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(_exists(tokenId), "Token does not exist");
 
-        string memory svg = svgRenderer.render(
+        bool mutated = isMutated[tokenId] && address(mutationRenderer) != address(0);
+        ISVGRenderer renderer = mutated ? mutationRenderer : svgRenderer;
+
+        string memory svg = renderer.render(
             bodyColor[tokenId],
             background[tokenId],
             body[tokenId],
@@ -122,7 +128,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         );
 
         // Build attributes
-        string memory attributes = _buildAttributes(tokenId);
+        string memory attributes = _buildAttributes(tokenId, mutated);
 
         // Build JSON with embedded SVG (no base64 encoding)
         // SVG uses single quotes so it can be embedded in JSON double-quoted strings
@@ -139,7 +145,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         );
     }
 
-    function _buildAttributes(uint256 tokenId) internal view returns (string memory) {
+    function _buildAttributes(uint256 tokenId, bool mutated) internal view returns (string memory) {
         // Background: 0=use color, >0=special background
         string memory attrs;
         if (background[tokenId] > 0) {
@@ -197,6 +203,10 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
                 belly[tokenId] == NONE_TRAIT ? "None" : svgRenderer.meta(TRAIT_BELLY, belly[tokenId]),
                 '"}'
             ));
+        }
+
+        if (mutated) {
+            attrs = string(abi.encodePacked(attrs, ',{"trait_type": "Mutated","value": "Yes"}'));
         }
 
         return attrs;
@@ -357,6 +367,15 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         emit TraitSet(tokenId, traitType, traitValue);
     }
 
+    // Called by items contract to permanently mutate a Freg
+    function setMutated(uint256 tokenId, address sender) external {
+        require(msg.sender == itemsContract, "Only items contract");
+        require(ownerOf(tokenId) == sender, "Not token owner");
+        require(!isMutated[tokenId], "Already mutated");
+        isMutated[tokenId] = true;
+        emit Mutated(tokenId, sender);
+    }
+
     // Called by items contract to change body color
     function setBodyColor(uint256 tokenId, string memory _color, address sender) external {
         require(msg.sender == itemsContract, "Only items contract");
@@ -380,6 +399,10 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     function setSVGRenderer(address _svgRenderer) public onlyOwner {
         svgRenderer = ISVGRenderer(_svgRenderer);
+    }
+
+    function setMutationRenderer(address _mutationRenderer) public onlyOwner {
+        mutationRenderer = IMutationRenderer(_mutationRenderer);
     }
 
     function setItemsContract(address _itemsContract) public onlyOwner {

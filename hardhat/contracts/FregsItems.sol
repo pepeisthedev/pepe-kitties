@@ -13,6 +13,7 @@ interface IFregs {
     function rerollHead(uint256 tokenId, address sender) external;
     function setTrait(uint256 tokenId, uint256 traitType, uint256 traitValue, address sender) external;
     function setBodyColor(uint256 tokenId, string memory _color, address sender) external;
+    function setMutated(uint256 tokenId, address sender) external;
     function totalMinted() external view returns (uint256);
     function body(uint256 tokenId) external view returns (uint256);
     function head(uint256 tokenId) external view returns (uint256);
@@ -35,6 +36,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     uint256 public constant HOODIE = 9;
     uint256 public constant FROGSUIT = 10;
     uint256 public constant SKELETON_SKIN = 11;  // Bone
+    uint256 public constant MUTATION = 12;
 
     // Skeleton skin trait value (set during deployment, matches traitFileName 4.svg)
     uint256 public skeletonSkinTraitValue;
@@ -418,6 +420,17 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         fregs.setTrait(fregId, TRAIT_HEAD, headValue, msg.sender);
 
         emit SpecialTraitItemUsed(itemTokenId, fregId, msg.sender, TRAIT_HEAD, headValue);
+    }
+
+    function useMutationItem(uint256 itemTokenId, uint256 fregId) external nonReentrant {
+        require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
+        require(itemType[itemTokenId] == MUTATION, "Not a mutation item");
+        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
+
+        _burn(itemTokenId);
+        fregs.setMutated(fregId, msg.sender);
+
+        emit SpecialTraitItemUsed(itemTokenId, fregId, msg.sender, 99, 1);
     }
 
     function burnChest(uint256 chestTokenId) external nonReentrant {
