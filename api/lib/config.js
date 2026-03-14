@@ -135,19 +135,12 @@ function getConfig() {
     throw new Error("Missing FREGS address. Set FREGS_ADDRESS.");
   }
 
-  const svgRendererAddress = normalizeAddress(
-    firstEnv(["FREGS_SVG_RENDERER_ADDRESS", "VITE_SVG_RENDERER_ADDRESS"]) || localContracts.svgRenderer,
-    "FREGS_SVG_RENDERER_ADDRESS"
-  );
-
   cachedConfig = {
     chainId: parseInteger(firstEnv(["CHAIN_ID"]), 8453),
     collectionName: firstEnv(["COLLECTION_NAME"]) || "Fregs",
-    defaultColor: firstEnv(["DEFAULT_FREG_COLOR"]) || "#65b449",
     fregsAddress,
     maxNftsPerPage: Math.max(1, parseInteger(firstEnv(["NFTS_MAX_LIMIT"]), 100)),
-    rpcUrl,
-    svgRendererAddress
+    rpcUrl
   };
 
   return cachedConfig;

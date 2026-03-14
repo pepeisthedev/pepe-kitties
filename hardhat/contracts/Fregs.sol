@@ -402,7 +402,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function setMutationRenderer(address _mutationRenderer) public onlyOwner {
-        mutationRenderer = IMutationRenderer(_mutationRenderer);
+        mutationRenderer = ISVGRenderer(_mutationRenderer);
     }
 
     function setItemsContract(address _itemsContract) public onlyOwner {
@@ -448,6 +448,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     // _noneTraitId: which trait ID means "none" (0 = no none option)
     function setTraitWeights(uint256 traitType, uint256[] calldata weights, uint256 _noneTraitId) public onlyOwner {
         require(weights.length > 0, "Empty weights");
+        require(_noneTraitId <= weights.length, "Invalid none trait");
         uint256[] storage cumWeights = traitCumulativeWeights[traitType];
 
         // Clear existing
@@ -458,7 +459,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             cumulative += weights[i];
             cumWeights.push(cumulative);
         }
-        require(cumulative > 0, "Total weight must be > 0");
+        require(cumulative == 100, "Weights must sum to 100");
         noneTraitId[traitType] = _noneTraitId;
     }
 
@@ -473,6 +474,130 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     function totalMinted() public view returns (uint256) {
         return _tokenIdCounter;
+    }
+
+    function getTokenPage(uint256 cursor, uint256 limit, bool includeBurned)
+        external
+        view
+        returns (
+            uint256[] memory tokenIds,
+            bool[] memory existsFlags,
+            uint256 nextCursor,
+            uint256 liveSupply,
+            uint256 totalMinted_
+        )
+    {
+        totalMinted_ = _tokenIdCounter;
+        liveSupply = totalSupply();
+
+        if (cursor >= totalMinted_ || limit == 0) {
+            return (
+                new uint256[](0),
+                new bool[](0),
+                totalMinted_,
+                liveSupply,
+                totalMinted_
+            );
+        }
+
+        uint256 maxResultSize = totalMinted_ - cursor;
+        if (maxResultSize > limit) {
+            maxResultSize = limit;
+        }
+
+        tokenIds = new uint256[](maxResultSize);
+        existsFlags = new bool[](maxResultSize);
+
+        uint256 count = 0;
+        uint256 index = cursor;
+
+        while (index < totalMinted_ && count < limit) {
+            bool exists_ = _exists(index);
+            if (exists_ || includeBurned) {
+                tokenIds[count] = index;
+                existsFlags[count] = exists_;
+                count++;
+            }
+            index++;
+        }
+
+        assembly {
+            mstore(tokenIds, count)
+            mstore(existsFlags, count)
+        }
+
+        nextCursor = index;
+    }
+
+    function getAllTokenIds() external view returns (uint256[] memory tokenIds) {
+        uint256 totalMinted_ = _tokenIdCounter;
+        uint256 liveSupply = totalSupply();
+
+        tokenIds = new uint256[](liveSupply);
+        uint256 count = 0;
+
+        for (uint256 i = 0; i < totalMinted_; i++) {
+            if (_exists(i)) {
+                tokenIds[count] = i;
+                count++;
+            }
+        }
+
+        assembly {
+            mstore(tokenIds, count)
+        }
+    }
+
+    function getBurnedTokenIds() external view returns (uint256[] memory tokenIds) {
+        uint256 totalMinted_ = _tokenIdCounter;
+        uint256 burnedCount = totalMinted_ - totalSupply();
+
+        tokenIds = new uint256[](burnedCount);
+        uint256 count = 0;
+
+        for (uint256 i = 0; i < totalMinted_; i++) {
+            if (!_exists(i)) {
+                tokenIds[count] = i;
+                count++;
+            }
+        }
+
+        assembly {
+            mstore(tokenIds, count)
+        }
+    }
+
+    function getFregDataBatch(uint256[] calldata tokenIds_)
+        external
+        view
+        returns (
+            string[] memory bodyColors,
+            uint256[] memory backgrounds,
+            uint256[] memory bodies,
+            uint256[] memory heads,
+            uint256[] memory mouths,
+            uint256[] memory bellies
+        )
+    {
+        uint256 length = tokenIds_.length;
+        bodyColors = new string[](length);
+        backgrounds = new uint256[](length);
+        bodies = new uint256[](length);
+        heads = new uint256[](length);
+        mouths = new uint256[](length);
+        bellies = new uint256[](length);
+
+        for (uint256 i = 0; i < length; i++) {
+            uint256 tokenId = tokenIds_[i];
+            require(_exists(tokenId), "Token does not exist");
+
+            bodyColors[i] = bodyColor[tokenId];
+            backgrounds[i] = background[tokenId];
+            bodies[i] = body[tokenId];
+            heads[i] = head[tokenId];
+            mouths[i] = mouth[tokenId] == NONE_TRAIT ? 0 : mouth[tokenId];
+            bellies[i] = belly[tokenId] == NONE_TRAIT ? 0 : belly[tokenId];
+        }
     }
 
     function getOwnedFregs(address owner)

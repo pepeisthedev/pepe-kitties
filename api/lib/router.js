@@ -1,10 +1,13 @@
 const {
+  fetchAllTokenIds,
+  fetchBurnedTokenIds,
+  fetchFregData,
+  fetchFregDataBatch,
   fetchOwner,
   fetchSupply,
+  fetchTokenPage,
   fetchTokenUri,
   fetchTotalMinted,
-  fetchTraitName,
-  fetchTraitSvg,
   getConfig,
   normalizeColor
 } = require("./blockchain");
@@ -26,6 +29,11 @@ const {
   extractSvgFromImage
 } = require("./metadata");
 const {
+  buildSvgImageDataUri,
+  renderFregSvg,
+  renderTraitSvg
+} = require("./render");
+const {
   getTraitDescriptor,
   getTraitGroup,
   getTraitsSummary,
@@ -35,6 +43,7 @@ const {
 const TRAITS_CACHE_HEADER = "public, s-maxage=86400, stale-while-revalidate=604800";
 const NFTS_CACHE_HEADER = "public, s-maxage=60, stale-while-revalidate=300";
 const NFT_LIST_CACHE_HEADER = "public, s-maxage=30, stale-while-revalidate=120";
+const DEFAULT_DYNAMIC_TRAIT_COLOR = "#65b449";
 
 function getCollectionInfo() {
   const config = getConfig();
@@ -58,6 +67,21 @@ function getRequestOrigin(req) {
 function buildAbsoluteUrl(req, path) {
   const origin = getRequestOrigin(req);
   return origin ? `${origin}${path}` : path;
+}
+
+function buildQueryString(params) {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === "") {
+      continue;
+    }
+
+    searchParams.set(key, String(value));
+  }
+
+  const queryString = searchParams.toString();
+  return queryString ? `?${queryString}` : "";
 }
 
 function getOpenSeaUrl(tokenId) {
@@ -85,6 +109,49 @@ function getTokenLinks(req, tokenId) {
   };
 }
 
+function getTraitLinks(req, traitType, trait) {
+  const basePath = `/fregs/traits/${traitType}/${trait.id}`;
+  const color = trait.dynamicColor ? DEFAULT_DYNAMIC_TRAIT_COLOR : undefined;
+  const jsonPath = `${basePath}${buildQueryString({
+    color,
+    format: "json"
+  })}`;
+  const links = {
+    json: buildAbsoluteUrl(req, jsonPath)
+  };
+
+  if (trait.renderable) {
+    links.svg = buildAbsoluteUrl(req, `${basePath}${buildQueryString({ color })}`);
+  }
+
+  return links;
+}
+
+function serializeTrait(req, traitType, trait) {
+  const payload = {
+    links: getTraitLinks(req, traitType, trait),
+    name: trait.name
+  };
+
+  if (trait.itemId !== null && trait.itemId !== undefined) {
+    payload.itemId = trait.itemId;
+  }
+
+  if (trait.itemName) {
+    payload.itemName = trait.itemName;
+  }
+
+  return payload;
+}
+
+function serializeTraitGroup(req, traitType, traits) {
+  return {
+    count: traits.length,
+    traitType,
+    traits: traits.map((trait) => serializeTrait(req, traitType, trait))
+  };
+}
+
 function buildRootPayload() {
   return {
     ...getCollectionInfo(),
@@ -95,7 +162,7 @@ function buildRootPayload() {
     },
     examples: [
       "/fregs/traits/head/1",
-      `/fregs/traits/body/0?color=${encodeURIComponent(getConfig().defaultColor)}`,
+      `/fregs/traits/body/0?color=${encodeURIComponent(DEFAULT_DYNAMIC_TRAIT_COLOR)}`,
       "/fregs/traits/head/1?format=json",
       "/fregs?limit=25",
       "/fregs/12",
@@ -113,7 +180,66 @@ function parseTokenId(value) {
   return Number.parseInt(String(value), 10);
 }
 
-function buildPublicTokenPayload(req, tokenId, owner, metadata) {
+async function buildAttributesFromFregData(fregData) {
+  const [backgroundTrait, bodyTrait, headTrait, mouthTrait, bellyTrait] = await Promise.all([
+    fregData.background > 0 ? getTraitDescriptor("background", fregData.background) : null,
+    fregData.body > 0 ? getTraitDescriptor("body", fregData.body) : null,
+    getTraitDescriptor("head", fregData.head),
+    fregData.mouth > 0 ? getTraitDescriptor("mouth", fregData.mouth) : null,
+    fregData.belly > 0 && fregData.body === 0 ? getTraitDescriptor("belly", fregData.belly) : null
+  ]);
+
+  const attributes = [
+    {
+      trait_type: "Background",
+      value: fregData.background > 0 ? backgroundTrait?.name || String(fregData.background) : fregData.bodyColor
+    },
+    {
+      trait_type: "Body",
+      value: fregData.body > 0 ? bodyTrait?.name || String(fregData.body) : fregData.bodyColor
+    },
+    {
+      trait_type: "Head",
+      value: headTrait?.name || String(fregData.head)
+    },
+    {
+      trait_type: "Mouth",
+      value: fregData.mouth > 0 ? mouthTrait?.name || String(fregData.mouth) : "None"
+    }
+  ];
+
+  if (fregData.body === 0) {
+    attributes.push({
+      trait_type: "Belly",
+      value: fregData.belly > 0 ? bellyTrait?.name || String(fregData.belly) : "None"
+    });
+  }
+
+  return attributes;
+}
+
+async function buildPublicTokenPayloadFromFregData(req, tokenId, owner, fregData) {
+  return {
+    tokenId,
+    name: `Freg #${tokenId}`,
+    description: getCollectionInfo().collection,
+    owner,
+    image: renderFregSvg(fregData),
+    attributes: await buildAttributesFromFregData(fregData),
+    links: getTokenLinks(req, tokenId)
+  };
+}
+
+async function buildCanonicalMetadataFromFregData(tokenId, fregData) {
+  return {
+    attributes: await buildAttributesFromFregData(fregData),
+    description: getCollectionInfo().collection,
+    image: buildSvgImageDataUri(renderFregSvg(fregData)),
+    name: `Freg #${tokenId}`
+  };
+}
+
+function buildPublicTokenPayloadFromMetadata(req, tokenId, owner, metadata) {
   const svg = extractSvgFromImage(metadata.image);
 
   return {
@@ -127,7 +253,7 @@ function buildPublicTokenPayload(req, tokenId, owner, metadata) {
   };
 }
 
-async function buildTokenMetadataResponse(req, tokenId) {
+async function getTokenExistence(tokenId) {
   const owner = await fetchOwner(tokenId);
   const totalMinted = owner ? null : await fetchTotalMinted();
 
@@ -145,23 +271,146 @@ async function buildTokenMetadataResponse(req, tokenId) {
     };
   }
 
-  const tokenUri = await fetchTokenUri(tokenId);
-  const metadata = decodeTokenUri(tokenUri);
-
   return {
-    data: buildPublicTokenPayload(req, tokenId, owner, metadata),
-    metadata,
-    svg: extractSvgFromImage(metadata.image),
+    owner,
     status: 200
   };
+}
+
+async function buildTokenSummaryResponse(req, tokenId) {
+  const existence = await getTokenExistence(tokenId);
+  if (existence.status !== 200) {
+    return existence;
+  }
+
+  try {
+    const fregData = await fetchFregData(tokenId);
+    const data = await buildPublicTokenPayloadFromFregData(req, tokenId, existence.owner, fregData);
+
+    return {
+      data,
+      status: 200,
+      svg: data.image
+    };
+  } catch (error) {
+    const tokenUri = await fetchTokenUri(tokenId);
+    const metadata = decodeTokenUri(tokenUri);
+
+    return {
+      data: buildPublicTokenPayloadFromMetadata(req, tokenId, existence.owner, metadata),
+      status: 200,
+      svg: extractSvgFromImage(metadata.image)
+    };
+  }
+}
+
+async function buildCanonicalMetadataResponse(tokenId) {
+  const existence = await getTokenExistence(tokenId);
+  if (existence.status !== 200) {
+    return existence;
+  }
+
+  try {
+    const fregData = await fetchFregData(tokenId);
+
+    if (!fregData) {
+      throw new Error("Missing Freg data");
+    }
+
+    return {
+      metadata: await buildCanonicalMetadataFromFregData(tokenId, fregData),
+      owner: existence.owner,
+      status: 200
+    };
+  } catch (error) {
+    const tokenUri = await fetchTokenUri(tokenId);
+    const metadata = decodeTokenUri(tokenUri);
+
+    return {
+      metadata,
+      owner: existence.owner,
+      status: 200
+    };
+  }
+}
+
+async function fetchListPageWithFallback(cursor, limit, includeBurned) {
+  try {
+    return await fetchTokenPage(cursor, limit, includeBurned);
+  } catch (error) {
+    const supply = await fetchSupply();
+    const totalMinted = await fetchTotalMinted();
+    const tokenIds = [];
+    const existsFlags = [];
+    let scanIndex = cursor;
+
+    while (scanIndex < totalMinted && tokenIds.length < limit) {
+      const owner = await fetchOwner(scanIndex);
+      const exists = Boolean(owner);
+
+      if (exists || includeBurned) {
+        tokenIds.push(scanIndex);
+        existsFlags.push(exists);
+      }
+
+      scanIndex += 1;
+    }
+
+    return {
+      existsFlags,
+      nextCursor: scanIndex,
+      supply,
+      tokenIds,
+      totalMinted
+    };
+  }
+}
+
+async function fetchIdsWithFallback(includeBurned) {
+  try {
+    const tokenIds = await fetchAllTokenIds();
+    const burnedTokenIds = includeBurned ? await fetchBurnedTokenIds() : undefined;
+
+    return {
+      burnedTokenIds,
+      supply: tokenIds.length,
+      tokenIds
+    };
+  } catch (error) {
+    const totalMinted = await fetchTotalMinted();
+    const tokenIds = [];
+    const burnedTokenIds = [];
+
+    for (let tokenId = 0; tokenId < totalMinted; tokenId += 1) {
+      const owner = await fetchOwner(tokenId);
+      if (owner) {
+        tokenIds.push(tokenId);
+      } else if (includeBurned) {
+        burnedTokenIds.push(tokenId);
+      }
+    }
+
+    return {
+      burnedTokenIds: includeBurned ? burnedTokenIds : undefined,
+      supply: tokenIds.length,
+      tokenIds
+    };
+  }
 }
 
 async function handleTraitsRoute(req, res, segments) {
   if (segments.length === 0) {
     const traitTypes = await getTraitsSummary();
+    const publicTraitTypes = Object.fromEntries(
+      Object.entries(traitTypes).map(([traitType, group]) => [
+        traitType,
+        serializeTraitGroup(req, traitType, group.traits)
+      ])
+    );
+
     return sendJson(res, 200, {
       ...getCollectionInfo(),
-      traitTypes
+      traitTypes: publicTraitTypes
     }, {
       "Cache-Control": TRAITS_CACHE_HEADER
     });
@@ -176,9 +425,7 @@ async function handleTraitsRoute(req, res, segments) {
     const traits = await getTraitGroup(traitType);
     return sendJson(res, 200, {
       ...getCollectionInfo(),
-      count: traits.length,
-      traitType,
-      traits
+      ...serializeTraitGroup(req, traitType, traits)
     }, {
       "Cache-Control": TRAITS_CACHE_HEADER
     });
@@ -207,9 +454,7 @@ async function handleTraitsRoute(req, res, segments) {
   if (!trait.renderable) {
     return sendJson(res, 200, {
       ...getCollectionInfo(),
-      trait: {
-        ...trait
-      }
+      trait: serializeTrait(req, traitType, trait)
     }, {
       "Cache-Control": TRAITS_CACHE_HEADER
     });
@@ -217,14 +462,12 @@ async function handleTraitsRoute(req, res, segments) {
 
   let color;
   try {
-    color = req.query?.color ? normalizeColor(req.query.color) : getConfig().defaultColor;
+    color = req.query?.color ? normalizeColor(req.query.color) : DEFAULT_DYNAMIC_TRAIT_COLOR;
   } catch (error) {
     return badRequest(res, error.message);
   }
 
-  const onChainName = await fetchTraitName(traitType, traitId).catch(() => trait.name);
-
-  const svg = await fetchTraitSvg(traitType, traitId, { color });
+  const svg = renderTraitSvg(traitType, trait, { color });
 
   if (!wantsJson) {
     return sendSvg(res, 200, svg, {
@@ -235,11 +478,7 @@ async function handleTraitsRoute(req, res, segments) {
   return sendJson(res, 200, {
     ...getCollectionInfo(),
     svg,
-    trait: {
-      ...trait,
-      color,
-      name: onChainName
-    }
+    trait: serializeTrait(req, traitType, trait)
   }, {
     "Cache-Control": TRAITS_CACHE_HEADER
   });
@@ -252,34 +491,65 @@ async function handleNftsRoute(req, res, segments) {
     const limit = parseInteger(req.query?.limit, 25, { min: 1, max: config.maxNftsPerPage });
     const includeMetadata = parseBoolean(req.query?.includeMetadata);
     const includeBurned = parseBoolean(req.query?.includeBurned);
-    const supply = await fetchSupply();
-    const totalMinted = await fetchTotalMinted();
-    const items = [];
-    let scanIndex = cursor;
+    const page = await fetchListPageWithFallback(cursor, limit, includeBurned);
+    let metadataResults = [];
 
-    while (scanIndex < totalMinted && items.length < limit) {
-      const tokenId = scanIndex;
-      scanIndex += 1;
+    if (includeMetadata) {
+      try {
+        const existingTokenIds = page.tokenIds.filter((_, index) => page.existsFlags[index]);
+        const batchResults = await fetchFregDataBatch(existingTokenIds);
+        const batchById = new Map(batchResults.map((entry) => [entry.tokenId, entry]));
 
-      const owner = await fetchOwner(tokenId);
-      if (!owner && !includeBurned) {
-        continue;
+        metadataResults = await Promise.all(
+          page.tokenIds.map(async (tokenId, index) => {
+            if (!page.existsFlags[index]) {
+              return null;
+            }
+
+            const fregData = batchById.get(tokenId);
+
+            if (!fregData) {
+              const tokenUri = await fetchTokenUri(tokenId);
+              return decodeTokenUri(tokenUri);
+            }
+
+            return {
+              attributes: await buildAttributesFromFregData(fregData),
+              description: getCollectionInfo().collection,
+              image: renderFregSvg(fregData),
+              name: `Freg #${tokenId}`
+            };
+          })
+        );
+      } catch (error) {
+        metadataResults = await Promise.all(
+          page.tokenIds.map((tokenId, index) => {
+            if (!page.existsFlags[index]) {
+              return Promise.resolve(null);
+            }
+
+            return fetchTokenUri(tokenId).then((tokenUri) => decodeTokenUri(tokenUri));
+          })
+        );
       }
+    }
 
+    const items = page.tokenIds.map((tokenId, index) => {
+      const exists = page.existsFlags[index];
       const item = {
-        exists: Boolean(owner),
         links: getTokenLinks(req, tokenId),
-        owner,
         tokenId
       };
 
-      if (!owner) {
-        item.status = "burned";
+      if (includeBurned) {
+        item.exists = exists;
+        if (!exists) {
+          item.status = "burned";
+        }
       }
 
-      if (includeMetadata && owner) {
-        const tokenUri = await fetchTokenUri(tokenId);
-        const metadata = decodeTokenUri(tokenUri);
+      if (includeMetadata && exists) {
+        const metadata = metadataResults[index];
         item.name = metadata.name || `Freg #${tokenId}`;
         item.description = metadata.description || getCollectionInfo().collection;
         item.attributes = Array.isArray(metadata.attributes) ? metadata.attributes : [];
@@ -287,8 +557,8 @@ async function handleNftsRoute(req, res, segments) {
         item.image = extractSvgFromImage(metadata.image) || metadata.image || null;
       }
 
-      items.push(item);
-    }
+      return item;
+    });
 
     return sendJson(res, 200, {
       ...getCollectionInfo(),
@@ -298,8 +568,8 @@ async function handleNftsRoute(req, res, segments) {
       includeMetadata,
       items,
       limit,
-      nextCursor: scanIndex < totalMinted ? scanIndex : null,
-      supply
+      nextCursor: page.nextCursor < page.totalMinted ? page.nextCursor : null,
+      supply: page.supply
     }, {
       "Cache-Control": NFT_LIST_CACHE_HEADER
     });
@@ -307,24 +577,13 @@ async function handleNftsRoute(req, res, segments) {
 
   if (segments[0] === "ids") {
     const includeBurned = parseBoolean(req.query?.includeBurned);
-    const totalMinted = await fetchTotalMinted();
-    const tokenIds = [];
-    const burnedTokenIds = [];
-
-    for (let tokenId = 0; tokenId < totalMinted; tokenId += 1) {
-      const owner = await fetchOwner(tokenId);
-      if (owner) {
-        tokenIds.push(tokenId);
-      } else if (includeBurned) {
-        burnedTokenIds.push(tokenId);
-      }
-    }
+    const result = await fetchIdsWithFallback(includeBurned);
 
     return sendJson(res, 200, {
       ...getCollectionInfo(),
-      burnedTokenIds: includeBurned ? burnedTokenIds : undefined,
-      supply: tokenIds.length,
-      tokenIds
+      burnedTokenIds: result.burnedTokenIds,
+      supply: result.supply,
+      tokenIds: result.tokenIds
     }, {
       "Cache-Control": NFT_LIST_CACHE_HEADER
     });
@@ -336,7 +595,7 @@ async function handleNftsRoute(req, res, segments) {
   }
 
   if (segments.length === 1) {
-    const response = await buildTokenMetadataResponse(req, tokenId);
+    const response = await buildTokenSummaryResponse(req, tokenId);
 
     if (response.status === 404) {
       return notFound(res, response.error);
@@ -352,7 +611,7 @@ async function handleNftsRoute(req, res, segments) {
   }
 
   if (segments.length === 2 && segments[1] === "image.svg") {
-    const response = await buildTokenMetadataResponse(req, tokenId);
+    const response = await buildTokenSummaryResponse(req, tokenId);
 
     if (response.status === 404) {
       return notFound(res, response.error);
@@ -393,7 +652,7 @@ async function handleNftsRoute(req, res, segments) {
   }
 
   if (segments.length === 2 && segments[1] === "metadata") {
-    const response = await buildTokenMetadataResponse(req, tokenId);
+    const response = await buildCanonicalMetadataResponse(tokenId);
 
     if (response.status === 404) {
       return notFound(res, response.error);

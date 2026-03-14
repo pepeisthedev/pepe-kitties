@@ -1,0 +1,48 @@
+{
+  "background": [
+    { "fileName": "1.svg", "name": "Default", "description": "Default background" }
+  ],
+  "head": [
+    { "fileName": "1.svg", "name": "Normal Eyes", "description": "Normal eyes", "rarity": 11 },
+    { "fileName": "2.svg", "name": "Beanie", "description": "Warm beanie", "rarity": 1 },
+    { "fileName": "3.svg", "name": "Bored Eyes", "description": "Bored eyes", "rarity": 11 },
+    { "fileName": "4.svg", "name": "Captain", "description": "Captain hat", "rarity": 2 },
+    { "fileName": "5.svg", "name": "Commie", "description": "Commie hat", "rarity": 2 },
+    { "fileName": "6.svg", "name": "Cowboy", "description": "Cowboy hat", "rarity": 5 },
+    { "fileName": "7.svg", "name": "Crown", "description": "Royal crown", "rarity": 1 },
+    { "fileName": "8.svg", "name": "Cap", "description": "Baseball cap", "rarity": 5 },
+    { "fileName": "9.svg", "name": "Halo", "description": "Angelic halo", "rarity": 5 },
+    { "fileName": "10.svg", "name": "3D Glasses", "description": "Cool 3D glasses", "rarity": 5 },
+    { "fileName": "11.svg", "name": "Based Eyes", "description": "Based eyes", "rarity": 5 },
+    { "fileName": "12.svg", "name": "WW1", "description": "WW1 helmet", "rarity": 2 },
+    { "fileName": "13.svg", "name": "Hoodie", "description": "Hoodie", "rarity": 0 },
+    { "fileName": "14.svg", "name": "Karate Kid", "description": "Karate headband", "rarity": 5 },
+    { "fileName": "15.svg", "name": "Mickey D", "description": "Mickey D hat", "rarity": 5 },
+    { "fileName": "16.svg", "name": "Noggles", "description": "Noggles glasses", "rarity": 5 },
+    { "fileName": "17.svg", "name": "Eye Patch", "description": "Eye patch", "rarity": 5 },
+    { "fileName": "18.svg", "name": "Pixel Glasses", "description": "Pixel glasses", "rarity": 5 },
+    { "fileName": "19.svg", "name": "Frog Suit", "description": "Frog suit", "rarity": 0 },
+    { "fileName": "20.svg", "name": "Top Hat", "description": "Fancy top hat", "rarity": 5 },
+    { "fileName": "21.svg", "name": "Weedy", "description": "Weedy eyes", "rarity": 10 },
+    { "fileName": "22.svg", "name": "Based Glasses", "description": "Based glasses", "rarity": 5 }
+  ],
+  "mouth": [
+    { "fileName": "1.svg", "name": "Cruella", "description": "Cruella smile", "rarity": 10 },
+    { "fileName": "2.svg", "name": "Cigarette", "description": "Smoking cigarette", "rarity": 10 },
+    { "fileName": "3.svg", "name": "Pipe", "description": "Classic pipe", "rarity": 10 },
+    { "fileName": "4.svg", "name": "Puke", "description": "Puking", "rarity": 5 },
+    { "fileName": "5.svg", "name": "Tooth Pick", "description": "Tooth pick", "rarity": 10 },
+    { "fileName": "6.svg", "name": "Tounge", "description": "Tongue out", "rarity": 10 },
+    { "name": "Normal", "description": "No mouth trait", "rarity": 45, "isNone": true }
+  ],
+  "skin": [
+    { "fileName": "1.svg", "name": "Base", "description": "Base colorable skin" }
+  ],
+  "stomach": [
+    { "fileName": "1.svg", "name": "Base", "description": "Base logo on belly", "rarity": 10 },
+    { "fileName": "2.svg", "name": "ETH", "description": "Ethereum logo on belly", "rarity": 10 },
+    { "fileName": "3.svg", "name": "Thug Life", "description": "Thug life tattoo", "rarity": 5 },
+    { "fileName": "4.svg", "name": "Zipper", "description": "Zipper on belly", "rarity": 5 },
+    { "name": "Normal", "description": "No belly trait", "rarity": 70, "isNone": true }
+  ]
+}

@@ -120,6 +120,202 @@ function loadTraitsConfig() {
     return { traitsConfig, traitWeights, noneTraitIds };
 }
 
+function normalizeAddress(address) {
+    return String(address || "").toLowerCase();
+}
+
+function countBaseTraits(traits) {
+    return (traits || []).filter(trait => !trait.isNone).length;
+}
+
+function getExpectedBaseTraitCounts(traitsConfig) {
+    return {
+        head: countBaseTraits(traitsConfig.head),
+        mouth: countBaseTraits(traitsConfig.mouth),
+        stomach: countBaseTraits(traitsConfig.stomach),
+    };
+}
+
+function parseStoredPrice(shopPrice) {
+    if (shopPrice === undefined || shopPrice === null || shopPrice === "") {
+        return null;
+    }
+    return ethers.parseEther(String(shopPrice));
+}
+
+function normalizeStoredItemType(itemTypeId, config) {
+    return {
+        claimWeight: Number(config?.claimWeight ?? 0),
+        description: config?.description || "",
+        iconRendererAddress: config?.iconRendererAddress || null,
+        iconRouterSlot: Number(config?.iconRouterSlot ?? (itemTypeId - 1)),
+        isClaimable: Boolean(config?.isClaimable ?? false),
+        isOwnerMintable: Boolean(config?.isOwnerMintable ?? true),
+        name: config?.name || "",
+        shopIsActive: config?.shopIsActive ?? (config?.shopPrice !== undefined && config?.shopPrice !== null),
+        shopMaxSupply: Number(config?.shopMaxSupply ?? 0),
+        shopPrice: config?.shopPrice ?? null,
+        targetTraitType: Number(config?.targetTraitType ?? 0),
+        traitRendererAddress: config?.traitRendererAddress || null,
+        traitValue: Number(config?.traitValue ?? 0),
+    };
+}
+
+async function loadReusedRendererState(previousStatus, traitsConfig) {
+    const svgRendererAddress = previousStatus.contracts?.svgRenderer;
+    if (!svgRendererAddress) {
+        throw new Error("No svgRenderer address found in previous deployment status. Run full deploy first.");
+    }
+
+    const svgRenderer = await ethers.getContractAt("FregsSVGRenderer", svgRendererAddress);
+    const [
+        background,
+        body,
+        skin,
+        head,
+        mouth,
+        stomach,
+        baseHead,
+        baseMouth,
+        baseStomach,
+    ] = await Promise.all([
+        svgRenderer.backgroundContract(),
+        svgRenderer.bodyContract(),
+        svgRenderer.skinContract(),
+        svgRenderer.headContract(),
+        svgRenderer.mouthContract(),
+        svgRenderer.bellyContract(),
+        svgRenderer.getBaseTraitCount(2),
+        svgRenderer.getBaseTraitCount(3),
+        svgRenderer.getBaseTraitCount(4),
+    ]);
+
+    const rendererRouters = {
+        background,
+        body,
+        skin,
+        head,
+        mouth,
+        stomach,
+    };
+
+    for (const [routerName, routerAddress] of Object.entries(rendererRouters)) {
+        if (!routerAddress || normalizeAddress(routerAddress) === normalizeAddress(ethers.ZeroAddress)) {
+            throw new Error(`Reused FregsSVGRenderer has no ${routerName} router configured.`);
+        }
+
+        const storedRouterAddress = previousStatus.routers?.[routerName];
+        if (storedRouterAddress && normalizeAddress(storedRouterAddress) !== normalizeAddress(routerAddress)) {
+            console.log(`  ⚠️  Stored ${routerName} router ${storedRouterAddress} differs from reused renderer ${routerAddress}. Using renderer address.`);
+        }
+    }
+
+    const baseTraitCounts = {
+        head: Number(baseHead),
+        mouth: Number(baseMouth),
+        stomach: Number(baseStomach),
+    };
+    const expectedBaseTraitCounts = getExpectedBaseTraitCounts(traitsConfig);
+
+    for (const [traitName, expectedCount] of Object.entries(expectedBaseTraitCounts)) {
+        if (baseTraitCounts[traitName] !== expectedCount) {
+            throw new Error(
+                `Reused FregsSVGRenderer base ${traitName} count is ${baseTraitCounts[traitName]}, but current traits.json expects ${expectedCount}. ` +
+                "This contracts-only flow only works when the deployed SVG data still matches the current trait config."
+            );
+        }
+    }
+
+    return {
+        baseTraitCounts,
+        rendererRouters,
+        svgRenderer,
+        svgRendererAddress,
+    };
+}
+
+async function restoreDynamicItemTypesFromStatus(fregsItems, fregShop, svgRenderer, itemsRouter, previousStatus) {
+    const restoredItemTypes = {};
+    const entries = Object.entries(previousStatus.itemTypes || {})
+        .map(([itemTypeId, config]) => ({
+            config: normalizeStoredItemType(Number(itemTypeId), config),
+            itemTypeId: Number(itemTypeId),
+        }))
+        .filter((entry) => Number.isInteger(entry.itemTypeId) && entry.itemTypeId >= 101)
+        .sort((left, right) => left.itemTypeId - right.itemTypeId);
+
+    if (entries.length === 0) {
+        console.log("\n--- No Dynamic Item Types To Restore ---");
+        return restoredItemTypes;
+    }
+
+    console.log(`\n--- Restoring ${entries.length} Dynamic Item Type(s) From Deployment Status ---`);
+
+    let expectedNextItemTypeId = Number(await fregsItems.nextItemTypeId());
+    for (const entry of entries) {
+        const { itemTypeId, config } = entry;
+        restoredItemTypes[itemTypeId] = config;
+
+        if (!config.name) {
+            throw new Error(`Stored itemType ${itemTypeId} is missing a name.`);
+        }
+
+        if (expectedNextItemTypeId !== itemTypeId) {
+            throw new Error(
+                `Cannot restore stored itemType ${itemTypeId}. New FregsItems expects nextItemTypeId=${expectedNextItemTypeId}. ` +
+                "Stored dynamic item IDs must be contiguous from 101."
+            );
+        }
+        expectedNextItemTypeId += 1;
+
+        if (config.iconRouterSlot !== itemTypeId - 1) {
+            throw new Error(
+                `Stored itemType ${itemTypeId} uses iconRouterSlot ${config.iconRouterSlot}, but FregsItems.tokenURI expects ${itemTypeId - 1}.`
+            );
+        }
+
+        const iconExists = await itemsRouter.isValidTrait(config.iconRouterSlot);
+        if (!iconExists) {
+            throw new Error(`Items router is missing icon slot ${config.iconRouterSlot} for stored itemType ${itemTypeId} (${config.name}).`);
+        }
+
+        if (config.targetTraitType >= 0 && config.targetTraitType <= 4 && config.traitValue > 0) {
+            const traitExists = await svgRenderer.isValidTrait(config.targetTraitType, config.traitValue);
+            if (!traitExists) {
+                throw new Error(
+                    `Reused FregsSVGRenderer is missing trait ${config.traitValue} for stored itemType ${itemTypeId} (${config.name}).`
+                );
+            }
+        }
+    }
+
+    for (const entry of entries) {
+        const { itemTypeId, config } = entry;
+        console.log(`  Restoring itemType ${itemTypeId}: ${config.name}`);
+        await sendTx(fregsItems.addItemType(
+            config.name,
+            config.description,
+            config.targetTraitType,
+            config.traitValue,
+            config.isOwnerMintable,
+            config.isClaimable,
+            config.claimWeight
+        ));
+
+        const shopPrice = parseStoredPrice(config.shopPrice);
+        if (shopPrice && shopPrice > 0n) {
+            console.log(`    Restoring shop listing at ${ethers.formatEther(shopPrice)} FREG (maxSupply=${config.shopMaxSupply})`);
+            await sendTx(fregShop.listItem(itemTypeId, shopPrice, config.shopMaxSupply));
+
+            if (!config.shopIsActive) {
+                await sendTx(fregShop.updateItem(itemTypeId, shopPrice, false, config.shopMaxSupply));
+            }
+        }
+    }
+
+    return restoredItemTypes;
+}
+
 // ============ CONFIGURATION ============
 const MINT_PASSES_TO_MINT = 2;
 const ADDITIONAL_MINTPASS_RECIPIENT = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
@@ -148,21 +344,30 @@ async function main() {
     // ============ Steg 1: Load previous deployment status ============
     console.log("\n--- Loading Previous Deployment Status ---");
     const previousStatus = loadDeploymentStatus(network.name);
-
-    if (!previousStatus.routers || Object.keys(previousStatus.routers).length === 0) {
-        throw new Error("No router addresses found in previous deployment status. Run full deploy first.");
+    if (!previousStatus.routers?.items) {
+        throw new Error("No items router address found in previous deployment status. Run full deploy first.");
     }
     if (!previousStatus.contracts?.svgPartWriter) {
         console.log("  ⚠️  No svgPartWriter address in previous status (non-critical, will preserve if present)");
     }
-    if (!previousStatus.defaultTraits || Object.keys(previousStatus.defaultTraits).length === 0) {
-        throw new Error("No defaultTraits found in previous deployment status. Run full deploy first.");
-    }
 
-    console.log("  Previous routers found:");
-    for (const [key, addr] of Object.entries(previousStatus.routers)) {
+    const { traitsConfig, traitWeights, noneTraitIds } = loadTraitsConfig();
+    const {
+        baseTraitCounts,
+        rendererRouters,
+        svgRenderer: reusedSvgRenderer,
+        svgRendererAddress,
+    } = await loadReusedRendererState(previousStatus, traitsConfig);
+    const itemsRouterAddress = previousStatus.routers.items;
+    const itemsRouter = await ethers.getContractAt("SVGRouter", itemsRouterAddress);
+
+    console.log("  Reusing deployed FregsSVGRenderer:", svgRendererAddress);
+    console.log("  Reused renderer routers:");
+    for (const [key, addr] of Object.entries(rendererRouters)) {
         console.log(`    ${key}: ${addr}`);
     }
+    console.log(`  Reused items router: ${itemsRouterAddress}`);
+    console.log("  Reused base trait counts:", baseTraitCounts);
 
     // Configuration
     const ROYALTY_RECEIVER = deployerAddress;
@@ -320,47 +525,14 @@ async function main() {
 
     console.log("\nCross-contract references configured!");
 
-    // ============ Steg 6: Deploy FregsSVGRenderer and connect to existing SVGs ============
-    console.log("\n--- Deploying FregsSVGRenderer ---");
-    const FregsSVGRenderer = await ethers.getContractFactory("FregsSVGRenderer");
-    const svgRenderer = await deployContract(FregsSVGRenderer, [], "FregsSVGRenderer");
-    const svgRendererAddress = await svgRenderer.getAddress();
-
-    console.log("\n--- Configuring FregsSVGRenderer with existing SVG routers ---");
-    console.log("Setting art contracts on SVG Renderer...");
-    await sendTx(svgRenderer.setAllContracts(
-        previousStatus.routers.background || ethers.ZeroAddress,
-        previousStatus.routers.body || ethers.ZeroAddress,
-        previousStatus.routers.skin || ethers.ZeroAddress,
-        previousStatus.routers.head || ethers.ZeroAddress,
-        previousStatus.routers.mouth || ethers.ZeroAddress,
-        previousStatus.routers.stomach || ethers.ZeroAddress
-    ));
-    console.log("Art contracts configured!");
-
-    // Calculate baseTraitCounts from previous deployment's defaultTraits
-    const baseTraitCounts = {};
-    for (const folder of ['head', 'mouth', 'stomach']) {
-        const traits = previousStatus.defaultTraits[folder] || {};
-        baseTraitCounts[folder] = Object.values(traits).filter(t => t.source === 'default').length;
-    }
-    console.log("Base trait counts from previous deploy:", baseTraitCounts);
-
-    console.log("Setting base trait counts...");
-    await sendTx(svgRenderer.setAllBaseTraitCounts(
-        baseTraitCounts.head || 0,
-        baseTraitCounts.mouth || 0,
-        baseTraitCounts.stomach || 0
-    ));
-    console.log("Base trait counts configured!");
-
+    // ============ Steg 6: Reuse existing FregsSVGRenderer ============
+    console.log("\n--- Reusing Existing FregsSVGRenderer ---");
     console.log("Setting SVG Renderer on Fregs...");
     await sendTx(fregs.setSVGRenderer(svgRendererAddress));
     console.log("SVG Renderer set on Fregs!");
 
     // Configure trait weights from traits.json
     const TRAIT_TYPE_MAP = { head: 2, mouth: 3, stomach: 4 };
-    const { traitWeights, noneTraitIds } = loadTraitsConfig();
     console.log("\n--- Configuring Trait Weights on Fregs ---");
     for (const [traitName, traitTypeId] of Object.entries(TRAIT_TYPE_MAP)) {
         const weights = traitWeights[traitName];
@@ -373,11 +545,9 @@ async function main() {
     }
 
     // Set Items SVG Renderer on FregsItems
-    if (previousStatus.routers.items) {
-        console.log("Setting SVG Renderer on FregsItems...");
-        await sendTx(fregsItems.setSVGRenderer(previousStatus.routers.items));
-        console.log("SVG Renderer set on FregsItems!");
-    }
+    console.log("Setting SVG Renderer on FregsItems...");
+    await sendTx(fregsItems.setSVGRenderer(itemsRouterAddress));
+    console.log("SVG Renderer set on FregsItems!");
 
     // Configure trait item mappings
     if (itemsConfig) {
@@ -394,6 +564,14 @@ async function main() {
         }
     }
 
+    const restoredItemTypes = await restoreDynamicItemTypesFromStatus(
+        fregsItems,
+        fregShop,
+        reusedSvgRenderer,
+        itemsRouter,
+        previousStatus
+    );
+
     // ============ Steg 7: Copy ABIs to Website ============
     console.log("\n--- Copying ABIs to Website ---");
     if (!fs.existsSync(WEBSITE_ABI_PATH)) {
@@ -403,11 +581,11 @@ async function main() {
     copyABI("Fregs", "Fregs");
     copyABI("FregsItems", "FregsItems");
     copyABI("FregsMintPass", "FregsMintPass");
-    copyABI("FregsSVGRenderer", "FregsSVGRenderer");
     copyABI("SpinTheWheel", "SpinTheWheel");
     copyABI("FregCoin", "FregCoin");
     copyABI("FregsLiquidity", "FregsLiquidity");
     copyABI("FregShop", "FregShop");
+    console.log("  Reused FregsSVGRenderer ABI left unchanged.");
     console.log("ABIs copied successfully!");
 
     // ============ Steg 8: Build and save new deployment status ============
@@ -428,10 +606,13 @@ async function main() {
             svgPartWriter: previousStatus.contracts?.svgPartWriter || null,
         },
         // Preserve all SVG data from previous deploy
-        routers: previousStatus.routers,
+        routers: {
+            ...rendererRouters,
+            items: itemsRouterAddress,
+        },
         defaultTraits: previousStatus.defaultTraits,
         addedTraits: previousStatus.addedTraits || {},
-        itemTypes: previousStatus.itemTypes || {},
+        itemTypes: restoredItemTypes,
     };
     saveDeploymentStatus(newStatus, network.name);
 
@@ -448,15 +629,15 @@ async function main() {
     console.log("  SpinTheWheel:    ", spinTheWheelAddress);
     console.log("  FregsLiquidity:  ", fregsLiquidityAddress);
     console.log("  FregShop:        ", fregShopAddress);
-    console.log("  SVG Renderer:    ", svgRendererAddress);
+    console.log("  SVG Renderer:    ", `${svgRendererAddress} (reused)`);
     console.log("\nArt Contracts (REUSED from previous deploy):");
-    console.log("  Background:      ", previousStatus.routers.background || "N/A");
-    console.log("  Body:            ", previousStatus.routers.body || "N/A");
-    console.log("  Skin:            ", previousStatus.routers.skin || "N/A");
-    console.log("  Head:            ", previousStatus.routers.head || "N/A");
-    console.log("  Mouth:           ", previousStatus.routers.mouth || "N/A");
-    console.log("  Stomach:         ", previousStatus.routers.stomach || "N/A");
-    console.log("  Items:           ", previousStatus.routers.items || "N/A");
+    console.log("  Background:      ", rendererRouters.background || "N/A");
+    console.log("  Body:            ", rendererRouters.body || "N/A");
+    console.log("  Skin:            ", rendererRouters.skin || "N/A");
+    console.log("  Head:            ", rendererRouters.head || "N/A");
+    console.log("  Mouth:           ", rendererRouters.mouth || "N/A");
+    console.log("  Stomach:         ", rendererRouters.stomach || "N/A");
+    console.log("  Items:           ", itemsRouterAddress || "N/A");
     console.log("\nBase Trait Counts:");
     console.log("  Head:    ", baseTraitCounts.head || 0);
     console.log("  Mouth:   ", baseTraitCounts.mouth || 0);

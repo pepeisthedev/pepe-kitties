@@ -11,5 +11,7 @@
     { "fileName": "3.svg", "name": "Metal" },
     { "fileName": "4.svg", "name": "Skeleton" }
   ],
-  "stomach": []
+  "stomach": [
+    { "fileName": "1.svg", "name": "Sun" }
+  ]
 }

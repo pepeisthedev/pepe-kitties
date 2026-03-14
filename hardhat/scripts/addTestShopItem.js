@@ -210,13 +210,17 @@ async function main() {
     };
 
     status.itemTypes[itemTypeId] = {
+        claimWeight: TEST_ITEM.claimWeight,
         name: TEST_ITEM.name,
         description: TEST_ITEM.description,
+        isClaimable: TEST_ITEM.isClaimable,
+        isOwnerMintable: TEST_ITEM.isOwnerMintable,
         targetTraitType: TEST_ITEM.targetTraitType,
         traitValue: newTraitId,
         traitRendererAddress: traitRendererAddress,
         iconRendererAddress: iconRendererAddress,
         iconRouterSlot: iconSlot,
+        shopIsActive: true,
         shopPrice: ethers.formatEther(SHOP_PRICE),
         shopMaxSupply: SHOP_MAX_SUPPLY,
     };

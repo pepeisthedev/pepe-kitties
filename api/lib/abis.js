@@ -1,36 +1,20 @@
 const FREGS_ABI = [
-  "function svgRenderer() view returns (address)",
+  "function getAllTokenIds() view returns (uint256[] tokenIds)",
+  "function getBurnedTokenIds() view returns (uint256[] tokenIds)",
+  "function getTokenPage(uint256 cursor, uint256 limit, bool includeBurned) view returns (uint256[] tokenIds, bool[] existsFlags, uint256 nextCursor, uint256 supply, uint256 totalMintedValue)",
+  "function getFregDataBatch(uint256[] tokenIds) view returns (string[] bodyColors, uint256[] backgrounds, uint256[] bodies, uint256[] heads, uint256[] mouths, uint256[] bellies)",
+  "function bodyColor(uint256 tokenId) view returns (string)",
+  "function background(uint256 tokenId) view returns (uint256)",
+  "function body(uint256 tokenId) view returns (uint256)",
+  "function head(uint256 tokenId) view returns (uint256)",
+  "function mouth(uint256 tokenId) view returns (uint256)",
+  "function belly(uint256 tokenId) view returns (uint256)",
   "function totalSupply() view returns (uint256)",
   "function totalMinted() view returns (uint256)",
   "function ownerOf(uint256 tokenId) view returns (address)",
   "function tokenURI(uint256 tokenId) view returns (string)"
 ];
 
-const FREGS_SVG_RENDERER_ABI = [
-  "function backgroundContract() view returns (address)",
-  "function bodyContract() view returns (address)",
-  "function skinContract() view returns (address)",
-  "function headContract() view returns (address)",
-  "function mouthContract() view returns (address)",
-  "function bellyContract() view returns (address)",
-  "function svgHeader() view returns (string)",
-  "function svgFooter() view returns (string)",
-  "function getBaseTraitCount(uint256 traitType) view returns (uint256)"
-];
-
-const SVG_ROUTER_ABI = [
-  "function render(uint256 typeId) view returns (string)",
-  "function meta(uint256 typeId) view returns (string)",
-  "function isValidTrait(uint256 typeId) view returns (bool)"
-];
-
-const BODY_RENDERER_ABI = [
-  "function renderWithColor(string color) view returns (string)"
-];
-
 module.exports = {
-  BODY_RENDERER_ABI,
-  FREGS_ABI,
-  FREGS_SVG_RENDERER_ABI,
-  SVG_ROUTER_ABI
+  FREGS_ABI
 };

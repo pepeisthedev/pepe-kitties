@@ -495,8 +495,8 @@
         <h1>Fregs API</h1>
         <p class="hero-copy">
           The Fregs API is a thin public layer over the live collection. Use it to fetch minted
-          Fregs, owner data and trait metadata from a clean HTTP surface, while the
-          images and traits stay on-chain. The examples below are fetched live from this API so the
+          Fregs, owner data and trait metadata from a clean HTTP surface, while live token state
+          stays on-chain and SVG assets are served directly from the API bundle. The examples below are fetched live from this API so the
           code samples always match real responses.
           <br>
           Fregs start at token ID 0. If a token used to exist but was burned, the API returns 410 Gone.
@@ -541,8 +541,8 @@
               <span class="section-kicker">Traits</span>
               <h2>Trait Endpoints</h2>
               <p>
-                Trait listings come from the bundled project manifests, and the rendered SVG
-                payloads come from the on-chain renderers. Large SVG strings are trimmed in the docs
+                Trait listings and trait SVG payloads come from the bundled project manifests and
+                local SVG assets. Large SVG strings are trimmed in the docs
                 view only, so the structure stays real without filling the page with data URIs.
               </p>
             </div>
@@ -786,10 +786,10 @@
           {
             anchor: "endpoint-fregs-list",
             contentType: "application/json",
-            description: "Lists minted Fregs with pagination. This is the best starting point to discover token IDs.",
+            description: "Lists live Freg token IDs with pagination. This is the best starting point to discover token IDs.",
             fetch: () => fetchExample("/fregs?limit=1"),
             method: "GET",
-            note: "Use ?cursor and ?limit for pagination. Add ?includeMetadata=1 if you want metadata inline.",
+            note: "Default list responses stay lightweight. Add ?includeMetadata=1 if you want live metadata inline.",
             path: () => "/fregs?limit=1",
             pathLabel: "/fregs?limit=1"
           },
@@ -810,7 +810,7 @@
             fetch: () => fetchExample(`/fregs/${tokenId}`),
             method: "GET",
             note: Number.isInteger(firstTokenId)
-              ? "Large embedded media fields are shortened in this docs view only."
+              ? "The summary response is built from live contract state plus bundled SVG assets. Large image fields are shortened in this docs view only."
               : "No minted token was discovered automatically, so the live example may return not found.",
             path: () => `/fregs/${tokenId}`,
             pathLabel: tokenPathLabel
@@ -828,17 +828,17 @@
           {
             anchor: "endpoint-freg-metadata",
             contentType: "application/json",
-            description: "Returns the full NFT metadata JSON, decoded directly from the on-chain tokenURI() output.",
+            description: "Returns the full NFT metadata JSON built in the API from live contract trait data and bundled SVG assets.",
             fetch: () => fetchExample(`/fregs/${tokenId}/metadata`),
             method: "GET",
-            note: "This is the direct metadata object: name, description, image and attributes, with no API wrapper fields added.",
+            note: "The response shape matches standard NFT metadata: name, description, image and attributes, with no API wrapper fields added.",
             path: () => `/fregs/${tokenId}/metadata`,
             pathLabel: metadataPathLabel
           },
           {
             anchor: "endpoint-freg-image",
             contentType: "image/svg+xml",
-            description: "Returns the rendered SVG image for the specified Freg.",
+            description: "Returns the rendered SVG image for the specified Freg, assembled in the API from bundled assets and live contract trait data.",
             fetch: () => fetchExample(`/fregs/${tokenId}/image.svg`, {
               accept: "image/svg+xml"
             }),
@@ -856,7 +856,7 @@
             description: "Returns the complete trait catalog grouped by type.",
             fetch: () => fetchExample("/fregs/traits"),
             method: "GET",
-            note: "Trait IDs are stable API identifiers derived from the bundled manifests.",
+            note: "Trait links point at fully qualified API URLs and the payload is intentionally kept compact.",
             path: () => "/fregs/traits",
             pathLabel: "/fregs/traits"
           },
