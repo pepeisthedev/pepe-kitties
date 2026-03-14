@@ -1,24 +1,24 @@
 {
   "network": "baseSepolia",
-  "lastUpdated": "2026-03-08T20:57:13.350Z",
+  "lastUpdated": "2026-03-14T12:42:26.545Z",
   "contracts": {
-    "fregs": "0x02c108083691468eB8bbA5890E91f74E5b2ad2cC",
-    "fregsItems": "0xc51c251f6F34e5494a35813ED1c7eAe7568118d2",
-    "fregsMintPass": "0x89fADFc99f74c88c9398944191525dCf80D989F6",
-    "spinTheWheel": "0x98E1301dAB86A8AFC75D60ea523B2C944538F95B",
-    "svgPartWriter": "0x627E965c230205439699D22050058aA2420e88F9",
+    "fregs": "0xd5425E28e8DD3515D7649c63b09f61A9a0Db61E8",
+    "fregsItems": "0x7BCb9B24b16D2AC7Dc975E1ff38536A8839CA0D3",
+    "fregsMintPass": "0xd34DE042b093B61734cE6D2B1b7034186D4CA507",
+    "fregCoin": "0x1cf13cB2b3bF1af07b887F6295471CdE56590a12",
+    "spinTheWheel": "0xB3F985Bc6F6D4F69d89DDB80872af687383Af5C7",
+    "fregsLiquidity": "0xC8b22e74396a9B804819F08391Fb80B1ceE0a411",
+    "fregShop": "0x66b1910208A6809d4Bd96E6fCC70f73D11eb0698",
     "svgRenderer": "0x817F5CF9f74eEAC3e80f079a2300184F69d132e3",
-    "fregCoin": "0xaFc45A4c923E92cf945F7694BdF65d524847aeF2",
-    "fregsLiquidity": "0x02C34d945976A22E65B2ab99d76225A565555cEc",
-    "fregShop": "0x1DEe1992DaC56D24357876854D7A8fDE0ea40236"
+    "svgPartWriter": "0x627E965c230205439699D22050058aA2420e88F9"
   },
   "routers": {
-    "body": "0xbefF1f87b6CFcf7B3B11251A48A6B5A6b513E519",
     "background": "0x549C48B818FaFD67DfddC1C15d2cbD5C2e1b9C1E",
+    "body": "0xbefF1f87b6CFcf7B3B11251A48A6B5A6b513E519",
+    "skin": "0x4aC1964Af2eE098D6aac8C250C2797A8eDeef7be",
     "head": "0xf9edcC3A08fa0b82217D1E339dad529E6f74d4F9",
     "mouth": "0x38b36Bd342fda9E2172d47Be73Cb8D32076a992d",
     "stomach": "0x64982bE649741B6251B68070E6DbC334bF6Bf22a",
-    "skin": "0x4aC1964Af2eE098D6aac8C250C2797A8eDeef7be",
     "items": "0xc743259C337000687AE8Db941E68EfC5A752ec57"
   },
   "defaultTraits": {
@@ -267,15 +267,19 @@
   },
   "itemTypes": {
     "101": {
-      "name": "Sun",
+      "claimWeight": 0,
       "description": "A blazing sun on your Freg's belly!",
-      "targetTraitType": 4,
-      "traitValue": 5,
-      "traitRendererAddress": "0x88e4f8FBA8068Ff363F6CB6116F97C3b0Ca4d66c",
       "iconRendererAddress": "0xc21fd51c2C59b3942f7AD07c7729Ccb16D063332",
       "iconRouterSlot": 100,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Sun",
+      "shopIsActive": true,
+      "shopMaxSupply": 50,
       "shopPrice": "1000000.0",
-      "shopMaxSupply": 50
+      "targetTraitType": 4,
+      "traitRendererAddress": "0x88e4f8FBA8068Ff363F6CB6116F97C3b0Ca4d66c",
+      "traitValue": 5
     }
   }
 }
