@@ -114,6 +114,18 @@
       "claimPercent": 0.5,
       "isOwnerMintable": true,
       "incompatibleWithHeads": [21, 22]
+    },
+    {
+      "id": 101,
+      "name": "Sun",
+      "description": "A blazing sun on your Freg's belly!",
+      "category": "stomach",
+      "svgFile": "sun.svg",
+      "targetTraitType": 4,
+      "traitFileName": "1.svg",
+      "isClaimable": false,
+      "claimWeight": 0,
+      "isOwnerMintable": true
     }
   ],
   "categories": {

@@ -189,6 +189,26 @@ async function buildAttributesFromFregData(fregData) {
     fregData.belly > 0 && fregData.body === 0 ? getTraitDescriptor("belly", fregData.belly) : null
   ]);
 
+  if (fregData.background > 0 && !backgroundTrait) {
+    throw new Error(`Unknown background trait: ${fregData.background}`);
+  }
+
+  if (fregData.body > 0 && !bodyTrait) {
+    throw new Error(`Unknown body trait: ${fregData.body}`);
+  }
+
+  if (!headTrait) {
+    throw new Error(`Unknown head trait: ${fregData.head}`);
+  }
+
+  if (fregData.mouth > 0 && !mouthTrait) {
+    throw new Error(`Unknown mouth trait: ${fregData.mouth}`);
+  }
+
+  if (fregData.belly > 0 && fregData.body === 0 && !bellyTrait) {
+    throw new Error(`Unknown belly trait: ${fregData.belly}`);
+  }
+
   const attributes = [
     {
       trait_type: "Background",

@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/**/*.js": {
+      "includeFiles": [
+        "assets/**",
+        "data/**"
+      ],
       "maxDuration": 30
     }
   },

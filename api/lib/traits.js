@@ -19,6 +19,7 @@ function normalizeTraitType(rawTraitType) {
 
 function buildItemLookup() {
   const lookup = {
+    belly: new Map(),
     body: new Map(),
     head: new Map()
   };
@@ -34,6 +35,10 @@ function buildItemLookup() {
 
     if (item.category === "head") {
       lookup.head.set(item.traitFileName, item);
+    }
+
+    if (item.category === "stomach") {
+      lookup.belly.set(item.traitFileName, item);
     }
   }
 
@@ -62,6 +67,7 @@ function sortById(traits) {
 
 async function getTraitsCatalog() {
   const baseHeadCount = defaultTraits.head.length;
+  const baseBellyCount = defaultTraits.stomach.filter((entry) => !entry.isNone).length;
 
   const backgroundTraits = [
     makeTraitDescriptor("background", 0, {
@@ -137,25 +143,39 @@ async function getTraitsCatalog() {
     });
   });
 
-  const bellyTraits = defaultTraits.stomach.map((entry) => {
-    if (entry.isNone) {
-      return makeTraitDescriptor("belly", 0, {
-        isNone: true,
+  const bellyTraits = [
+    ...defaultTraits.stomach.map((entry) => {
+      if (entry.isNone) {
+        return makeTraitDescriptor("belly", 0, {
+          isNone: true,
+          name: entry.name,
+          rarity: entry.rarity,
+          renderable: false,
+          source: "default"
+        });
+      }
+
+      return makeTraitDescriptor("belly", Number.parseInt(entry.fileName.replace(".svg", ""), 10), {
+        fileName: entry.fileName,
         name: entry.name,
         rarity: entry.rarity,
-        renderable: false,
+        renderable: true,
         source: "default"
       });
-    }
-
-    return makeTraitDescriptor("belly", Number.parseInt(entry.fileName.replace(".svg", ""), 10), {
-      fileName: entry.fileName,
-      name: entry.name,
-      rarity: entry.rarity,
-      renderable: true,
-      source: "default"
-    });
-  });
+    }),
+    ...itemTraits.stomach.map((entry) => {
+      const item = itemLookup.belly.get(entry.fileName);
+      const fileId = Number.parseInt(entry.fileName.replace(".svg", ""), 10);
+      return makeTraitDescriptor("belly", baseBellyCount + fileId, {
+        fileName: entry.fileName,
+        itemId: item?.id,
+        itemName: item?.name,
+        name: entry.name,
+        renderable: true,
+        source: "from_items"
+      });
+    })
+  ];
 
   return {
     background: sortById(backgroundTraits),
