@@ -53,6 +53,24 @@ const generatePalette = (hue: number): string[] => {
     return variations.map(v => hslToHex(hue, v.s, v.l))
 }
 
+const parseHexColor = (color: string): { r: number; g: number; b: number } | null => {
+    const match = color.match(/^#([0-9A-Fa-f]{6})$/)
+    if (!match) return null
+
+    const hex = match[1]
+    return {
+        r: parseInt(hex.slice(0, 2), 16),
+        g: parseInt(hex.slice(2, 4), 16),
+        b: parseInt(hex.slice(4, 6), 16),
+    }
+}
+
+const getGreyscaleValue = (color: string): number | null => {
+    const rgb = parseHexColor(color)
+    if (!rgb || rgb.r !== rgb.g || rgb.g !== rgb.b) return null
+    return Math.round((rgb.r / 255) * 100)
+}
+
 export default function MintSection(): React.JSX.Element {
     const { isConnected } = useAppKitAccount()
     const { open } = useAppKit()
@@ -63,6 +81,7 @@ export default function MintSection(): React.JSX.Element {
 
     const [skinColor, setSkinColor] = useState<string>("#7CB342")
     const [hue, setHue] = useState<number>(120)
+    const [greyscale, setGreyscale] = useState<number>(50)
     const [mintStatus, setMintStatus] = useState<MintStatus>('idle')
     const [errorMessage, setErrorMessage] = useState("")
     const [mintedKitty, setMintedKitty] = useState<{
@@ -83,6 +102,13 @@ export default function MintSection(): React.JSX.Element {
             setParticles([])
         }
     }, [mintStatus])
+
+    useEffect(() => {
+        const greyscaleValue = getGreyscaleValue(skinColor)
+        if (greyscaleValue !== null && greyscaleValue !== greyscale) {
+            setGreyscale(greyscaleValue)
+        }
+    }, [greyscale, skinColor])
 
     const handleReveal = useCallback(() => {
         if (revealPhase !== 'hidden') return
@@ -192,6 +218,11 @@ export default function MintSection(): React.JSX.Element {
         }
     }
 
+    const handleGreyscaleChange = (value: number) => {
+        setGreyscale(value)
+        setSkinColor(hslToHex(0, 0, value))
+    }
+
     const isValidHexColor = (color: string): boolean => {
         return /^#[0-9A-Fa-f]{6}$/.test(color)
     }
@@ -296,6 +327,29 @@ export default function MintSection(): React.JSX.Element {
                                     }
                                 }
                             `}</style>
+                        </div>
+
+                        <div className="mb-2 xl:mb-4">
+                            <div className="mb-1 flex items-center justify-between xl:mb-2">
+                                <p className="font-righteous text-[11px] uppercase tracking-[0.2em] text-theme-subtle xl:text-sm">
+                                    Greyscale
+                                </p>
+                                <span className="font-righteous text-[11px] text-theme-subtle xl:text-sm">
+                                    Black to white
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={greyscale}
+                                onChange={(e) => handleGreyscaleChange(Number(e.target.value))}
+                                className="w-full h-2.5 xl:h-4 rounded-full appearance-none cursor-pointer"
+                                style={{
+                                    background: "linear-gradient(to right, #000000, #FFFFFF)",
+                                }}
+                                aria-label="Greyscale slider"
+                            />
                         </div>
 
                         {/* Color Palette */}
