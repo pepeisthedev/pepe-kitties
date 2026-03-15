@@ -51,7 +51,7 @@
     {
       "id": 6,
       "name": "Treasure Chest",
-      "description": "Burn this chest to claim ETH rewards",
+      "description": "Burn this chest to claim $FREG rewards",
       "category": "special",
       "svgFile": "chest.svg",
       "isClaimable": true,
@@ -76,7 +76,7 @@
     {
       "id": 9,
       "name": "Hoodie",
-      "description": "A cozy hoodie for your Freg - exclusive spin wheel prize",
+      "description": "A cozy hoodie for your Freg",
       "category": "head",
       "svgFile": "hoodie.svg",
       "targetTraitType": 2,
@@ -90,7 +90,7 @@
     {
       "id": 10,
       "name": "Frogsuit",
-      "description": "Transform your Freg into a frog - exclusive spin wheel prize",
+      "description": "A cool frogsuit for your Freg",
       "category": "head",
       "svgFile": "frog.svg",
       "targetTraitType": 2,

@@ -135,12 +135,18 @@ function getConfig() {
     throw new Error("Missing FREGS address. Set FREGS_ADDRESS.");
   }
 
+  const fregsItemsAddress = normalizeAddress(
+    firstEnv(["FREGS_ITEMS_ADDRESS", "VITE_FREGS_ITEMS_ADDRESS"]) || localContracts.fregsItems,
+    "FREGS_ITEMS_ADDRESS"
+  );
+
   const defaultChainId = localDeployment ? 31337 : 8453;
 
   cachedConfig = {
     chainId: parseInteger(firstEnv(["CHAIN_ID"]), defaultChainId),
     collectionName: firstEnv(["COLLECTION_NAME"]) || "Fregs",
     fregsAddress,
+    fregsItemsAddress,
     maxNftsPerPage: Math.max(1, parseInteger(firstEnv(["NFTS_MAX_LIMIT"]), 100)),
     rpcUrl
   };

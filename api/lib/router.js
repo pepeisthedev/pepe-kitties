@@ -3,7 +3,10 @@ const {
   fetchBurnedTokenIds,
   fetchFregData,
   fetchFregDataBatch,
+  fetchItemSvg,
+  fetchItemTypeConfig,
   fetchOwnedFregs,
+  fetchOwnedItems,
   fetchOwner,
   fetchSupply,
   fetchTokenPage,
@@ -41,6 +44,11 @@ const {
   getTraitsSummary,
   normalizeTraitType
 } = require("./traits");
+const {
+  getItemDescriptorBySlug: getCatalogItemBySlug,
+  getItemDescriptorByType: getCatalogItemByType,
+  getItemsCatalog
+} = require("./items");
 
 const TRAITS_CACHE_HEADER = "public, s-maxage=86400, stale-while-revalidate=604800";
 const NFTS_CACHE_HEADER = "public, s-maxage=60, stale-while-revalidate=300";
@@ -52,6 +60,14 @@ function getCollectionInfo() {
   return {
     collection: config.collectionName,
     contractAddress: config.fregsAddress
+  };
+}
+
+function getItemsCollectionInfo() {
+  const config = getConfig();
+  return {
+    collection: `${config.collectionName} Items`,
+    contractAddress: config.fregsItemsAddress
   };
 }
 
@@ -111,6 +127,36 @@ function getTokenLinks(req, tokenId) {
   };
 }
 
+function toPathSlug(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getItemSlug(item) {
+  if (item?.slug) {
+    return item.slug;
+  }
+
+  if (String(item?.name || "").toLowerCase() === "treasure chest") {
+    return "chest";
+  }
+
+  return toPathSlug(item?.name || item?.itemType);
+}
+
+function getItemLinks(req, item) {
+  const slug = getItemSlug(item);
+  const basePath = `/fregs/items/${slug}`;
+
+  return {
+    imageSvg: buildAbsoluteUrl(req, `${basePath}/image.svg`),
+    self: buildAbsoluteUrl(req, basePath)
+  };
+}
+
 function getTraitLinks(req, traitType, trait) {
   const basePath = `/fregs/traits/${traitType}/${trait.id}`;
   const color = trait.dynamicColor ? DEFAULT_DYNAMIC_TRAIT_COLOR : undefined;
@@ -124,6 +170,19 @@ function getTraitLinks(req, traitType, trait) {
   }
 
   return links;
+}
+
+function serializeItem(req, item) {
+  return {
+    category: item.category || null,
+    description: item.description || "",
+    isClaimable: Boolean(item.isClaimable),
+    isOwnerMintable: Boolean(item.isOwnerMintable),
+    itemType: item.itemType,
+    links: getItemLinks(req, item),
+    name: item.name,
+    slug: getItemSlug(item)
+  };
 }
 
 function serializeTrait(req, traitType, trait) {
@@ -152,24 +211,34 @@ function serializeTraitGroup(req, traitType, traits) {
 }
 
 function buildRootPayload() {
+  const endpoints = {
+    fregIds: "/fregs/ids",
+    fregs: "/fregs",
+    ownedByWallet: "/fregs/owners/:address",
+    traits: "/fregs/traits"
+  };
+  const examples = [
+    "/fregs/traits/head/1",
+    `/fregs/traits/body/0?color=${encodeURIComponent(DEFAULT_DYNAMIC_TRAIT_COLOR)}`,
+    "/fregs/traits/head/1/image.svg",
+    "/fregs?limit=25",
+    "/fregs/owners/0x0000000000000000000000000000000000000000",
+    "/fregs/12",
+    "/fregs/12/owner",
+    "/fregs/12/metadata"
+  ];
+
+  if (isItemsConfigured()) {
+    endpoints.items = "/fregs/items";
+    endpoints.itemsOwnedByWallet = "/fregs/items/owners/:address";
+    examples.splice(3, 0, "/fregs/items", "/fregs/items/chest", "/fregs/items/chest/image.svg");
+    examples.splice(6, 0, "/fregs/items/owners/0x0000000000000000000000000000000000000000");
+  }
+
   return {
     ...getCollectionInfo(),
-    endpoints: {
-      fregIds: "/fregs/ids",
-      fregs: "/fregs",
-      ownedByWallet: "/fregs/owners/:address",
-      traits: "/fregs/traits"
-    },
-    examples: [
-      "/fregs/traits/head/1",
-      `/fregs/traits/body/0?color=${encodeURIComponent(DEFAULT_DYNAMIC_TRAIT_COLOR)}`,
-      "/fregs/traits/head/1/image.svg",
-      "/fregs?limit=25",
-      "/fregs/owners/0x0000000000000000000000000000000000000000",
-      "/fregs/12",
-      "/fregs/12/owner",
-      "/fregs/12/metadata"
-    ]
+    endpoints,
+    examples
   };
 }
 
@@ -179,6 +248,70 @@ function parseTokenId(value) {
   }
 
   return Number.parseInt(String(value), 10);
+}
+
+function isItemsConfigured() {
+  return Boolean(getConfig().fregsItemsAddress);
+}
+
+function buildItemAttributes(item) {
+  return [
+    {
+      trait_type: "Item Type",
+      value: item.name
+    }
+  ];
+}
+
+async function resolveItemDefinition(itemKey) {
+  const numericItemType = parseTokenId(itemKey);
+  const catalogItem = getCatalogItemBySlug(itemKey)
+    || (numericItemType !== null ? getCatalogItemByType(numericItemType) : null);
+  const itemType = catalogItem?.itemType ?? numericItemType;
+
+  if (itemType === null) {
+    return null;
+  }
+
+  let chainConfig = null;
+  try {
+    chainConfig = await fetchItemTypeConfig(itemType);
+  } catch (error) {
+    chainConfig = null;
+  }
+
+  if (!catalogItem && !chainConfig?.name && !chainConfig?.description) {
+    return null;
+  }
+
+  const name = chainConfig?.name || catalogItem?.name || `Item ${itemType}`;
+  const description = chainConfig?.description || catalogItem?.description || "";
+  const slug = catalogItem?.slug
+    || (String(name).toLowerCase() === "treasure chest" ? "chest" : toPathSlug(name || itemType));
+
+  return {
+    category: catalogItem?.category || null,
+    claimWeight: chainConfig?.claimWeight ?? catalogItem?.claimWeight ?? 0,
+    description,
+    isClaimable: chainConfig?.isClaimable ?? catalogItem?.isClaimable ?? false,
+    isOwnerMintable: chainConfig?.isOwnerMintable ?? catalogItem?.isOwnerMintable ?? false,
+    itemType,
+    name,
+    slug,
+    targetTraitType: chainConfig?.targetTraitType ?? catalogItem?.targetTraitType ?? null,
+    traitFileName: catalogItem?.traitFileName || null,
+    traitValue: chainConfig?.traitValue ?? null
+  };
+}
+
+async function buildItemPayload(req, item) {
+  const svg = await fetchItemSvg(item.itemType);
+
+  return {
+    ...serializeItem(req, item),
+    attributes: buildItemAttributes(item),
+    image: svg
+  };
 }
 
 async function buildAttributesFromFregData(fregData) {
@@ -581,6 +714,105 @@ async function handleTraitsRoute(req, res, segments) {
   });
 }
 
+async function handleItemsRoute(req, res, segments) {
+  if (!isItemsConfigured()) {
+    return sendJson(res, 503, {
+      error: "FregsItems contract not configured"
+    });
+  }
+
+  if (segments.length === 0) {
+    const items = getItemsCatalog().map((item) => serializeItem(req, item));
+
+    return sendJson(res, 200, {
+      ...getItemsCollectionInfo(),
+      count: items.length,
+      items
+    }, {
+      "Cache-Control": TRAITS_CACHE_HEADER
+    });
+  }
+
+  if (segments[0] === "owners") {
+    if (segments.length !== 2) {
+      return notFound(res);
+    }
+
+    let owner;
+    try {
+      owner = normalizeWalletAddress(segments[1]);
+    } catch (error) {
+      return badRequest(res, "Owner address must be a valid EVM address");
+    }
+
+    const ownedItems = await fetchOwnedItems(owner);
+    const itemCounts = new Map();
+
+    for (const itemType of ownedItems.types) {
+      itemCounts.set(itemType, (itemCounts.get(itemType) || 0) + 1);
+    }
+
+    const items = await Promise.all(
+      Array.from(itemCounts.entries())
+        .sort((left, right) => left[0] - right[0])
+        .map(async ([itemType, count]) => {
+          const item = await resolveItemDefinition(String(itemType));
+          const fallbackItem = item || {
+            category: null,
+            description: "",
+            isClaimable: false,
+            isOwnerMintable: false,
+            itemType,
+            name: `Item ${itemType}`,
+            slug: String(itemType)
+          };
+
+          return {
+            ...serializeItem(req, fallbackItem),
+            count
+          };
+        })
+    );
+
+    return sendJson(res, 200, {
+      ...getItemsCollectionInfo(),
+      count: ownedItems.tokenIds.length,
+      distinctCount: items.length,
+      items,
+      owner
+    }, {
+      "Cache-Control": NFT_LIST_CACHE_HEADER
+    });
+  }
+
+  if (segments.length === 2 && segments[1] !== "image.svg") {
+    return notFound(res);
+  }
+
+  if (segments.length !== 1 && segments.length !== 2) {
+    return notFound(res);
+  }
+
+  const item = await resolveItemDefinition(segments[0]);
+  if (!item) {
+    return notFound(res, "Item not found");
+  }
+
+  if (segments[1] === "image.svg" || String(req.query?.format || "").toLowerCase() === "svg") {
+    const svg = await fetchItemSvg(item.itemType);
+    return sendSvg(res, 200, svg, {
+      "Cache-Control": TRAITS_CACHE_HEADER
+    });
+  }
+
+  return sendJson(res, 200, {
+    ...getItemsCollectionInfo(),
+    item: await buildItemPayload(req, item)
+  }, {
+    "Cache-Control": TRAITS_CACHE_HEADER
+  });
+}
+
 async function handleNftsRoute(req, res, segments) {
   if (segments.length === 0) {
     const config = getConfig();
@@ -789,6 +1021,10 @@ async function routeRequest(req, res, segments) {
   if (segments[0] === "fregs") {
     if (segments[1] === "traits") {
       return handleTraitsRoute(req, res, segments.slice(2));
+    }
+
+    if (segments[1] === "items") {
+      return handleItemsRoute(req, res, segments.slice(2));
     }
 
     return handleNftsRoute(req, res, segments.slice(1));

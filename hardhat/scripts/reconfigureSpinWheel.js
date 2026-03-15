@@ -75,9 +75,9 @@ async function main() {
     console.log("\n--- Ensuring Prize Item Types Are Configured ---");
 
     const prizeItems = [
-        { id: 9, name: "Hoodie", desc: "A cozy hoodie for your Freg - exclusive spin wheel prize" },
-        { id: 10, name: "Frogsuit", desc: "Transform your Freg into a frog - exclusive spin wheel prize" },
-        { id: 6, name: "Treasure Chest", desc: "Burn this chest to claim ETH rewards" },
+        { id: 9, name: "Hoodie", desc: "A cozy hoodie for your Freg" },
+        { id: 10, name: "Frogsuit", desc: "A cool frogsuit for your Freg" },
+        { id: 6, name: "Treasure Chest", desc: "Burn this chest to claim $FREG rewards" },
     ];
 
     for (const item of prizeItems) {
@@ -111,7 +111,6 @@ async function main() {
     console.log("  Frogsuit (type 10): 3%");
     console.log("  Treasure Chest (type 6): 4%");
     console.log("\nHoodie and Frogsuit removed from normal item claims.");
-    console.log("Silver Skin and Neon Skin removed from spin wheel prizes.");
     console.log("\n" + "=".repeat(60));
 }
 

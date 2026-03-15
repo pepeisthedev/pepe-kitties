@@ -609,13 +609,26 @@
             <div class="endpoint-list" id="trait-endpoints"></div>
           </section>
 
+          <section class="section" id="items">
+            <div class="section-header">
+              <span class="section-kicker">Items</span>
+              <h2>Item Endpoints</h2>
+              <p>
+                Item listings and ownership summaries are served from the FregsItems contract.
+                Item detail routes return static item metadata as JSON by default, with a separate
+                SVG endpoint for the raw item artwork.
+              </p>
+            </div>
+            <div class="endpoint-list" id="item-endpoints"></div>
+          </section>
+
         </div>
 
         <aside class="sidebar">
           <h2>Quick Links</h2>
           <p>
             The public API lives under one canonical namespace. Start with collection listing, then
-            drill into a token, owner or trait.
+            drill into a token, owner, trait or item.
           </p>
           <nav class="nav-list">
             <a class="nav-link" href="#core">
@@ -625,6 +638,10 @@
             <a class="nav-link" href="#traits">
               <span>Trait endpoints</span>
               <span>02</span>
+            </a>
+            <a class="nav-link" href="#items">
+              <span>Item endpoints</span>
+              <span>03</span>
             </a>
             <a class="nav-link" href="https://fregs.io" target="_blank" rel="noreferrer">
               <span>Main website</span>
@@ -741,6 +758,20 @@
           const response = await fetchExample(`/fregs/${tokenId}/owner`);
           if (response.ok && typeof response.body?.owner === "string") {
             return response.body.owner;
+          }
+        } catch (error) {
+          return null;
+        }
+
+        return null;
+      }
+
+      async function discoverFirstItemSlug() {
+        try {
+          const listing = await fetchExample("/fregs/items");
+          const items = listing.body?.items || [];
+          if (items.length > 0 && typeof items[0].slug === "string") {
+            return items[0].slug;
           }
         } catch (error) {
           return null;
@@ -872,6 +903,7 @@
         const tokenId = Number.isInteger(firstTokenId) ? firstTokenId : 0;
         const tokenOwnerAddress = (await discoverOwnerAddress(firstTokenId))
           || "0x0000000000000000000000000000000000000000";
+        const itemSlug = (await discoverFirstItemSlug()) || "chest";
         const tokenPathLabel = Number.isInteger(firstTokenId) ? `/fregs/${tokenId}` : "/fregs/:tokenId";
         const ownerPathLabel = Number.isInteger(firstTokenId)
           ? `/fregs/${tokenId}/owner`
@@ -882,6 +914,9 @@
         const imagePathLabel = Number.isInteger(firstTokenId)
           ? `/fregs/${tokenId}/image.svg`
           : "/fregs/:tokenId/image.svg";
+        const itemPathLabel = `/fregs/items/${itemSlug}`;
+        const itemImagePathLabel = `/fregs/items/${itemSlug}/image.svg`;
+        const itemsOwnerPathLabel = `/fregs/items/owners/${tokenOwnerAddress}`;
         const coreEndpoints = [
           {
             anchor: "endpoint-fregs-list",
@@ -1004,11 +1039,58 @@
           }
         ];
 
+        const itemEndpoints = [
+          {
+            anchor: "endpoint-items-list",
+            contentType: "application/json",
+            description: "Returns the catalog of available Fregs items, with links to each item detail route.",
+            fetch: () => fetchExample("/fregs/items"),
+            method: "GET",
+            note: "This list is type-level only. It describes the available item types, not individual minted item tokens.",
+            path: () => "/fregs/items",
+            pathLabel: "/fregs/items"
+          },
+          {
+            anchor: "endpoint-item-detail",
+            contentType: "application/json",
+            description: "Returns one item definition as JSON, including the rendered SVG string and static metadata fields.",
+            fetch: () => fetchExample(`/fregs/items/${itemSlug}`),
+            method: "GET",
+            note: "This is item-type metadata, not token-instance metadata. The SVG string is trimmed in the docs output only.",
+            path: () => `/fregs/items/${itemSlug}`,
+            pathLabel: itemPathLabel
+          },
+          {
+            anchor: "endpoint-item-image",
+            contentType: "image/svg+xml",
+            description: "Returns only the SVG for a single item type.",
+            fetch: () => fetchExample(`/fregs/items/${itemSlug}/image.svg`, {
+              accept: "image/svg+xml"
+            }),
+            method: "GET",
+            note: "This mirrors the Freg image route shape and renders the item art from the on-chain items renderer.",
+            path: () => `/fregs/items/${itemSlug}/image.svg`,
+            pathLabel: itemImagePathLabel
+          },
+          {
+            anchor: "endpoint-items-owned-by-wallet",
+            contentType: "application/json",
+            description: "Returns the items owned by a wallet address, aggregated by item type with a count for each type.",
+            fetch: () => fetchExample(`/fregs/items/owners/${tokenOwnerAddress}`),
+            method: "GET",
+            note: "The response is grouped by item type, so repeated items come back once with a count field instead of individual token IDs.",
+            path: () => `/fregs/items/owners/${tokenOwnerAddress}`,
+            pathLabel: itemsOwnerPathLabel
+          }
+        ];
+
         const coreContainer = document.getElementById("core-endpoints");
         const traitsContainer = document.getElementById("trait-endpoints");
+        const itemsContainer = document.getElementById("item-endpoints");
 
         coreEndpoints.forEach((endpoint) => renderEndpointCard(coreContainer, endpoint));
         traitEndpoints.forEach((endpoint) => renderEndpointCard(traitsContainer, endpoint));
+        itemEndpoints.forEach((endpoint) => renderEndpointCard(itemsContainer, endpoint));
       }
 
       init();

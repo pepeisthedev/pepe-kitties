@@ -16,6 +16,21 @@ const FREGS_ABI = [
   "function tokenURI(uint256 tokenId) view returns (string)"
 ];
 
+const FREGS_ITEMS_ABI = [
+  "function getOwnedItems(address owner) view returns (uint256[] tokenIds, uint256[] types)",
+  "function itemTypeConfigs(uint256 itemTypeId) view returns (string name, string description, uint256 targetTraitType, uint256 traitValue, bool isOwnerMintable, bool isClaimable, uint256 claimWeight)",
+  "function svgRenderer() view returns (address)",
+  "function totalMinted() view returns (uint256)",
+  "function itemType(uint256 tokenId) view returns (uint256)",
+  "function ownerOf(uint256 tokenId) view returns (address)"
+];
+
+const FREGS_ITEMS_RENDERER_ABI = [
+  "function render(uint256 itemType) view returns (string)"
+];
+
 module.exports = {
-  FREGS_ABI
+  FREGS_ABI,
+  FREGS_ITEMS_ABI,
+  FREGS_ITEMS_RENDERER_ABI
 };

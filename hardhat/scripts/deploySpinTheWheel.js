@@ -164,9 +164,9 @@ async function main() {
     console.log("\n--- Ensuring Prize Item Types Are Configured ---");
 
     const prizeItems = [
-        { id: HOODIE_ITEM_TYPE, name: "Hoodie", desc: "A cozy hoodie for your Freg - exclusive spin wheel prize" },
-        { id: FROGSUIT_ITEM_TYPE, name: "Frogsuit", desc: "Transform your Freg into a frog - exclusive spin wheel prize" },
-        { id: CHEST_ITEM_TYPE, name: "Treasure Chest", desc: "Burn this chest to claim ETH rewards" },
+        { id: HOODIE_ITEM_TYPE, name: "Hoodie", desc: "A cozy hoodie for your Freg" },
+        { id: FROGSUIT_ITEM_TYPE, name: "Frogsuit", desc: "A cool frogsuit for your Freg" },
+        { id: CHEST_ITEM_TYPE, name: "Treasure Chest", desc: "Burn this chest to claim $FREG rewards" },
     ];
 
     for (const item of prizeItems) {
