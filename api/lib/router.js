@@ -3,13 +3,15 @@ const {
   fetchBurnedTokenIds,
   fetchFregData,
   fetchFregDataBatch,
+  fetchOwnedFregs,
   fetchOwner,
   fetchSupply,
   fetchTokenPage,
   fetchTokenUri,
   fetchTotalMinted,
   getConfig,
-  normalizeColor
+  normalizeColor,
+  normalizeWalletAddress
 } = require("./blockchain");
 const {
   badRequest,
@@ -112,16 +114,13 @@ function getTokenLinks(req, tokenId) {
 function getTraitLinks(req, traitType, trait) {
   const basePath = `/fregs/traits/${traitType}/${trait.id}`;
   const color = trait.dynamicColor ? DEFAULT_DYNAMIC_TRAIT_COLOR : undefined;
-  const jsonPath = `${basePath}${buildQueryString({
-    color,
-    format: "json"
-  })}`;
+  const jsonPath = `${basePath}${buildQueryString({ color })}`;
   const links = {
     json: buildAbsoluteUrl(req, jsonPath)
   };
 
   if (trait.renderable) {
-    links.svg = buildAbsoluteUrl(req, `${basePath}${buildQueryString({ color })}`);
+    links.svg = buildAbsoluteUrl(req, `${basePath}/image.svg${buildQueryString({ color })}`);
   }
 
   return links;
@@ -158,13 +157,15 @@ function buildRootPayload() {
     endpoints: {
       fregIds: "/fregs/ids",
       fregs: "/fregs",
+      ownedByWallet: "/fregs/owners/:address",
       traits: "/fregs/traits"
     },
     examples: [
       "/fregs/traits/head/1",
       `/fregs/traits/body/0?color=${encodeURIComponent(DEFAULT_DYNAMIC_TRAIT_COLOR)}`,
-      "/fregs/traits/head/1?format=json",
+      "/fregs/traits/head/1/image.svg",
       "/fregs?limit=25",
+      "/fregs/owners/0x0000000000000000000000000000000000000000",
       "/fregs/12",
       "/fregs/12/owner",
       "/fregs/12/metadata"
@@ -418,6 +419,78 @@ async function fetchIdsWithFallback(includeBurned) {
   }
 }
 
+async function handleOwnedByWalletRoute(req, res, segments) {
+  if (segments.length === 3 && segments[2] !== "image.svg") {
+    return notFound(res);
+  }
+
+  if (segments.length !== 2 && segments.length !== 3) {
+    return notFound(res);
+  }
+
+  let owner;
+  try {
+    owner = normalizeWalletAddress(segments[1]);
+  } catch (error) {
+    return badRequest(res, "Owner address must be a valid EVM address");
+  }
+
+  const includeMetadata = parseBoolean(req.query?.includeMetadata);
+  const ownedFregs = await fetchOwnedFregs(owner);
+  const tokenIds = ownedFregs.map((entry) => entry.tokenId);
+  const payload = {
+    ...getCollectionInfo(),
+    count: tokenIds.length,
+    includeMetadata,
+    owner,
+    tokenIds
+  };
+
+  if (includeMetadata) {
+    payload.fregs = await Promise.all(
+      ownedFregs.map(async (fregData) => {
+        try {
+          const metadata = {
+            attributes: await buildAttributesFromFregData(fregData),
+            description: getCollectionInfo().collection,
+            image: renderFregSvg(fregData),
+            name: `Freg #${fregData.tokenId}`
+          };
+
+          return {
+            attributes: metadata.attributes,
+            attributesByType: buildAttributesIndex(metadata),
+            description: metadata.description,
+            image: metadata.image,
+            links: getTokenLinks(req, fregData.tokenId),
+            name: metadata.name,
+            owner,
+            tokenId: fregData.tokenId
+          };
+        } catch (error) {
+          const tokenUri = await fetchTokenUri(fregData.tokenId);
+          const metadata = decodeTokenUri(tokenUri);
+
+          return {
+            attributes: Array.isArray(metadata.attributes) ? metadata.attributes : [],
+            attributesByType: buildAttributesIndex(metadata),
+            description: metadata.description || getCollectionInfo().collection,
+            image: extractSvgFromImage(metadata.image) || metadata.image || null,
+            links: getTokenLinks(req, fregData.tokenId),
+            name: metadata.name || `Freg #${fregData.tokenId}`,
+            owner,
+            tokenId: fregData.tokenId
+          };
+        }
+      })
+    );
+  }
+
+  return sendJson(res, 200, payload, {
+    "Cache-Control": NFT_LIST_CACHE_HEADER
+  });
+}
+
 async function handleTraitsRoute(req, res, segments) {
   if (segments.length === 0) {
     const traitTypes = await getTraitsSummary();
@@ -451,7 +524,11 @@ async function handleTraitsRoute(req, res, segments) {
     });
   }
 
-  if (segments.length !== 2) {
+  if (segments.length === 3 && segments[2] !== "image.svg") {
+    return notFound(res);
+  }
+
+  if (segments.length !== 2 && segments.length !== 3) {
     return notFound(res);
   }
 
@@ -465,9 +542,9 @@ async function handleTraitsRoute(req, res, segments) {
     return notFound(res, "Trait not found");
   }
 
-  const wantsJson = String(req.query?.format || "").toLowerCase() === "json";
+  const wantsSvg = segments[2] === "image.svg" || String(req.query?.format || "").toLowerCase() === "svg";
 
-  if (!trait.renderable && !wantsJson) {
+  if (!trait.renderable && wantsSvg) {
     return badRequest(res, "This trait has no standalone SVG");
   }
 
@@ -489,7 +566,7 @@ async function handleTraitsRoute(req, res, segments) {
 
   const svg = renderTraitSvg(traitType, trait, { color });
 
-  if (!wantsJson) {
+  if (wantsSvg) {
     return sendSvg(res, 200, svg, {
       "Cache-Control": TRAITS_CACHE_HEADER
     });
@@ -607,6 +684,10 @@ async function handleNftsRoute(req, res, segments) {
     }, {
       "Cache-Control": NFT_LIST_CACHE_HEADER
     });
+  }
+
+  if (segments[0] === "owners") {
+    return handleOwnedByWalletRoute(req, res, segments);
   }
 
   const tokenId = parseTokenId(segments[0]);

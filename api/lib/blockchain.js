@@ -1,4 +1,4 @@
-const { Contract, JsonRpcProvider } = require("ethers");
+const { Contract, JsonRpcProvider, getAddress } = require("ethers");
 const { FREGS_ABI } = require("./abis");
 const { getConfig } = require("./config");
 
@@ -69,6 +69,10 @@ async function fetchTokenPage(cursor, limit, includeBurned) {
   };
 }
 
+function normalizeWalletAddress(address) {
+  return getAddress(address);
+}
+
 function normalizeTraitValue(value) {
   if (typeof value === "bigint") {
     if (value === NONE_TRAIT) {
@@ -136,6 +140,43 @@ async function fetchFregData(tokenId) {
   return fregData || null;
 }
 
+async function fetchOwnedFregs(owner) {
+  const normalizedOwner = normalizeWalletAddress(owner);
+
+  try {
+    const result = await getFregsContract().getOwnedFregs(normalizedOwner);
+    const tokenIds = result[0].map((tokenId) => Number(tokenId));
+    const bodyColors = result[1];
+    const backgrounds = result[2];
+    const bodies = result[3];
+    const heads = result[4];
+    const mouths = result[5];
+    const bellies = result[6];
+
+    return tokenIds.map((tokenId, index) => ({
+      background: normalizeTraitValue(backgrounds[index]),
+      belly: normalizeTraitValue(bellies[index]),
+      body: normalizeTraitValue(bodies[index]),
+      bodyColor: bodyColors[index],
+      head: normalizeTraitValue(heads[index]),
+      mouth: normalizeTraitValue(mouths[index]),
+      tokenId
+    }));
+  } catch (error) {
+    const tokenIds = await fetchAllTokenIds();
+    const ownedTokenIds = [];
+
+    for (const tokenId of tokenIds) {
+      const tokenOwner = await fetchOwner(tokenId);
+      if (tokenOwner && tokenOwner.toLowerCase() === normalizedOwner.toLowerCase()) {
+        ownedTokenIds.push(tokenId);
+      }
+    }
+
+    return fetchFregDataBatch(ownedTokenIds);
+  }
+}
+
 async function fetchOwner(tokenId) {
   try {
     return await getFregsContract().ownerOf(tokenId);
@@ -153,11 +194,13 @@ module.exports = {
   fetchBurnedTokenIds,
   fetchFregData,
   fetchFregDataBatch,
+  fetchOwnedFregs,
   fetchOwner,
   fetchSupply,
   fetchTokenPage,
   fetchTokenUri,
   fetchTotalMinted,
   getConfig,
-  normalizeColor
+  normalizeColor,
+  normalizeWalletAddress
 };

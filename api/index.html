@@ -250,7 +250,7 @@
       }
 
       .endpoint-card {
-        padding: 22px 22px 20px;
+        overflow: hidden;
         border-radius: 24px;
         border: 1px solid rgba(114, 255, 173, 0.12);
         background:
@@ -268,10 +268,34 @@
       .endpoint-card:nth-child(5) { animation-delay: 0.2s; }
       .endpoint-card:nth-child(6) { animation-delay: 0.25s; }
 
+      .endpoint-toggle {
+        width: 100%;
+        padding: 22px 22px 20px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .endpoint-toggle:hover {
+        background: rgba(134, 240, 107, 0.03);
+      }
+
+      .endpoint-card.is-expanded .endpoint-toggle {
+        border-bottom: 1px solid rgba(120, 255, 184, 0.08);
+      }
+
       .endpoint-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 16px;
+      }
+
+      .endpoint-summary {
+        display: flex;
+        align-items: center;
         gap: 16px;
       }
 
@@ -311,8 +335,31 @@
         letter-spacing: 0.06em;
       }
 
+      .endpoint-chevron {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        border: 1px solid rgba(132, 255, 174, 0.14);
+        background: rgba(134, 240, 107, 0.05);
+        color: #dfffe7;
+        font-size: 14px;
+        transition: transform 0.18s ease, background 0.18s ease;
+      }
+
+      .endpoint-card.is-expanded .endpoint-chevron {
+        transform: rotate(180deg);
+        background: rgba(134, 240, 107, 0.12);
+      }
+
+      .endpoint-panel {
+        padding: 18px 22px 20px;
+      }
+
       .endpoint-description {
-        margin: 14px 0 18px;
+        margin: 0 0 18px;
         color: var(--muted);
         line-height: 1.7;
       }
@@ -468,12 +515,25 @@
         }
 
         .endpoint-card {
+          border-radius: 22px;
+        }
+
+        .endpoint-toggle {
           padding: 18px;
+        }
+
+        .endpoint-panel {
+          padding: 16px 18px 18px;
         }
 
         .endpoint-head {
           flex-direction: column;
           align-items: flex-start;
+        }
+
+        .endpoint-summary {
+          width: 100%;
+          justify-content: space-between;
         }
 
         .endpoint-title {
@@ -672,6 +732,23 @@
         return null;
       }
 
+      async function discoverOwnerAddress(tokenId) {
+        if (!Number.isInteger(tokenId)) {
+          return null;
+        }
+
+        try {
+          const response = await fetchExample(`/fregs/${tokenId}/owner`);
+          if (response.ok && typeof response.body?.owner === "string") {
+            return response.body.owner;
+          }
+        } catch (error) {
+          return null;
+        }
+
+        return null;
+      }
+
       function codeBlock(title, text, copyValue, copyLabel = "Copy curl") {
         const button = copyValue
           ? `<button class="copy-button" data-copy="${escapeHtml(copyValue)}">${escapeHtml(copyLabel)}</button>`
@@ -691,20 +768,41 @@
         const article = document.createElement("article");
         article.className = "endpoint-card";
         article.id = endpoint.anchor;
+        article.dataset.loaded = "false";
 
         article.innerHTML = `
-          <div class="endpoint-head">
-            <div class="endpoint-title">
-              <span class="method">${endpoint.method}</span>
-              <code class="path">${escapeHtml(endpoint.pathLabel)}</code>
+          <button class="endpoint-toggle" type="button" aria-expanded="false">
+            <div class="endpoint-head">
+              <div class="endpoint-title">
+                <span class="method">${endpoint.method}</span>
+                <code class="path">${escapeHtml(endpoint.pathLabel)}</code>
+              </div>
+              <div class="endpoint-summary">
+                <span class="content-type">${escapeHtml(endpoint.contentType)}</span>
+                <span class="endpoint-chevron">▾</span>
+              </div>
             </div>
-            <span class="content-type">${escapeHtml(endpoint.contentType)}</span>
+          </button>
+          <div class="endpoint-panel" hidden>
+            <p class="endpoint-description">${escapeHtml(endpoint.description)}</p>
+            <div class="curl-slot"></div>
+            <div class="response-slot" style="margin-top: 14px;"></div>
+            <div class="response-note">${escapeHtml(endpoint.note || "")}</div>
           </div>
-          <p class="endpoint-description">${escapeHtml(endpoint.description)}</p>
-          <div class="curl-slot"></div>
-          <div class="response-slot" style="margin-top: 14px;"></div>
-          <div class="response-note">${escapeHtml(endpoint.note || "")}</div>
         `;
+
+        article.querySelector(".endpoint-toggle").addEventListener("click", async () => {
+          const isExpanded = article.classList.toggle("is-expanded");
+          const panel = article.querySelector(".endpoint-panel");
+          const toggle = article.querySelector(".endpoint-toggle");
+          panel.hidden = !isExpanded;
+          toggle.setAttribute("aria-expanded", String(isExpanded));
+
+          if (isExpanded && article.dataset.loaded !== "true") {
+            await populateEndpointCard(article, endpoint);
+            article.dataset.loaded = "true";
+          }
+        });
 
         container.appendChild(article);
         return article;
@@ -772,6 +870,8 @@
 
         const firstTokenId = await discoverFirstTokenId();
         const tokenId = Number.isInteger(firstTokenId) ? firstTokenId : 0;
+        const tokenOwnerAddress = (await discoverOwnerAddress(firstTokenId))
+          || "0x0000000000000000000000000000000000000000";
         const tokenPathLabel = Number.isInteger(firstTokenId) ? `/fregs/${tokenId}` : "/fregs/:tokenId";
         const ownerPathLabel = Number.isInteger(firstTokenId)
           ? `/fregs/${tokenId}/owner`
@@ -789,7 +889,7 @@
             description: "Lists live Freg token IDs with pagination. This is the best starting point to discover token IDs.",
             fetch: () => fetchExample("/fregs?limit=1"),
             method: "GET",
-            note: "Default list responses stay lightweight. Add ?includeMetadata=1 if you want live metadata inline.",
+            note: "Default list responses stay lightweight. Add ?includeMetadata=true if you want live metadata inline.",
             path: () => "/fregs?limit=1",
             pathLabel: "/fregs?limit=1"
           },
@@ -802,6 +902,16 @@
             note: "Use ?includeBurned=1 if you also want burned token IDs included in a separate array.",
             path: () => "/fregs/ids",
             pathLabel: "/fregs/ids"
+          },
+          {
+            anchor: "endpoint-fregs-owned-by-wallet",
+            contentType: "application/json",
+            description: "Returns the Fregs currently owned by a wallet address, with a total count and the owned token IDs.",
+            fetch: () => fetchExample(`/fregs/owners/${tokenOwnerAddress}?includeMetadata=true`),
+            method: "GET",
+            note: "Default response returns owner, count and tokenIds. Add ?includeMetadata=true to also include full Freg payloads in a fregs array.",
+            path: () => `/fregs/owners/${tokenOwnerAddress}?includeMetadata=true`,
+            pathLabel: "/fregs/owners/:address?includeMetadata=true"
           },
           {
             anchor: "endpoint-freg-token",
@@ -873,24 +983,32 @@
           {
             anchor: "endpoint-traits-head-detail",
             contentType: "application/json",
-            description: "Returns one head trait as JSON, including the rendered SVG string.",
-            fetch: () => fetchExample("/fregs/traits/head/1?format=json"),
+            description: "Returns one head trait as JSON, including the rendered SVG string when the trait has standalone art.",
+            fetch: () => fetchExample("/fregs/traits/head/1"),
             method: "GET",
-            note: "The SVG string is trimmed in the docs output, but the fetched response is live.",
-            path: () => "/fregs/traits/head/1?format=json",
-            pathLabel: "/fregs/traits/head/1?format=json"
+            note: "This is now the default trait detail response. The SVG string is trimmed in the docs output only.",
+            path: () => "/fregs/traits/head/1",
+            pathLabel: "/fregs/traits/head/1"
+          },
+          {
+            anchor: "endpoint-traits-head-image",
+            contentType: "image/svg+xml",
+            description: "Returns only the standalone SVG for a renderable trait.",
+            fetch: () => fetchExample("/fregs/traits/head/1/image.svg", {
+              accept: "image/svg+xml"
+            }),
+            method: "GET",
+            note: "This mirrors the token image route shape. Traits without standalone art return HTTP 400 on this endpoint.",
+            path: () => "/fregs/traits/head/1/image.svg",
+            pathLabel: "/fregs/traits/head/1/image.svg"
           }
         ];
 
         const coreContainer = document.getElementById("core-endpoints");
         const traitsContainer = document.getElementById("trait-endpoints");
 
-        const cards = [
-          ...coreEndpoints.map((endpoint) => [renderEndpointCard(coreContainer, endpoint), endpoint]),
-          ...traitEndpoints.map((endpoint) => [renderEndpointCard(traitsContainer, endpoint), endpoint])
-        ];
-
-        await Promise.all(cards.map(([article, endpoint]) => populateEndpointCard(article, endpoint)));
+        coreEndpoints.forEach((endpoint) => renderEndpointCard(coreContainer, endpoint));
+        traitEndpoints.forEach((endpoint) => renderEndpointCard(traitsContainer, endpoint));
       }
 
       init();
