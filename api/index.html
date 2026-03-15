@@ -556,8 +556,8 @@
         <p class="hero-copy">
           The Fregs API is a thin public layer over the live collection. Use it to fetch minted
           Fregs, owner data and trait metadata from a clean HTTP surface, while live token state
-          stays on-chain and SVG assets are served directly from the API bundle. The examples below are fetched live from this API so the
-          code samples always match real responses.
+          stays on-chain and SVG assets are served directly from the API bundle. The examples below are
+          static snapshots that mirror the response shapes and use `api.fregs.io` in the curl commands.
           <br>
           Fregs start at token ID 0. If a token used to exist but was burned, the API returns 410 Gone.
         </p>
@@ -577,7 +577,7 @@
         </div>
         <div class="live-pill">
           <span class="dot"></span>
-          Live examples auto-load from the active API origin.
+          Static examples are trimmed for readability, especially SVG payloads.
         </div>
       </section>
 
@@ -656,10 +656,7 @@
 
     <script>
       const DEFAULT_API_ORIGIN = "https://api.fregs.io";
-      const apiOrigin =
-        window.location.protocol === "http:" || window.location.protocol === "https:"
-          ? window.location.origin
-          : DEFAULT_API_ORIGIN;
+      const apiOrigin = DEFAULT_API_ORIGIN;
 
       document.getElementById("api-origin").textContent = apiOrigin;
 
@@ -712,73 +709,92 @@
         return value;
       }
 
-      async function fetchExample(path, options = {}) {
-        const response = await fetch(buildUrl(path), {
-          headers: {
-            Accept: options.accept || "application/json"
-          }
-        });
+      const EXAMPLE_FREGS_ADDRESS = "0x02c108083691468eB8bbA5890E91f74E5b2ad2cC";
+      const EXAMPLE_ITEMS_ADDRESS = "0x7BCb9B24b16D2AC7Dc975E1ff38536A8839CA0D3";
+      const EXAMPLE_OWNER = "0x1111111111111111111111111111111111111111";
+      const EXAMPLE_TOKEN_ID = 0;
+      const EXAMPLE_ITEM_SLUG = "chest";
+      const EXAMPLE_BODY_COLOR = "#7CB342";
+      const EXAMPLE_TRAIT_COLOR = "#65b449";
+      const EXAMPLE_FREG_SVG =
+        '<?xml version="1.0" encoding="UTF-8"?><svg viewBox="0 0 617.49 644.18">... [trimmed SVG example]</svg>';
+      const EXAMPLE_TRAIT_SVG =
+        '<?xml version="1.0" encoding="UTF-8"?><svg viewBox="0 0 617.49 644.18">... [trimmed trait SVG example]</svg>';
+      const EXAMPLE_ITEM_SVG =
+        '<?xml version="1.0" encoding="UTF-8"?><svg viewBox="0 0 512 512">... [trimmed item SVG example]</svg>';
 
-        const contentType = response.headers.get("content-type") || "";
-        if (contentType.includes("application/json")) {
-          return {
-            ok: response.ok,
-            status: response.status,
-            body: await response.json()
-          };
-        }
-
+      function buildTokenLinks(tokenId) {
         return {
-          ok: response.ok,
-          status: response.status,
-          body: await response.text()
+          imageSvg: buildUrl(`/fregs/${tokenId}/image.svg`),
+          metadata: buildUrl(`/fregs/${tokenId}/metadata`),
+          opensea: `https://testnets.opensea.io/assets/base_sepolia/${EXAMPLE_FREGS_ADDRESS}/${tokenId}`,
+          owner: buildUrl(`/fregs/${tokenId}/owner`),
+          self: buildUrl(`/fregs/${tokenId}`)
         };
       }
 
-      async function discoverFirstTokenId() {
-        try {
-          const listing = await fetchExample("/fregs?limit=1");
-          const items = listing.body?.items || [];
-          if (items.length > 0 && Number.isInteger(items[0].tokenId)) {
-            return items[0].tokenId;
-          }
-        } catch (error) {
-          return null;
-        }
-
-        return null;
+      function buildTraitLinks(traitType, traitId, color) {
+        const query = color ? `?color=${encodeURIComponent(color)}` : "";
+        return {
+          json: buildUrl(`/fregs/traits/${traitType}/${traitId}${query}`),
+          svg: buildUrl(`/fregs/traits/${traitType}/${traitId}/image.svg${query}`)
+        };
       }
 
-      async function discoverOwnerAddress(tokenId) {
-        if (!Number.isInteger(tokenId)) {
-          return null;
-        }
-
-        try {
-          const response = await fetchExample(`/fregs/${tokenId}/owner`);
-          if (response.ok && typeof response.body?.owner === "string") {
-            return response.body.owner;
-          }
-        } catch (error) {
-          return null;
-        }
-
-        return null;
+      function buildItemLinks(slug) {
+        return {
+          imageSvg: buildUrl(`/fregs/items/${slug}/image.svg`),
+          self: buildUrl(`/fregs/items/${slug}`)
+        };
       }
 
-      async function discoverFirstItemSlug() {
-        try {
-          const listing = await fetchExample("/fregs/items");
-          const items = listing.body?.items || [];
-          if (items.length > 0 && typeof items[0].slug === "string") {
-            return items[0].slug;
-          }
-        } catch (error) {
-          return null;
-        }
+      const exampleFregAttributes = [
+        { trait_type: "Background", value: EXAMPLE_BODY_COLOR },
+        { trait_type: "Body", value: EXAMPLE_BODY_COLOR },
+        { trait_type: "Head", value: "Pixel Glasses" },
+        { trait_type: "Mouth", value: "Cigarette" },
+        { trait_type: "Belly", value: "ETH" }
+      ];
 
-        return null;
-      }
+      const exampleFregAttributesByType = {
+        Background: EXAMPLE_BODY_COLOR,
+        Body: EXAMPLE_BODY_COLOR,
+        Head: "Pixel Glasses",
+        Mouth: "Cigarette",
+        Belly: "ETH"
+      };
+
+      const exampleFregSummary = {
+        tokenId: EXAMPLE_TOKEN_ID,
+        name: `Freg #${EXAMPLE_TOKEN_ID}`,
+        description: "Fregs",
+        owner: EXAMPLE_OWNER,
+        image: EXAMPLE_FREG_SVG,
+        attributes: exampleFregAttributes,
+        links: buildTokenLinks(EXAMPLE_TOKEN_ID)
+      };
+
+      const exampleFregOwnerEntry = {
+        tokenId: EXAMPLE_TOKEN_ID,
+        name: `Freg #${EXAMPLE_TOKEN_ID}`,
+        description: "Fregs",
+        owner: EXAMPLE_OWNER,
+        image: EXAMPLE_FREG_SVG,
+        attributes: exampleFregAttributes,
+        attributesByType: exampleFregAttributesByType,
+        links: buildTokenLinks(EXAMPLE_TOKEN_ID)
+      };
+
+      const exampleChestItem = {
+        itemType: 6,
+        slug: EXAMPLE_ITEM_SLUG,
+        name: "Treasure Chest",
+        description: "Burn this chest to claim $FREG rewards",
+        category: "special",
+        isClaimable: true,
+        isOwnerMintable: true,
+        links: buildItemLinks(EXAMPLE_ITEM_SLUG)
+      };
 
       function codeBlock(title, text, copyValue, copyLabel = "Copy curl") {
         const button = copyValue
@@ -822,7 +838,7 @@
           </div>
         `;
 
-        article.querySelector(".endpoint-toggle").addEventListener("click", async () => {
+        article.querySelector(".endpoint-toggle").addEventListener("click", () => {
           const isExpanded = article.classList.toggle("is-expanded");
           const panel = article.querySelector(".endpoint-panel");
           const toggle = article.querySelector(".endpoint-toggle");
@@ -830,7 +846,7 @@
           toggle.setAttribute("aria-expanded", String(isExpanded));
 
           if (isExpanded && article.dataset.loaded !== "true") {
-            await populateEndpointCard(article, endpoint);
+            populateEndpointCard(article, endpoint);
             article.dataset.loaded = "true";
           }
         });
@@ -839,38 +855,21 @@
         return article;
       }
 
-      async function populateEndpointCard(article, endpoint) {
-        const curlPath = endpoint.path();
+      function formatExampleResponse(response) {
+        if (typeof response === "string") {
+          return response;
+        }
+
+        return JSON.stringify(trimLargeStrings(response), null, 2);
+      }
+
+      function populateEndpointCard(article, endpoint) {
+        const curlPath = endpoint.curlPath;
         const curl = `curl "${buildUrl(curlPath)}"`;
         article.querySelector(".curl-slot").innerHTML = codeBlock("curl", curl, curl);
 
         const responseSlot = article.querySelector(".response-slot");
-        responseSlot.innerHTML = codeBlock("response", "Loading live response...");
-
-        try {
-          const result = await endpoint.fetch();
-          const serializable =
-            typeof result.body === "string" ? result.body : trimLargeStrings(result.body);
-          const responseText =
-            typeof serializable === "string"
-              ? serializable
-              : JSON.stringify(serializable, null, 2);
-
-          responseSlot.innerHTML = codeBlock("response", responseText);
-        } catch (error) {
-          responseSlot.innerHTML = codeBlock(
-            "response",
-            JSON.stringify(
-              {
-                error: "Live example unavailable",
-                message: error.message
-              },
-              null,
-              2
-            ),
-            null
-          );
-        }
+        responseSlot.innerHTML = codeBlock("response", formatExampleResponse(endpoint.exampleResponse));
       }
 
       function wireCopyButtons() {
@@ -896,101 +895,117 @@
         });
       }
 
-      async function init() {
+      function init() {
         wireCopyButtons();
-
-        const firstTokenId = await discoverFirstTokenId();
-        const tokenId = Number.isInteger(firstTokenId) ? firstTokenId : 0;
-        const tokenOwnerAddress = (await discoverOwnerAddress(firstTokenId))
-          || "0x0000000000000000000000000000000000000000";
-        const itemSlug = (await discoverFirstItemSlug()) || "chest";
-        const tokenPathLabel = Number.isInteger(firstTokenId) ? `/fregs/${tokenId}` : "/fregs/:tokenId";
-        const ownerPathLabel = Number.isInteger(firstTokenId)
-          ? `/fregs/${tokenId}/owner`
-          : "/fregs/:tokenId/owner";
-        const metadataPathLabel = Number.isInteger(firstTokenId)
-          ? `/fregs/${tokenId}/metadata`
-          : "/fregs/:tokenId/metadata";
-        const imagePathLabel = Number.isInteger(firstTokenId)
-          ? `/fregs/${tokenId}/image.svg`
-          : "/fregs/:tokenId/image.svg";
-        const itemPathLabel = `/fregs/items/${itemSlug}`;
-        const itemImagePathLabel = `/fregs/items/${itemSlug}/image.svg`;
-        const itemsOwnerPathLabel = `/fregs/items/owners/${tokenOwnerAddress}`;
         const coreEndpoints = [
           {
             anchor: "endpoint-fregs-list",
             contentType: "application/json",
-            description: "Lists live Freg token IDs with pagination. This is the best starting point to discover token IDs.",
-            fetch: () => fetchExample("/fregs?limit=1"),
+            curlPath: "/fregs?limit=1",
+            description: "Lists Freg token IDs with pagination. This is the best starting point to discover token IDs.",
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              count: 1,
+              cursor: 0,
+              includeBurned: false,
+              includeMetadata: false,
+              items: [
+                {
+                  links: buildTokenLinks(EXAMPLE_TOKEN_ID),
+                  tokenId: EXAMPLE_TOKEN_ID
+                }
+              ],
+              limit: 1,
+              nextCursor: 1,
+              supply: 1
+            },
             method: "GET",
-            note: "Default list responses stay lightweight. Add ?includeMetadata=true if you want live metadata inline.",
-            path: () => "/fregs?limit=1",
+            note: "Static example shown. Add ?includeMetadata=true if you want metadata inline.",
             pathLabel: "/fregs?limit=1"
           },
           {
             anchor: "endpoint-fregs-ids",
             contentType: "application/json",
+            curlPath: "/fregs/ids",
             description: "Returns all currently existing Freg token IDs and the current collection supply.",
-            fetch: () => fetchExample("/fregs/ids"),
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              supply: 1,
+              tokenIds: [EXAMPLE_TOKEN_ID]
+            },
             method: "GET",
             note: "Use ?includeBurned=1 if you also want burned token IDs included in a separate array.",
-            path: () => "/fregs/ids",
             pathLabel: "/fregs/ids"
           },
           {
             anchor: "endpoint-fregs-owned-by-wallet",
             contentType: "application/json",
+            curlPath: `/fregs/owners/${EXAMPLE_OWNER}?includeMetadata=true`,
             description: "Returns the Fregs currently owned by a wallet address, with a total count and the owned token IDs.",
-            fetch: () => fetchExample(`/fregs/owners/${tokenOwnerAddress}?includeMetadata=true`),
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              count: 1,
+              includeMetadata: true,
+              owner: EXAMPLE_OWNER,
+              tokenIds: [EXAMPLE_TOKEN_ID],
+              fregs: [exampleFregOwnerEntry]
+            },
             method: "GET",
-            note: "Default response returns owner, count and tokenIds. Add ?includeMetadata=true to also include full Freg payloads in a fregs array.",
-            path: () => `/fregs/owners/${tokenOwnerAddress}?includeMetadata=true`,
+            note: "Static example shown. The real endpoint returns owner, count and tokenIds by default, and adds a fregs array when includeMetadata=true.",
             pathLabel: "/fregs/owners/:address?includeMetadata=true"
           },
           {
             anchor: "endpoint-freg-token",
             contentType: "application/json",
+            curlPath: `/fregs/${EXAMPLE_TOKEN_ID}`,
             description: "Returns a single Freg in a flattened NFT format with owner, description, attributes and raw SVG image.",
-            fetch: () => fetchExample(`/fregs/${tokenId}`),
+            exampleResponse: exampleFregSummary,
             method: "GET",
-            note: Number.isInteger(firstTokenId)
-              ? "The summary response is built from live contract state plus bundled SVG assets. If a token was minted and later burned, this endpoint returns HTTP 410 with a message payload instead of a token object. Large image fields are shortened in this docs view only."
-              : "No minted token was discovered automatically, so the live example may return not found or 410 if the token was burned.",
-            path: () => `/fregs/${tokenId}`,
-            pathLabel: tokenPathLabel
+            note: "Static example shown. Burned tokens return HTTP 410 with a message payload instead of a token object.",
+            pathLabel: "/fregs/:tokenId"
           },
           {
             anchor: "endpoint-freg-owner",
             contentType: "application/json",
+            curlPath: `/fregs/${EXAMPLE_TOKEN_ID}/owner`,
             description: "Returns only the wallet address that currently owns the specified Freg.",
-            fetch: () => fetchExample(`/fregs/${tokenId}/owner`),
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              owner: EXAMPLE_OWNER,
+              tokenId: EXAMPLE_TOKEN_ID
+            },
             method: "GET",
             note: "Useful for fast ownership checks when you do not need full metadata. Burned tokens return HTTP 410 Gone.",
-            path: () => `/fregs/${tokenId}/owner`,
-            pathLabel: ownerPathLabel
+            pathLabel: "/fregs/:tokenId/owner"
           },
           {
             anchor: "endpoint-freg-metadata",
             contentType: "application/json",
+            curlPath: `/fregs/${EXAMPLE_TOKEN_ID}/metadata`,
             description: "Returns the full NFT metadata JSON built in the API from live contract trait data and bundled SVG assets.",
-            fetch: () => fetchExample(`/fregs/${tokenId}/metadata`),
+            exampleResponse: {
+              name: `Freg #${EXAMPLE_TOKEN_ID}`,
+              description: "Fregs",
+              image: "data:image/svg+xml,<?xml version=\"1.0\" encoding=\"UTF-8\"?><svg ... [trimmed SVG example]</svg>",
+              attributes: exampleFregAttributes
+            },
             method: "GET",
-            note: "The response shape matches standard NFT metadata: name, description, image and attributes, with no API wrapper fields added. Burned tokens return HTTP 410 Gone.",
-            path: () => `/fregs/${tokenId}/metadata`,
-            pathLabel: metadataPathLabel
+            note: "Static example shown. The real response shape matches standard NFT metadata with no API wrapper fields added.",
+            pathLabel: "/fregs/:tokenId/metadata"
           },
           {
             anchor: "endpoint-freg-image",
             contentType: "image/svg+xml",
+            curlPath: `/fregs/${EXAMPLE_TOKEN_ID}/image.svg`,
             description: "Returns the rendered SVG image for the specified Freg, assembled in the API from bundled assets and live contract trait data.",
-            fetch: () => fetchExample(`/fregs/${tokenId}/image.svg`, {
-              accept: "image/svg+xml"
-            }),
+            exampleResponse: EXAMPLE_FREG_SVG,
             method: "GET",
-            note: "The response shown here is the actual SVG body, trimmed in the docs view if it is very large. Burned tokens return HTTP 410 Gone.",
-            path: () => `/fregs/${tokenId}/image.svg`,
-            pathLabel: imagePathLabel
+            note: "Static SVG example shown, trimmed for readability. Burned tokens return HTTP 410 Gone.",
+            pathLabel: "/fregs/:tokenId/image.svg"
           },
         ];
 
@@ -998,43 +1013,153 @@
           {
             anchor: "endpoint-traits-all",
             contentType: "application/json",
+            curlPath: "/fregs/traits",
             description: "Returns the complete trait catalog grouped by type.",
-            fetch: () => fetchExample("/fregs/traits"),
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              traitTypes: {
+                background: {
+                  count: 1,
+                  traitType: "background",
+                  traits: [
+                    {
+                      links: buildTraitLinks("background", 0, EXAMPLE_TRAIT_COLOR),
+                      name: "Dynamic Background"
+                    }
+                  ]
+                },
+                body: {
+                  count: 5,
+                  traitType: "body",
+                  traits: [
+                    {
+                      links: buildTraitLinks("body", 0, EXAMPLE_TRAIT_COLOR),
+                      name: "Base"
+                    },
+                    {
+                      itemId: 5,
+                      itemName: "Gold Skin",
+                      links: buildTraitLinks("body", 1),
+                      name: "Gold Skin"
+                    }
+                  ]
+                },
+                head: {
+                  count: 24,
+                  traitType: "head",
+                  traits: [
+                    {
+                      links: buildTraitLinks("head", 1),
+                      name: "Normal Eyes"
+                    },
+                    {
+                      links: buildTraitLinks("head", 2),
+                      name: "Beanie"
+                    },
+                    {
+                      itemId: 9,
+                      itemName: "Hoodie",
+                      links: buildTraitLinks("head", 24),
+                      name: "Hoodie"
+                    }
+                  ]
+                },
+                mouth: {
+                  count: 10,
+                  traitType: "mouth",
+                  traits: [
+                    {
+                      links: buildTraitLinks("mouth", 1),
+                      name: "Cruella"
+                    },
+                    {
+                      links: buildTraitLinks("mouth", 2),
+                      name: "Cigarette"
+                    }
+                  ]
+                },
+                belly: {
+                  count: 5,
+                  traitType: "belly",
+                  traits: [
+                    {
+                      links: buildTraitLinks("belly", 1),
+                      name: "Base"
+                    },
+                    {
+                      links: buildTraitLinks("belly", 2),
+                      name: "ETH"
+                    }
+                  ]
+                }
+              }
+            },
             method: "GET",
-            note: "Trait links point at fully qualified API URLs and the payload is intentionally kept compact.",
-            path: () => "/fregs/traits",
+            note: "Static example shown. The real response includes the full grouped trait catalog.",
             pathLabel: "/fregs/traits"
           },
           {
             anchor: "endpoint-traits-head",
             contentType: "application/json",
+            curlPath: "/fregs/traits/head",
             description: "Returns all head traits, including special item heads mapped above the base trait range.",
-            fetch: () => fetchExample("/fregs/traits/head"),
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              count: 24,
+              traitType: "head",
+              traits: [
+                {
+                  links: buildTraitLinks("head", 1),
+                  name: "Normal Eyes"
+                },
+                {
+                  links: buildTraitLinks("head", 2),
+                  name: "Beanie"
+                },
+                {
+                  links: buildTraitLinks("head", 3),
+                  name: "Bored Eyes"
+                },
+                {
+                  itemId: 9,
+                  itemName: "Hoodie",
+                  links: buildTraitLinks("head", 24),
+                  name: "Hoodie"
+                }
+              ]
+            },
             method: "GET",
-            note: "This response is compact enough to show unmodified on the docs page.",
-            path: () => "/fregs/traits/head",
+            note: "Static example shown. The real response includes the full head trait array.",
             pathLabel: "/fregs/traits/head"
           },
           {
             anchor: "endpoint-traits-head-detail",
             contentType: "application/json",
+            curlPath: "/fregs/traits/head/1",
             description: "Returns one head trait as JSON, including the rendered SVG string when the trait has standalone art.",
-            fetch: () => fetchExample("/fregs/traits/head/1"),
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              svg: EXAMPLE_TRAIT_SVG,
+              trait: {
+                links: buildTraitLinks("head", 1),
+                name: "Normal Eyes"
+              }
+            },
             method: "GET",
-            note: "This is now the default trait detail response. The SVG string is trimmed in the docs output only.",
-            path: () => "/fregs/traits/head/1",
+            note: "Static example shown. The real response includes the full SVG string.",
             pathLabel: "/fregs/traits/head/1"
           },
           {
             anchor: "endpoint-traits-head-image",
             contentType: "image/svg+xml",
+            curlPath: "/fregs/traits/head/1/image.svg",
             description: "Returns only the standalone SVG for a renderable trait.",
-            fetch: () => fetchExample("/fregs/traits/head/1/image.svg", {
-              accept: "image/svg+xml"
-            }),
+            exampleResponse: EXAMPLE_TRAIT_SVG,
             method: "GET",
             note: "This mirrors the token image route shape. Traits without standalone art return HTTP 400 on this endpoint.",
-            path: () => "/fregs/traits/head/1/image.svg",
             pathLabel: "/fregs/traits/head/1/image.svg"
           }
         ];
@@ -1043,44 +1168,122 @@
           {
             anchor: "endpoint-items-list",
             contentType: "application/json",
+            curlPath: "/fregs/items",
             description: "Returns the catalog of available Fregs items, with links to each item detail route.",
-            fetch: () => fetchExample("/fregs/items"),
+            exampleResponse: {
+              collection: "Fregs Items",
+              contractAddress: EXAMPLE_ITEMS_ADDRESS,
+              count: 9,
+              items: [
+                {
+                  itemType: 1,
+                  slug: "color-change",
+                  name: "Color Change",
+                  description: "Change your Freg's body color to any hex color",
+                  category: "utility",
+                  isClaimable: true,
+                  isOwnerMintable: true,
+                  links: buildItemLinks("color-change")
+                },
+                {
+                  itemType: 2,
+                  slug: "head-reroll",
+                  name: "Head Reroll",
+                  description: "Use this item to reroll your Freg's head trait",
+                  category: "utility",
+                  isClaimable: true,
+                  isOwnerMintable: true,
+                  links: buildItemLinks("head-reroll")
+                },
+                exampleChestItem,
+                {
+                  itemType: 9,
+                  slug: "hoodie",
+                  name: "Hoodie",
+                  description: "A cozy hoodie for your Freg",
+                  category: "head",
+                  isClaimable: false,
+                  isOwnerMintable: true,
+                  links: buildItemLinks("hoodie")
+                }
+              ]
+            },
             method: "GET",
-            note: "This list is type-level only. It describes the available item types, not individual minted item tokens.",
-            path: () => "/fregs/items",
+            note: "Static example shown. The real response includes the full available item catalog for the configured chain.",
             pathLabel: "/fregs/items"
           },
           {
             anchor: "endpoint-item-detail",
             contentType: "application/json",
+            curlPath: `/fregs/items/${EXAMPLE_ITEM_SLUG}`,
             description: "Returns one item definition as JSON, including the rendered SVG string and static metadata fields.",
-            fetch: () => fetchExample(`/fregs/items/${itemSlug}`),
+            exampleResponse: {
+              collection: "Fregs Items",
+              contractAddress: EXAMPLE_ITEMS_ADDRESS,
+              item: {
+                ...exampleChestItem,
+                attributes: [
+                  {
+                    trait_type: "Item Type",
+                    value: "Treasure Chest"
+                  }
+                ],
+                image: EXAMPLE_ITEM_SVG
+              }
+            },
             method: "GET",
-            note: "This is item-type metadata, not token-instance metadata. The SVG string is trimmed in the docs output only.",
-            path: () => `/fregs/items/${itemSlug}`,
-            pathLabel: itemPathLabel
+            note: "Static example shown. This is item-type metadata, not token-instance metadata.",
+            pathLabel: "/fregs/items/chest"
           },
           {
             anchor: "endpoint-item-image",
             contentType: "image/svg+xml",
+            curlPath: `/fregs/items/${EXAMPLE_ITEM_SLUG}/image.svg`,
             description: "Returns only the SVG for a single item type.",
-            fetch: () => fetchExample(`/fregs/items/${itemSlug}/image.svg`, {
-              accept: "image/svg+xml"
-            }),
+            exampleResponse: EXAMPLE_ITEM_SVG,
             method: "GET",
-            note: "This mirrors the Freg image route shape and renders the item art from the on-chain items renderer.",
-            path: () => `/fregs/items/${itemSlug}/image.svg`,
-            pathLabel: itemImagePathLabel
+            note: "Static SVG example shown, trimmed for readability.",
+            pathLabel: "/fregs/items/chest/image.svg"
           },
           {
             anchor: "endpoint-items-owned-by-wallet",
             contentType: "application/json",
+            curlPath: `/fregs/items/owners/${EXAMPLE_OWNER}`,
             description: "Returns the items owned by a wallet address, aggregated by item type with a count for each type.",
-            fetch: () => fetchExample(`/fregs/items/owners/${tokenOwnerAddress}`),
+            exampleResponse: {
+              collection: "Fregs Items",
+              contractAddress: EXAMPLE_ITEMS_ADDRESS,
+              owner: EXAMPLE_OWNER,
+              count: 6,
+              distinctCount: 2,
+              items: [
+                {
+                  itemType: 2,
+                  slug: "head-reroll",
+                  name: "Head Reroll",
+                  description: "Use this item to reroll your Freg's head trait",
+                  category: "utility",
+                  isClaimable: true,
+                  isOwnerMintable: true,
+                  links: buildItemLinks("head-reroll"),
+                  count: 5
+                },
+                {
+                  itemType: 1,
+                  slug: "color-change",
+                  name: "Color Change",
+                  description: "Change your Freg's body color to any hex color",
+                  category: "utility",
+                  isClaimable: true,
+                  isOwnerMintable: true,
+                  links: buildItemLinks("color-change"),
+                  count: 1
+                }
+              ]
+            },
             method: "GET",
-            note: "The response is grouped by item type, so repeated items come back once with a count field instead of individual token IDs.",
-            path: () => `/fregs/items/owners/${tokenOwnerAddress}`,
-            pathLabel: itemsOwnerPathLabel
+            note: "Static example shown. The real response is grouped by item type, so repeated items come back once with a count field instead of individual token IDs.",
+            pathLabel: "/fregs/items/owners/:address"
           }
         ];
 
