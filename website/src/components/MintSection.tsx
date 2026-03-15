@@ -330,14 +330,7 @@ export default function MintSection(): React.JSX.Element {
                         </div>
 
                         <div className="mb-2 xl:mb-4">
-                            <div className="mb-1 flex items-center justify-between xl:mb-2">
-                                <p className="font-righteous text-[11px] uppercase tracking-[0.2em] text-theme-subtle xl:text-sm">
-                                    Greyscale
-                                </p>
-                                <span className="font-righteous text-[11px] text-theme-subtle xl:text-sm">
-                                    Black to white
-                                </span>
-                            </div>
+                     
                             <input
                                 type="range"
                                 min="0"
