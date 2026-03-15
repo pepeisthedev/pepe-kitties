@@ -2,14 +2,56 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { useAppKitAccount } from "@reown/appkit/react"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog"
 import { useContracts, useOwnedItems, useSpinTokenBalance } from "../hooks"
 import ItemCard from "./ItemCard"
-import { SPIN_THE_WHEEL_ADDRESS } from "../config/contracts"
-import { Coins, RotateCw, X, Sparkles } from "lucide-react"
+import { ITEM_TYPE_NAMES, ITEM_TYPES, SPIN_THE_WHEEL_ADDRESS } from "../config/contracts"
+import { CircleHelp, Coins, RotateCw, X } from "lucide-react"
 
 // Prize types from contract
 const PRIZE_MINTPASS = 1
 const PRIZE_ITEM = 2
+const SPIN_COST = 1
+
+type PrizeInfoEntry = {
+  key: string
+  label: string
+  percentage: number
+  description: string
+}
+
+const FALLBACK_PRIZE_INFO: PrizeInfoEntry[] = [
+{
+  key: "mintpass",
+  label: "Mint Pass",
+  percentage: 78,
+  description: "Grants access to mint a Freg in the whitelist phase."
+},
+{
+  key: "chest",
+  label: "Treasure Chest",
+  percentage: 20,
+  description: "Can be burned later to claim $FREG tokens."
+},
+{
+  key: "hoodie",
+  label: "Hoodie",
+  percentage: 1,
+  description: "Lets you equip a hoodie trait on your Freg."
+},
+{
+  key: "frogsuit",
+  label: "Frogsuit",
+  percentage: 1,
+  description: "Lets you equip a frog suit trait on your Freg."
+}
+]
 
 // Wheel segment mapping — measured from the actual wheel image (clockwise from top).
 // Segments are NOT equal-sized. The pointer is at 0° (top).
@@ -38,6 +80,83 @@ interface SpinResult {
   won: boolean
   prizeType: number
   itemType: number
+}
+
+function formatPercentage(value: number): string {
+  return Number.isInteger(value) ? `${value}%` : `${value.toFixed(1)}%`
+}
+
+function buildPrizeInfoEntries(
+  loseWeight: number,
+  mintPassWeight: number,
+  itemWeights: Map<number, number>
+): PrizeInfoEntry[] {
+  const totalWeight = loseWeight + mintPassWeight + Array.from(itemWeights.values()).reduce((sum, value) => sum + value, 0)
+  if (totalWeight <= 0) {
+    return FALLBACK_PRIZE_INFO
+  }
+
+  const toPercentage = (weight: number) => (weight * 100) / totalWeight
+  const entries: PrizeInfoEntry[] = []
+
+  if (mintPassWeight > 0) {
+    entries.push({
+      key: "mintpass",
+      label: "Mint Pass",
+      percentage: toPercentage(mintPassWeight),
+      description: "Grants access to mint a Freg in the whitelist phase."
+    })
+  }
+
+  const preferredItemOrder = [
+    ITEM_TYPES.TREASURE_CHEST,
+    ITEM_TYPES.HOODIE,
+    ITEM_TYPES.FROGSUIT
+  ]
+
+  const itemDescriptions: Record<number, string> = {
+    [ITEM_TYPES.TREASURE_CHEST]: "Can be burned later to claim $FREG tokens.",
+    [ITEM_TYPES.HOODIE]: "Lets you equip a hoodie trait on your Freg.",
+    [ITEM_TYPES.FROGSUIT]: "Lets you equip a frog suit trait on your Freg."
+  }
+
+  for (const itemType of preferredItemOrder) {
+    const weight = itemWeights.get(itemType) || 0
+    if (weight <= 0) {
+      continue
+    }
+
+    entries.push({
+      key: `item-${itemType}`,
+      label: ITEM_TYPE_NAMES[itemType] || `Item ${itemType}`,
+      percentage: toPercentage(weight),
+      description: itemDescriptions[itemType] || "A prize item from the wheel."
+    })
+  }
+
+  for (const [itemType, weight] of itemWeights.entries()) {
+    if (preferredItemOrder.includes(itemType) || weight <= 0) {
+      continue
+    }
+
+    entries.push({
+      key: `item-${itemType}`,
+      label: ITEM_TYPE_NAMES[itemType] || `Item ${itemType}`,
+      percentage: toPercentage(weight),
+      description: "A prize item from the wheel."
+    })
+  }
+
+  if (loseWeight > 0) {
+    entries.push({
+      key: "lose",
+      label: "No Prize",
+      percentage: toPercentage(loseWeight),
+      description: "A losing spin."
+    })
+  }
+
+  return entries
 }
 
 function randomAngleInSegment(segment: typeof WHEEL_SEGMENTS[number]): number {
@@ -133,6 +252,9 @@ export default function SpinWheelSection(): React.JSX.Element | null {
 
   const [spinPhase, setSpinPhase] = useState<SpinPhase>("idle")
   const [spinResult, setSpinResult] = useState<SpinResult | null>(null)
+  const [isInfoOpen, setIsInfoOpen] = useState(false)
+  const [prizeInfo, setPrizeInfo] = useState<PrizeInfoEntry[]>(FALLBACK_PRIZE_INFO)
+  const [isPrizeInfoLoading, setIsPrizeInfoLoading] = useState(false)
 
   // Wheel animation refs (decoupled from React render cycle for smooth 60fps)
   const wheelImgRef = useRef<HTMLImageElement>(null)
@@ -254,8 +376,59 @@ export default function SpinWheelSection(): React.JSX.Element | null {
     return () => stopAnimation()
   }, [stopAnimation])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadPrizeInfo() {
+      if (!contracts?.spinTheWheel?.read) {
+        setPrizeInfo(FALLBACK_PRIZE_INFO)
+        return
+      }
+
+      setIsPrizeInfoLoading(true)
+
+      try {
+        const [loseWeightRaw, mintPassWeightRaw, itemPrizeResult] = await Promise.all([
+          contracts.spinTheWheel.read.loseWeight(),
+          contracts.spinTheWheel.read.mintPassWeight(),
+          contracts.spinTheWheel.read.getAllItemPrizes()
+        ])
+
+        if (cancelled) {
+          return
+        }
+
+        const loseWeight = Number(loseWeightRaw)
+        const mintPassWeight = Number(mintPassWeightRaw)
+        const itemTypes = itemPrizeResult[0].map((value: bigint) => Number(value))
+        const itemWeights = itemPrizeResult[1].map((value: bigint) => Number(value))
+        const weightMap = new Map<number, number>()
+
+        for (let index = 0; index < itemTypes.length; index += 1) {
+          weightMap.set(itemTypes[index], itemWeights[index])
+        }
+
+        setPrizeInfo(buildPrizeInfoEntries(loseWeight, mintPassWeight, weightMap))
+      } catch (error) {
+        if (!cancelled) {
+          setPrizeInfo(FALLBACK_PRIZE_INFO)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsPrizeInfoLoading(false)
+        }
+      }
+    }
+
+    void loadPrizeInfo()
+
+    return () => {
+      cancelled = true
+    }
+  }, [contracts])
+
   const handleSpin = useCallback(async () => {
-    if (!contracts || !contracts.spinTheWheel || balance < 1) return
+    if (!contracts || !contracts.spinTheWheel || balance < SPIN_COST) return
 
     setSpinPhase("confirming")
     setSpinResult(null)
@@ -281,7 +454,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
       }
 
       // Refresh balance and items in the background
-      Promise.all([refetchBalance(), refetchItems()])
+      void Promise.all([refetchBalance(), refetchItems()])
     } catch (err: any) {
       stopAnimation()
       if (err.code === 4001 || err.code === "ACTION_REJECTED") {
@@ -307,6 +480,8 @@ export default function SpinWheelSection(): React.JSX.Element | null {
   }, [spinPhase])
 
   const isSpinning = spinPhase === "confirming" || spinPhase === "spinning" || spinPhase === "decelerating"
+  const canSpin = balance >= SPIN_COST
+  const displayedBalance = balanceLoading ? "..." : String(balance)
 
   return (
     <section
@@ -320,6 +495,24 @@ export default function SpinWheelSection(): React.JSX.Element | null {
       />
       <div className="flex-1 overflow-y-auto px-4 md:px-8 pt-24 pb-8">
         <div className="mx-auto relative z-10 max-w-6xl">
+          <div className="w-full max-w-3xl mx-auto flex items-center justify-between gap-4 mt-2 md:mt-6 mb-6">
+            <button
+              type="button"
+              onClick={() => setIsInfoOpen(true)}
+              className="inline-flex cursor-pointer items-center gap-3 rounded-full border-2 border-yellow-300 bg-[#2b1237] px-5 py-3 text-base font-righteous text-yellow-100 shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition-colors hover:bg-[#3a1849]"
+            >
+              <CircleHelp className="w-5 h-5" />
+              Wheel info
+            </button>
+
+            {isConnected && (
+              <div className="inline-flex items-center gap-3 rounded-full border-2 border-cyan-300 bg-[#102c38] px-5 py-3 text-base font-righteous text-cyan-50 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+                <Coins className="w-5 h-5 text-cyan-300" />
+                <span>Your SpinTokens:</span>
+                <span className="font-bangers text-2xl text-white leading-none">{displayedBalance}</span>
+              </div>
+            )}
+          </div>
 
       {!isConnected ? (
         <Card className="bg-black/80 border-4 border-purple-400 rounded-3xl">
@@ -361,7 +554,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
           <Button
             onClick={spinPhase === "result" ? handleCloseResult : handleSpin}
             disabled={isSpinning || spinPhase === "revealing"}
-            className={`px-12 py-6 rounded-2xl font-bangers text-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-white disabled:opacity-50 disabled:cursor-not-allowed ${spinPhase !== "result" && balance < 1 ? "cursor-default" : "hover:from-purple-500 hover:to-pink-500"}`}
+            className={`px-12 py-6 rounded-2xl font-bangers text-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-white disabled:opacity-50 disabled:cursor-not-allowed ${spinPhase !== "result" && !canSpin ? "cursor-default" : "hover:from-purple-500 hover:to-pink-500"}`}
           >
             {isSpinning ? (
               <>
@@ -369,12 +562,11 @@ export default function SpinWheelSection(): React.JSX.Element | null {
                 {spinPhase === "confirming" ? "Confirm..." : "Spinning..."}
               </>
             ) : spinPhase === "result" ? (
-              balance > 0 ? "Spin Again!" : "Close"
-            ) : balance < 1 ? (
+              canSpin ? "Spin Again!" : "Close"
+            ) : !canSpin ? (
               "No SpinTokens"
             ) : (
               <>
-      
                 Spin (1 SpinToken)
               </>
             )}
@@ -458,7 +650,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
 
               {/* Action buttons */}
               <div className="relative z-10 flex flex-col gap-3">
-                {balance > 0 && (
+                {canSpin && (
                   <Button
                     onClick={() => { handleCloseResult(); setTimeout(handleSpin, 100) }}
                     className="w-full px-8 py-4 rounded-2xl font-bangers text-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
@@ -479,6 +671,46 @@ export default function SpinWheelSection(): React.JSX.Element | null {
           </div>
         </div>
       )}
+
+      <Dialog open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+        <DialogContent className="bg-[#12051f] border-2 border-yellow-300/60 text-white sm:max-w-xl">
+          <DialogHeader className="text-left">
+            <DialogTitle className="font-bangers text-4xl text-yellow-300">
+              Spin The Wheel
+            </DialogTitle>
+            <DialogDescription className="font-righteous text-white/75 text-base leading-relaxed">
+              Spin the wheel for a chance to win prizes. It costs {SPIN_COST} SpinToken to play.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+      
+
+            <div>
+              <div className="rounded-2xl border border-cyan-300/30 bg-black/25 p-4">
+                <div className="mb-3 flex items-center justify-between border-b border-cyan-300/20 pb-2">
+                  <p className="font-righteous text-xs uppercase tracking-[0.24em] text-cyan-100/70">Prizes</p>
+                  <p className="font-righteous text-xs uppercase tracking-[0.24em] text-cyan-100/70">Odds</p>
+                </div>
+                <div className="space-y-3">
+                  {prizeInfo.map((entry) => (
+                    <div key={entry.key} className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-bangers text-xl text-white">{entry.label}</p>
+                        <p className="font-righteous text-sm text-white/65">{entry.description}</p>
+                      </div>
+                      <div className="font-righteous text-2xl text-cyan-200 whitespace-nowrap tabular-nums">
+                        {formatPercentage(entry.percentage)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+       
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }
