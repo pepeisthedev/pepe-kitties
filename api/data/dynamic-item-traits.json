@@ -1,0 +1,35 @@
+{
+  "byChainId": {
+    "8453": {
+      "background": [],
+      "head": [],
+      "mouth": [],
+      "skin": [],
+      "stomach": []
+    },
+    "31337": {
+      "background": [],
+      "head": [],
+      "mouth": [],
+      "skin": [],
+      "stomach": [
+        {
+          "fileName": "1.svg",
+          "name": "Sun"
+        }
+      ]
+    },
+    "84532": {
+      "background": [],
+      "head": [],
+      "mouth": [],
+      "skin": [],
+      "stomach": [
+        {
+          "fileName": "1.svg",
+          "name": "Sun"
+        }
+      ]
+    }
+  }
+}

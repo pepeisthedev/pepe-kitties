@@ -6,6 +6,26 @@ import FregsLiquidityABI from "../assets/abis/FregsLiquidity.json"
 import FregShopABI from "../assets/abis/FregShop.json"
 import FregCoinABI from "../assets/abis/FregCoin.json"
 import itemsData from "./items.json"
+import dynamicItemsData from "./dynamic-items.json"
+
+function parseChainId(value: unknown, fallback: number): number {
+  const parsed = Number.parseInt(String(value ?? ""), 10)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function getDynamicItemsForChain(chainId: number): ItemConfig[] {
+  const parsedData = dynamicItemsData as {
+    byChainId?: Record<string, { items?: ItemConfig[] }>
+    items?: ItemConfig[]
+  }
+  const chainEntry = parsedData.byChainId?.[String(chainId)]
+
+  if (Array.isArray(chainEntry?.items)) {
+    return chainEntry.items
+  }
+
+  return Array.isArray(parsedData.items) ? parsedData.items : []
+}
 
 // Contract addresses from environment variables
 export const FREGS_ADDRESS = import.meta.env.VITE_FREGS_ADDRESS as string
@@ -15,11 +35,26 @@ export const SPIN_THE_WHEEL_ADDRESS = import.meta.env.VITE_SPIN_THE_WHEEL_ADDRES
 export const FREGS_LIQUIDITY_ADDRESS = import.meta.env.VITE_FREGS_LIQUIDITY_ADDRESS as string
 export const FREG_SHOP_ADDRESS = import.meta.env.VITE_FREG_SHOP_ADDRESS as string
 export const FREG_COIN_ADDRESS = import.meta.env.VITE_FREGCOIN_ADDRESS as string
+export const ACTIVE_CHAIN_ID = parseChainId(import.meta.env.VITE_CHAIN_ID, 84532)
 
 // Export ABIs
 export { FregsABI, FregsItemsABI, FregsMintPassABI, SpinTheWheelABI, FregsLiquidityABI, FregShopABI, FregCoinABI }
 
-// Item configuration loaded from items.json (single source of truth)
+function mergeItems() {
+  const mergedItems = new Map<number, ItemConfig>()
+
+  for (const item of itemsData.items as ItemConfig[]) {
+    mergedItems.set(item.id, item)
+  }
+
+  for (const item of getDynamicItemsForChain(ACTIVE_CHAIN_ID)) {
+    mergedItems.set(item.id, item)
+  }
+
+  return Array.from(mergedItems.values()).sort((left, right) => left.id - right.id)
+}
+
+// Item configuration loaded from built-in items.json plus the active chain's dynamic overlay
 export interface ItemConfig {
   id: number
   name: string
@@ -36,10 +71,10 @@ export interface ItemConfig {
   incompatibleWithHeads?: number[]  // Head trait values that make this item unusable
 }
 
-// Load items from items.json
-export const ITEMS: ItemConfig[] = itemsData.items as ItemConfig[]
+// Load items from base config + dynamic overlay
+export const ITEMS: ItemConfig[] = mergeItems()
 
-// Build ITEM_TYPES lookup from items.json
+// Build ITEM_TYPES lookup from merged item config
 export const ITEM_TYPES = ITEMS.reduce((acc, item) => {
   // Create key from name (e.g., "Color Change" -> "COLOR_CHANGE")
   const key = item.name.toUpperCase().replace(/\s+/g, '_')
@@ -56,13 +91,13 @@ export const TRAIT_TYPES = {
   STOMACH: 4,
 } as const
 
-// Build item type names from items.json
+// Build item type names from merged item config
 export const ITEM_TYPE_NAMES: Record<number, string> = ITEMS.reduce((acc, item) => {
   acc[item.id] = item.name
   return acc
 }, {} as Record<number, string>)
 
-// Build item descriptions from items.json
+// Build item descriptions from merged item config
 export const ITEM_TYPE_DESCRIPTIONS: Record<number, string> = ITEMS.reduce((acc, item) => {
   acc[item.id] = item.description
   return acc

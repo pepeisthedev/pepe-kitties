@@ -1,0 +1,39 @@
+{
+  "byChainId": {
+    "8453": {
+      "items": []
+    },
+    "31337": {
+      "items": [
+        {
+          "id": 101,
+          "name": "Sun",
+          "description": "A blazing sun on your Freg's belly!",
+          "category": "stomach",
+          "svgFile": "sun.svg",
+          "targetTraitType": 4,
+          "traitFileName": "1.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true
+        }
+      ]
+    },
+    "84532": {
+      "items": [
+        {
+          "id": 101,
+          "name": "Sun",
+          "description": "A blazing sun on your Freg's belly!",
+          "category": "stomach",
+          "svgFile": "sun.svg",
+          "targetTraitType": 4,
+          "traitFileName": "1.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true
+        }
+      ]
+    }
+  }
+}

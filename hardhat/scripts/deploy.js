@@ -71,7 +71,7 @@ const ITEMS_PATH = path.join(__dirname, "../../website/public/items");
 // Path to from_items traits.json (for special items configuration)
 const FROM_ITEMS_TRAITS_JSON_PATH = path.join(FROM_ITEMS_PATH, "traits.json");
 
-// Path to items.json (single source of truth for all items)
+// Path to built-in items.json. Dynamic/test items are added later via deployNewShopItem.js.
 const ITEMS_JSON_PATH = path.join(__dirname, "../../website/src/config/items.json");
 
 // ============ LOAD TRAITS FROM JSON ============
@@ -101,7 +101,7 @@ function loadTraitsConfig() {
     return { traitsConfig, traitNames, traitWeights, noneTraitIds };
 }
 
-// Load items.json - single source of truth for all items
+// Load built-in items.json
 function loadItemsConfig() {
     if (!fs.existsSync(ITEMS_JSON_PATH)) {
         console.log("  ⚠️  items/items.json not found");

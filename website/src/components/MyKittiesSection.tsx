@@ -43,13 +43,17 @@ const getTraitName = (traitsConfig: TraitsConfig | null, traitType: keyof Traits
     const traits = traitsConfig[traitType]
     if (!traits || index > traits.length) {
         // Check from_items for special traits
-        if (traitType === 'head' && index > 22) {
-            const itemHead = ITEMS.find(item => item.category === 'head' && item.traitFileName === `${index - 22}.svg`)
-            return itemHead?.name || `Special #${index - 22}`
+        if (traitType === 'head' && index > BASE_HEAD_COUNT) {
+            const itemHead = ITEMS.find(item => item.category === 'head' && item.traitFileName === `${index - BASE_HEAD_COUNT}.svg`)
+            return itemHead?.name || `Special #${index - BASE_HEAD_COUNT}`
         }
         if (traitType === 'skin' && index > 1) {
             const itemSkin = ITEMS.find(item => item.category === 'skin' && item.traitFileName === `${index}.svg`)
             return itemSkin?.name || `Special #${index}`
+        }
+        if (traitType === 'stomach' && index > BASE_STOMACH_COUNT) {
+            const itemStomach = ITEMS.find(item => item.category === 'stomach' && item.traitFileName === `${index - BASE_STOMACH_COUNT}.svg`)
+            return itemStomach?.name || `Special #${index - BASE_STOMACH_COUNT}`
         }
         return `#${index}`
     }

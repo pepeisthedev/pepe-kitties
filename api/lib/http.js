@@ -52,7 +52,7 @@ function notFound(res, message = "Not found") {
 }
 
 function gone(res, message = "Resource no longer exists") {
-  sendJson(res, 410, { error: message });
+  sendJson(res, 410, { message });
 }
 
 function badRequest(res, message) {

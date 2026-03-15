@@ -1,6 +1,9 @@
 const defaultTraits = require("../data/default-traits.json");
-const itemTraits = require("../data/item-traits.json");
-const itemsConfig = require("../data/items.json");
+const baseItemTraits = require("../data/item-traits.json");
+const dynamicItemTraits = require("../data/dynamic-item-traits.json");
+const baseItemsConfig = require("../data/items.json");
+const dynamicItemsConfig = require("../data/dynamic-items.json");
+const { getConfig } = require("./config");
 
 const CANONICAL_TYPES = ["background", "body", "head", "mouth", "belly"];
 const TYPE_ALIASES = {
@@ -12,6 +15,89 @@ const TYPE_ALIASES = {
   skin: "body",
   stomach: "belly"
 };
+
+function mergeItemsConfig() {
+  const activeDynamicItems = getDynamicItemsForChain(dynamicItemsConfig, getConfig().chainId);
+  const mergedItems = new Map();
+
+  for (const item of baseItemsConfig.items || []) {
+    mergedItems.set(item.id, item);
+  }
+
+  for (const item of activeDynamicItems.items || []) {
+    mergedItems.set(item.id, item);
+  }
+
+  return {
+    ...baseItemsConfig,
+    items: Array.from(mergedItems.values()).sort((left, right) => left.id - right.id)
+  };
+}
+
+function mergeTraitEntries(baseEntries = [], dynamicEntries = []) {
+  const mergedEntries = new Map();
+
+  for (const entry of baseEntries) {
+    mergedEntries.set(entry.fileName, entry);
+  }
+
+  for (const entry of dynamicEntries) {
+    mergedEntries.set(entry.fileName, entry);
+  }
+
+  return Array.from(mergedEntries.values()).sort((left, right) => {
+    const leftId = Number.parseInt(String(left.fileName || "0").replace(".svg", ""), 10);
+    const rightId = Number.parseInt(String(right.fileName || "0").replace(".svg", ""), 10);
+    return leftId - rightId;
+  });
+}
+
+function emptyTraitDocument() {
+  return {
+    background: [],
+    head: [],
+    mouth: [],
+    skin: [],
+    stomach: []
+  };
+}
+
+function getDynamicItemsForChain(document, chainId) {
+  const chainKey = String(chainId);
+
+  if (document?.byChainId) {
+    return document.byChainId[chainKey] || { items: [] };
+  }
+
+  return document?.items ? { items: document.items } : { items: [] };
+}
+
+function getDynamicTraitsForChain(document, chainId) {
+  const chainKey = String(chainId);
+
+  if (document?.byChainId) {
+    return {
+      ...emptyTraitDocument(),
+      ...(document.byChainId[chainKey] || {})
+    };
+  }
+
+  return {
+    ...emptyTraitDocument(),
+    ...(document || {})
+  };
+}
+
+const activeDynamicTraits = getDynamicTraitsForChain(dynamicItemTraits, getConfig().chainId);
+const itemTraits = {
+  background: mergeTraitEntries(baseItemTraits.background, activeDynamicTraits.background),
+  head: mergeTraitEntries(baseItemTraits.head, activeDynamicTraits.head),
+  mouth: mergeTraitEntries(baseItemTraits.mouth, activeDynamicTraits.mouth),
+  skin: mergeTraitEntries(baseItemTraits.skin, activeDynamicTraits.skin),
+  stomach: mergeTraitEntries(baseItemTraits.stomach, activeDynamicTraits.stomach)
+};
+
+const itemsConfig = mergeItemsConfig();
 
 function normalizeTraitType(rawTraitType) {
   return TYPE_ALIASES[String(rawTraitType || "").toLowerCase()] || null;

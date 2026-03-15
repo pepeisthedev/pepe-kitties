@@ -135,8 +135,10 @@ function getConfig() {
     throw new Error("Missing FREGS address. Set FREGS_ADDRESS.");
   }
 
+  const defaultChainId = localDeployment ? 31337 : 8453;
+
   cachedConfig = {
-    chainId: parseInteger(firstEnv(["CHAIN_ID"]), 8453),
+    chainId: parseInteger(firstEnv(["CHAIN_ID"]), defaultChainId),
     collectionName: firstEnv(["COLLECTION_NAME"]) || "Fregs",
     fregsAddress,
     maxNftsPerPage: Math.max(1, parseInteger(firstEnv(["NFTS_MAX_LIMIT"]), 100)),

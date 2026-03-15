@@ -51,7 +51,7 @@ function copyABI(contractName, targetFileName, subPath = "") {
     }
 }
 
-// Load items.json
+// Load built-in items.json
 const ITEMS_JSON_PATH = path.join(__dirname, "../../website/src/config/items.json");
 function loadItemsConfig() {
     if (!fs.existsSync(ITEMS_JSON_PATH)) {

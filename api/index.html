@@ -810,8 +810,8 @@
             fetch: () => fetchExample(`/fregs/${tokenId}`),
             method: "GET",
             note: Number.isInteger(firstTokenId)
-              ? "The summary response is built from live contract state plus bundled SVG assets. Large image fields are shortened in this docs view only."
-              : "No minted token was discovered automatically, so the live example may return not found.",
+              ? "The summary response is built from live contract state plus bundled SVG assets. If a token was minted and later burned, this endpoint returns HTTP 410 with a message payload instead of a token object. Large image fields are shortened in this docs view only."
+              : "No minted token was discovered automatically, so the live example may return not found or 410 if the token was burned.",
             path: () => `/fregs/${tokenId}`,
             pathLabel: tokenPathLabel
           },
@@ -821,7 +821,7 @@
             description: "Returns only the wallet address that currently owns the specified Freg.",
             fetch: () => fetchExample(`/fregs/${tokenId}/owner`),
             method: "GET",
-            note: "Useful for fast ownership checks when you do not need full metadata.",
+            note: "Useful for fast ownership checks when you do not need full metadata. Burned tokens return HTTP 410 Gone.",
             path: () => `/fregs/${tokenId}/owner`,
             pathLabel: ownerPathLabel
           },
@@ -831,7 +831,7 @@
             description: "Returns the full NFT metadata JSON built in the API from live contract trait data and bundled SVG assets.",
             fetch: () => fetchExample(`/fregs/${tokenId}/metadata`),
             method: "GET",
-            note: "The response shape matches standard NFT metadata: name, description, image and attributes, with no API wrapper fields added.",
+            note: "The response shape matches standard NFT metadata: name, description, image and attributes, with no API wrapper fields added. Burned tokens return HTTP 410 Gone.",
             path: () => `/fregs/${tokenId}/metadata`,
             pathLabel: metadataPathLabel
           },
@@ -843,7 +843,7 @@
               accept: "image/svg+xml"
             }),
             method: "GET",
-            note: "The response shown here is the actual SVG body, trimmed in the docs view if it is very large.",
+            note: "The response shown here is the actual SVG body, trimmed in the docs view if it is very large. Burned tokens return HTTP 410 Gone.",
             path: () => `/fregs/${tokenId}/image.svg`,
             pathLabel: imagePathLabel
           },
