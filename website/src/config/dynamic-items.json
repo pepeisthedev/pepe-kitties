@@ -8,7 +8,7 @@
         {
           "id": 101,
           "name": "Sun",
-          "description": "A blazing sun on your Freg's belly!",
+          "description": "Lets you add a sun on your Fregs belly!",
           "category": "stomach",
           "svgFile": "sun.svg",
           "targetTraitType": 4,
@@ -24,7 +24,7 @@
         {
           "id": 101,
           "name": "Sun",
-          "description": "A blazing sun on your Freg's belly!",
+          "description": "Lets you add a sun on your Fregs belly!",
           "category": "stomach",
           "svgFile": "sun.svg",
           "targetTraitType": 4,

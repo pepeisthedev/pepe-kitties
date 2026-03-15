@@ -15,7 +15,7 @@ import {
 import { useContracts, useShopItems, useFregCoinBalance } from "../hooks"
 import { ITEMS } from "../config/contracts"
 import LoadingSpinner from "./LoadingSpinner"
-import { ShoppingCart, CheckCircle, XCircle } from "lucide-react"
+import { ShoppingCart, CheckCircle, Info, XCircle } from "lucide-react"
 
 type BuyStatus = "idle" | "pending" | "confirming" | "success" | "error"
 
@@ -175,12 +175,18 @@ export default function ShopSection(): React.JSX.Element {
                                     <Card className="bg-theme-card border-2 border-amber-700/60 rounded-xl overflow-hidden shadow-lg [backface-visibility:hidden]">
                                         <CardContent className="p-4 md:p-5 flex flex-col items-center">
                                             <div
-                                                className="w-full cursor-pointer"
+                                                className="relative w-full cursor-pointer"
                                                 onClick={() => toggleFlip(item.itemTypeId)}
                                             >
-                                                <h3 className="font-bangers text-xl md:text-2xl text-theme-primary text-center mb-3 border-b border-amber-700/40 pb-2">
-                                                    {item.name}
-                                                </h3>
+                                                <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center border-b border-amber-700/40 pb-2">
+                                                    <div className="h-5 w-5 justify-self-start opacity-0" aria-hidden="true" />
+                                                    <h3 className="font-bangers text-xl md:text-2xl text-theme-primary text-center">
+                                                        {item.name}
+                                                    </h3>
+                                                    <div className="inline-flex items-center justify-center justify-self-end p-2 text-amber-300">
+                                                        <Info className="h-5 w-5" />
+                                                    </div>
+                                                </div>
                                                 {svgFile && (
                                                     <div className="flex justify-center my-4 md:my-6">
                                                         <img
