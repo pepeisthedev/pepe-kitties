@@ -6,7 +6,7 @@
   "scripts": {
     "test": "hardhat test",
     "compile": "hardhat compile",
-    "extract-abis": "hardhat run scripts/extract-abis.ts",
+    "extract-abis": "node scripts/extract-abis.js",
     "build": "npm run compile && npm run extract-abis",
     "test-mint": "hardhat run scripts/test-mint-pack.ts --network localhost",
     "deploy:local": "hardhat run scripts/deploy.ts --network localhost",

@@ -24,3 +24,4 @@ export const modal = createAppKit({
     analytics: true                     // enable Reown analytics (optional)
   }
 });
+

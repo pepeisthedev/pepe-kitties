@@ -10,6 +10,8 @@ import {
   DialogTitle,
 } from "./ui/dialog"
 import { useContracts, useOwnedItems, useSpinTokenBalance } from "../hooks"
+import { waitForEvent } from "../lib/waitForEvent"
+import { readBufferedGasAwareVrfFee } from "../lib/vrfFee"
 import ItemCard from "./ItemCard"
 import { ITEM_TYPE_NAMES, ITEM_TYPES, SPIN_THE_WHEEL_ADDRESS } from "../config/contracts"
 import { CircleHelp, RotateCw, X } from "lucide-react"
@@ -31,7 +33,7 @@ const FALLBACK_PRIZE_INFO: PrizeInfoEntry[] = [
   key: "mintpass",
   label: "Mint Pass",
   percentage: 78,
-  description: "Grants access to mint a Freg in the whitelist phase."
+  description: "An ERC1155 token that grants access to mint a Freg in the whitelist phase."
 },
 {
   key: "chest",
@@ -104,7 +106,7 @@ function buildPrizeInfoEntries(
       key: "mintpass",
       label: "Mint Pass",
       percentage: toPercentage(mintPassWeight),
-      description: "Grants access to mint a Freg in the whitelist phase."
+      description: "An ERC1155 token that grants access to mint a Freg in the whitelist phase."
     })
   }
 
@@ -245,7 +247,7 @@ function StarBurst() {
 }
 
 export default function SpinWheelSection(): React.JSX.Element | null {
-  const { isConnected } = useAppKitAccount()
+  const { address, isConnected } = useAppKitAccount()
   const contracts = useContracts()
   const { balance, isLoading: balanceLoading, refetch: refetchBalance } = useSpinTokenBalance()
   const { refetch: refetchItems } = useOwnedItems()
@@ -428,30 +430,44 @@ export default function SpinWheelSection(): React.JSX.Element | null {
   }, [contracts])
 
   const handleSpin = useCallback(async () => {
-    if (!contracts || !contracts.spinTheWheel || balance < SPIN_COST) return
+    if (!contracts || !contracts.spinTheWheel || !address || balance < SPIN_COST) return
 
     setSpinPhase("confirming")
     setSpinResult(null)
 
     try {
       const contract = await contracts.spinTheWheel.write()
-      const tx = await contract.spin({ gasLimit: 500000n })
+      const bufferedVrfFee = await readBufferedGasAwareVrfFee(
+        contracts.spinTheWheel.read,
+        contracts.provider,
+        "quoteSpinFee"
+      )
+      const tx = await contract.spin({ value: bufferedVrfFee, gasLimit: 500000n })
 
       // Transaction submitted - start spinning the wheel
       setSpinPhase("spinning")
       startSpinLoop()
 
       const receipt = await tx.wait()
-      const result = parseSpinResultEvent(receipt)
+      let result = parseSpinResultEvent(receipt)
+
+      if (!result) {
+        const spinEvent = await waitForEvent({
+          contract: contracts.spinTheWheel.read,
+          filter: contracts.spinTheWheel.read.filters.SpinResult(address),
+          fromBlock: receipt.blockNumber,
+        })
+
+        result = {
+          won: Boolean(spinEvent.args.won),
+          prizeType: Number(spinEvent.args.prizeType),
+          itemType: Number(spinEvent.args.itemType),
+        }
+      }
 
       setSpinResult(result)
-
-      // Trigger the slowdown — the rAF loop handles the rest
-      // and will set phase to "revealing" when done
       setSpinPhase("decelerating")
-      if (result) {
-        triggerDeceleration(result)
-      }
+      triggerDeceleration(result)
 
       // Refresh balance and items in the background
       void Promise.all([refetchBalance(), refetchItems()])
@@ -464,7 +480,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
         setSpinPhase("result")
       }
     }
-  }, [contracts, balance, refetchBalance, refetchItems, startSpinLoop, triggerDeceleration, stopAnimation])
+  }, [address, contracts, balance, refetchBalance, refetchItems, startSpinLoop, triggerDeceleration, stopAnimation])
 
   const handleCloseResult = () => {
     setSpinPhase("idle")

@@ -4,6 +4,7 @@ pragma solidity ^0.8.9;
 import {ERC721AC} from "@limitbreak/creator-token-standards/src/erc721c/ERC721AC.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./utils/BasicRoyalties.sol";
+import "./interfaces/IFregsRandomizer.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -39,10 +40,13 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     ISVGRenderer public svgRenderer;
     ISVGRenderer public mutationRenderer;
+    IFregsRandomizer public randomizer;
     mapping(uint256 => bool) public isMutated;
+    mapping(uint256 => bool) public pendingHeadReroll;
 
     uint256 private _tokenIdCounter;
-    uint256 private randomNonce;
+    uint256 public pendingMintCount;
+    uint256 public pendingHeadRerollCount;
 
     uint256 public mintPrice = 0.001 ether;
     uint256 public supply = 3000;
@@ -100,6 +104,22 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     event TraitSet(uint256 indexed tokenId, uint256 traitType, uint256 traitValue);
     event Mutated(uint256 indexed tokenId, address indexed owner);
     event BodyColorChanged(uint256 indexed tokenId, string oldColor, string newColor);
+    event MintRequested(uint256 indexed requestId, address indexed owner, string bodyColor);
+    event HeadRerollRequested(uint256 indexed requestId, uint256 indexed tokenId, address indexed owner, uint256 itemTokenId);
+
+    modifier onlyRandomizer() {
+        require(address(randomizer) != address(0) && msg.sender == address(randomizer), "Only randomizer");
+        _;
+    }
+
+    modifier onlyRandomizerOrItems() {
+        require(
+            (address(randomizer) != address(0) && msg.sender == address(randomizer)) ||
+            msg.sender == itemsContract,
+            "Only randomizer"
+        );
+        _;
+    }
 
     constructor(
         address royaltyReceiver_,
@@ -213,9 +233,12 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function mint(string memory _color) public payable nonReentrant {
-        require(_tokenIdCounter < supply, "Max supply reached");
+        require(address(randomizer) != address(0), "Randomizer not set");
+        require(_tokenIdCounter + pendingMintCount < supply, "Max supply reached");
 
         bool isFree = freeMints[msg.sender] > 0;
+        uint256 vrfFee = randomizer.quoteMintFee();
+        uint256 requiredPayment = vrfFee;
 
         if (mintPhase == 0) {
             // Paused: only owner can mint
@@ -225,89 +248,71 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             if (!isFree) {
                 // Must have a mint pass — burn it, still pay ETH
                 require(mintPassContract != address(0), "Mint pass not configured");
+                requiredPayment += mintPrice;
+                require(msg.value >= requiredPayment, "Insufficient funds");
                 IFregsMintPass(mintPassContract).burnForMint(msg.sender);
-                require(msg.value >= mintPrice, "Insufficient funds");
             }
         } else {
             // Public: anyone can mint, free mint wallets still free
             if (!isFree) {
-                require(msg.value >= mintPrice, "Insufficient funds");
+                requiredPayment += mintPrice;
+                require(msg.value >= requiredPayment, "Insufficient funds");
             }
         }
 
         if (isFree) {
+            require(msg.value >= requiredPayment, "Insufficient funds");
             freeMints[msg.sender] -= 1;
         }
 
+        pendingMintCount += 1;
+
+        uint256 requestId = randomizer.requestMint{value: vrfFee}(msg.sender, _color);
+        emit MintRequested(requestId, msg.sender, _color);
+
+        uint256 refund = msg.value - requiredPayment;
+        if (refund > 0) {
+            payable(msg.sender).transfer(refund);
+        }
+    }
+
+    function quoteMintFee() external view returns (uint256) {
+        require(address(randomizer) != address(0), "Randomizer not set");
+        return randomizer.quoteMintFee();
+    }
+
+    // Intentionally not nonReentrant so localhost mock VRF auto-fulfill can settle in the same tx.
+    function fulfillMint(address minter, string calldata _color, uint256 randomWord) external onlyRandomizer {
+        require(pendingMintCount > 0, "No pending mint");
+
         uint256 newTokenId = _tokenIdCounter;
-        _safeMint(msg.sender, 1);
+        pendingMintCount -= 1;
+
+        _mint(minter, 1);
         _tokenIdCounter += 1;
 
-        // Store body color (used for body and background when trait is 0)
         bodyColor[newTokenId] = _color;
-
-        // Background and body default to 0 (use color)
         background[newTokenId] = 0;
         body[newTokenId] = 0;
 
-        // Assign random base traits using weighted selection
-        head[newTokenId] = _getWeightedTrait(TRAIT_HEAD);
-        uint256 mouthRoll = _getWeightedTrait(TRAIT_MOUTH);
+        head[newTokenId] = _getWeightedTraitFromRandom(TRAIT_HEAD, _deriveRandom(randomWord, 0));
+        uint256 mouthRoll = _getWeightedTraitFromRandom(TRAIT_MOUTH, _deriveRandom(randomWord, 1));
         mouth[newTokenId] = mouthRoll == 0 ? NONE_TRAIT : mouthRoll;
-        uint256 bellyRoll = _getWeightedTrait(TRAIT_BELLY);
+        uint256 bellyRoll = _getWeightedTraitFromRandom(TRAIT_BELLY, _deriveRandom(randomWord, 2));
         belly[newTokenId] = bellyRoll == 0 ? NONE_TRAIT : bellyRoll;
 
-        emit FregMinted(
-            newTokenId,
-            msg.sender,
-            _color,
-            head[newTokenId],
-            mouth[newTokenId],
-            belly[newTokenId]
-        );
-    }
-
-    function _getRandom(uint256 max) internal returns (uint256) {
-        randomNonce++;
-        return
-            uint256(
-                keccak256(
-                    abi.encodePacked(
-                        block.timestamp,
-                        block.prevrandao,
-                        msg.sender,
-                        randomNonce,
-                        _tokenIdCounter
-                    )
-                )
-            ) % max;
-    }
-
-    function _getRandomForAddress(uint256 max, address _addr) internal returns (uint256) {
-        randomNonce++;
-        return
-            uint256(
-                keccak256(
-                    abi.encodePacked(
-                        block.timestamp,
-                        block.prevrandao,
-                        _addr,
-                        randomNonce,
-                        _tokenIdCounter
-                    )
-                )
-            ) % max;
+        emit FregMinted(newTokenId, minter, _color, head[newTokenId], mouth[newTokenId], belly[newTokenId]);
     }
 
     // Weighted trait selection using cumulative weights.
     // Returns trait ID (1-based). If the selected trait is the "none" trait for
     // this type, returns 0 instead.
-    function _getWeightedTrait(uint256 traitType) internal returns (uint256) {
+    function _getWeightedTraitFromRandom(uint256 traitType, uint256 randomValue) internal view returns (uint256) {
         uint256[] storage cumWeights = traitCumulativeWeights[traitType];
         uint256 len = cumWeights.length;
         require(len > 0, "No weights set");
         uint256 totalWeight = cumWeights[len - 1];
-        uint256 roll = _getRandom(totalWeight);
+        uint256 roll = randomValue % totalWeight;
         for (uint256 i = 0; i < len; i++) {
             if (roll < cumWeights[i]) {
                 uint256 traitId = i + 1;
@@ -317,27 +322,26 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         return len; // Fallback to last trait
     }
 
-    function _getWeightedTraitForAddress(uint256 traitType, address _addr) internal returns (uint256) {
-        uint256[] storage cumWeights = traitCumulativeWeights[traitType];
-        uint256 len = cumWeights.length;
-        require(len > 0, "No weights set");
-        uint256 totalWeight = cumWeights[len - 1];
-        uint256 roll = _getRandomForAddress(totalWeight, _addr);
-        for (uint256 i = 0; i < len; i++) {
-            if (roll < cumWeights[i]) {
-                uint256 traitId = i + 1;
-                return traitId == noneTraitId[traitType] ? 0 : traitId;
-            }
-        }
-        return len; // Fallback to last trait
+    function _deriveRandom(uint256 randomWord, uint256 salt) internal pure returns (uint256) {
+        return uint256(keccak256(abi.encode(randomWord, salt)));
     }
 
-    // Called by items contract to reroll head trait (uses weighted selection)
-    function rerollHead(uint256 tokenId, address sender) external {
+    function prepareHeadReroll(uint256 tokenId, address sender) external {
         require(msg.sender == itemsContract, "Only items contract");
         require(ownerOf(tokenId) == sender, "Not token owner");
+        require(!pendingHeadReroll[tokenId], "Head reroll pending");
 
-        head[tokenId] = _getWeightedTraitForAddress(TRAIT_HEAD, sender);
+        pendingHeadReroll[tokenId] = true;
+        pendingHeadRerollCount += 1;
+    }
+
+    function fulfillHeadReroll(address sender, uint256 tokenId, uint256 randomWord) external onlyRandomizerOrItems {
+        require(pendingHeadReroll[tokenId], "No pending head reroll");
+        require(ownerOf(tokenId) == sender, "Not token owner");
+
+        pendingHeadReroll[tokenId] = false;
+        pendingHeadRerollCount -= 1;
+        head[tokenId] = _getWeightedTraitFromRandom(TRAIT_HEAD, randomWord);
 
         emit TraitSet(tokenId, TRAIT_HEAD, head[tokenId]);
     }
@@ -417,6 +421,10 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         liquidityContract = _liquidityContract;
     }
 
+    function setRandomizer(address _randomizer) public onlyOwner {
+        randomizer = IFregsRandomizer(_randomizer);
+    }
+
     function setMintPhase(uint256 _phase) public onlyOwner {
         require(_phase <= 2, "Invalid phase");
         mintPhase = _phase;
@@ -440,6 +448,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function setSupply(uint256 _supply) public onlyOwner {
+        require(_supply >= _tokenIdCounter + pendingMintCount, "Below reserved supply");
         supply = _supply;
     }
 
@@ -447,6 +456,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     // weights: array of per-trait weights (index 0 = trait 1, etc.)
     // _noneTraitId: which trait ID means "none" (0 = no none option)
     function setTraitWeights(uint256 traitType, uint256[] calldata weights, uint256 _noneTraitId) public onlyOwner {
+        require(pendingMintCount == 0 && pendingHeadRerollCount == 0, "Random requests pending");
         require(weights.length > 0, "Empty weights");
         require(_noneTraitId <= weights.length, "Invalid none trait");
         uint256[] storage cumWeights = traitCumulativeWeights[traitType];
@@ -468,6 +478,21 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     function withdraw(uint256 _amount) external onlyOwner {
         payable(owner()).transfer(_amount);
+    }
+
+    function _beforeTokenTransfers(
+        address from,
+        address to,
+        uint256 startTokenId,
+        uint256 quantity
+    ) internal virtual override {
+        if (from != address(0)) {
+            for (uint256 i = 0; i < quantity; i++) {
+                require(!pendingHeadReroll[startTokenId + i], "Pending head reroll");
+            }
+        }
+
+        super._beforeTokenTransfers(from, to, startTokenId, quantity);
     }
 
     // ============ View Functions ============

@@ -53,6 +53,31 @@ function copyABI(contractName, targetFileName, subPath = "") {
 
 // Load built-in items.json
 const ITEMS_JSON_PATH = path.join(__dirname, "../../website/src/config/items.json");
+const VRF_CALLBACK_GAS = {
+    mint: Number(process.env.VRF_MINT_CALLBACK_GAS_LIMIT || 700000),
+    claimItem: Number(process.env.VRF_CLAIM_ITEM_CALLBACK_GAS_LIMIT || 500000),
+    headReroll: Number(process.env.VRF_HEAD_REROLL_CALLBACK_GAS_LIMIT || 350000),
+    spin: Number(process.env.VRF_SPIN_CALLBACK_GAS_LIMIT || 450000),
+};
+const VRF_REQUEST_CONFIRMATIONS = Number(process.env.VRF_REQUEST_CONFIRMATIONS || 3);
+const DEFAULT_VRF_WRAPPER_ADDRESSES = {
+    baseSepolia: "0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed",
+    base: "0xb0407dbe851f8318bd31404A49e658143C982F23",
+};
+
+function getVrfWrapperAddress() {
+    if (network.name === "localhost" || network.name === "hardhat") {
+        return null;
+    }
+    if (network.name === "baseSepolia") {
+        return process.env.BASE_SEPOLIA_VRF_WRAPPER_ADDRESS || DEFAULT_VRF_WRAPPER_ADDRESSES.baseSepolia;
+    }
+    if (network.name === "base") {
+        return process.env.BASE_VRF_WRAPPER_ADDRESS || DEFAULT_VRF_WRAPPER_ADDRESSES.base;
+    }
+    return process.env.VRF_WRAPPER_ADDRESS || "";
+}
+
 function loadItemsConfig() {
     if (!fs.existsSync(ITEMS_JSON_PATH)) {
         console.log("  ⚠️  items/items.json not found");
@@ -372,6 +397,24 @@ async function main() {
     // Configuration
     const ROYALTY_RECEIVER = deployerAddress;
     const ROYALTY_FEE = 500; // 5%
+    const isLocalhost = network.name === "localhost" || network.name === "hardhat";
+
+    let vrfWrapperAddress = getVrfWrapperAddress();
+    if (!isLocalhost && !vrfWrapperAddress) {
+        throw new Error(`Missing VRF wrapper address for ${network.name}. Set BASE_SEPOLIA_VRF_WRAPPER_ADDRESS or BASE_VRF_WRAPPER_ADDRESS.`);
+    }
+
+    if (isLocalhost) {
+        console.log("\n--- Deploying MockVRFV2PlusWrapper ---");
+        const MockVRFV2PlusWrapper = await ethers.getContractFactory("MockVRFV2PlusWrapper");
+        const mockWrapper = await deployContract(MockVRFV2PlusWrapper, [], "MockVRFV2PlusWrapper");
+        vrfWrapperAddress = await mockWrapper.getAddress();
+    }
+
+    console.log("\n--- Deploying FregsRandomizer ---");
+    const FregsRandomizer = await ethers.getContractFactory("FregsRandomizer");
+    const fregsRandomizer = await deployContract(FregsRandomizer, [vrfWrapperAddress], "FregsRandomizer");
+    const fregsRandomizerAddress = await fregsRandomizer.getAddress();
 
     // ============ Steg 2: Deploy Contracts ============
     console.log("\n--- Deploying Fregs ---");
@@ -412,11 +455,28 @@ async function main() {
     // ============ Steg 3: Configure Cross-Contract References ============
     console.log("\n--- Configuring Cross-Contract References ---");
 
+    console.log("Configuring FregsRandomizer...");
+    await sendTx(fregsRandomizer.setContracts(fregsAddress, fregsItemsAddress, spinTheWheelAddress));
+    await sendTx(
+        fregsRandomizer.setCallbackGasLimits(
+            VRF_CALLBACK_GAS.mint,
+            VRF_CALLBACK_GAS.claimItem,
+            VRF_CALLBACK_GAS.headReroll,
+            VRF_CALLBACK_GAS.spin
+        )
+    );
+    await sendTx(fregsRandomizer.setRequestConfirmations(VRF_REQUEST_CONFIRMATIONS));
+    if (isLocalhost) {
+        await sendTx(fregsRandomizer.setAutoFulfill(true));
+    }
+
     console.log("Setting items contract on Fregs...");
     await sendTx(fregs.setItemsContract(fregsItemsAddress));
 
     console.log("Setting mint pass contract on Fregs...");
     await sendTx(fregs.setMintPassContract(fregsMintPassAddress));
+    console.log("Setting randomizer on Fregs...");
+    await sendTx(fregs.setRandomizer(fregsRandomizerAddress));
 
     console.log("Setting Fregs on MintPass...");
     await sendTx(fregsMintPass.setFregsContract(fregsAddress));
@@ -440,6 +500,10 @@ async function main() {
 
     console.log("Setting FregCoin on FregsItems...");
     await sendTx(fregsItems.setFregCoinContract(fregCoinAddress));
+    console.log("Setting randomizer on FregsItems...");
+    await sendTx(fregsItems.setRandomizer(fregsRandomizerAddress));
+    console.log("Setting randomizer on SpinTheWheel...");
+    await sendTx(spinTheWheel.setRandomizer(fregsRandomizerAddress));
 
     console.log("Configuring FregsLiquidity...");
     await sendTx(fregsLiquidity.setFregs(fregsAddress));
@@ -453,7 +517,6 @@ async function main() {
     await sendTx(fregCoin.setShopContract(fregShopAddress));
 
     // ============ Steg 4: Set Mint Phase + localhost setup ============
-    const isLocalhost = network.name === "localhost" || network.name === "hardhat";
     if (isLocalhost) {
         console.log("\n--- Setting mint phase to Public (2) for localhost ---");
         await sendTx(fregs.setMintPhase(2));
@@ -581,6 +644,7 @@ async function main() {
     copyABI("Fregs", "Fregs");
     copyABI("FregsItems", "FregsItems");
     copyABI("FregsMintPass", "FregsMintPass");
+    copyABI("FregsRandomizer", "FregsRandomizer");
     copyABI("SpinTheWheel", "SpinTheWheel");
     copyABI("FregCoin", "FregCoin");
     copyABI("FregsLiquidity", "FregsLiquidity");
@@ -597,11 +661,13 @@ async function main() {
             fregs: fregsAddress,
             fregsItems: fregsItemsAddress,
             fregsMintPass: fregsMintPassAddress,
+            fregsRandomizer: fregsRandomizerAddress,
             fregCoin: fregCoinAddress,
             spinTheWheel: spinTheWheelAddress,
             fregsLiquidity: fregsLiquidityAddress,
             fregShop: fregShopAddress,
             svgRenderer: svgRendererAddress,
+            vrfWrapper: vrfWrapperAddress,
             // Preserve svgPartWriter from previous deploy
             svgPartWriter: previousStatus.contracts?.svgPartWriter || null,
         },
@@ -625,10 +691,12 @@ async function main() {
     console.log("  Fregs:           ", fregsAddress);
     console.log("  Fregs Items:     ", fregsItemsAddress);
     console.log("  Fregs Mint Pass: ", fregsMintPassAddress);
+    console.log("  FregsRandomizer: ", fregsRandomizerAddress);
     console.log("  FregCoin:        ", fregCoinAddress);
     console.log("  SpinTheWheel:    ", spinTheWheelAddress);
     console.log("  FregsLiquidity:  ", fregsLiquidityAddress);
     console.log("  FregShop:        ", fregShopAddress);
+    console.log("  VRF Wrapper:     ", vrfWrapperAddress);
     console.log("  SVG Renderer:    ", `${svgRendererAddress} (reused)`);
     console.log("\nArt Contracts (REUSED from previous deploy):");
     console.log("  Background:      ", rendererRouters.background || "N/A");
@@ -644,6 +712,10 @@ async function main() {
     console.log("  Stomach: ", baseTraitCounts.stomach || 0);
 
     console.log("\n" + "=".repeat(60));
+
+    console.log("\nNext Steps:");
+    console.log("  1. Fund items contract with FregCoin for chest rewards:");
+    console.log(`     npx hardhat run scripts/fundChestRewards.js --network ${network.name}`);
 
     console.log(`\nVITE_FREGS_ITEMS_ADDRESS=${fregsItemsAddress} VITE_SVG_RENDERER_ADDRESS=${svgRendererAddress} npx hardhat run scripts/deploySpecialItems.js --network localhost`);
     console.log("\nFor .env file:");

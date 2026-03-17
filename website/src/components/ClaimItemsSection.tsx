@@ -8,11 +8,13 @@ import { useUnclaimedKitties, useContractData, useContracts, useOwnedItems, useO
 import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
+import { waitForEvent } from "../lib/waitForEvent"
+import { readBufferedGasAwareVrfFee } from "../lib/vrfFee"
 import { ITEM_TYPE_NAMES, ITEM_TYPES } from "../config/contracts"
 import { Gift } from "lucide-react"
 
 export default function ClaimItemsSection(): React.JSX.Element {
-    const { isConnected } = useAppKitAccount()
+    const { address, isConnected } = useAppKitAccount()
     const contracts = useContracts()
     const { data: contractData } = useContractData()
     const { unclaimedIds, isLoading, error, refetch } = useUnclaimedKitties()
@@ -58,7 +60,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
     }
 
     const handleClaim = useCallback(async (kittyId: number) => {
-        if (!contracts) return
+        if (!contracts || !address) return
 
         // Use flushSync to ensure modal renders immediately before wallet popup
         flushSync(() => {
@@ -70,11 +72,29 @@ export default function ClaimItemsSection(): React.JSX.Element {
 
         try {
             const contract = await contracts.items.write()
+            const bufferedVrfFee = await readBufferedGasAwareVrfFee(
+                contracts.items.read,
+                contracts.provider,
+                "quoteClaimItemFee"
+            )
             // Manually specify gas to avoid MetaMask gas estimation issues on localhost
-            const tx = await contract.claimItem(kittyId, { gasLimit: 1000000n })
+            const tx = await contract.claimItem(kittyId, { value: bufferedVrfFee, gasLimit: 1000000n })
             const receipt = await tx.wait()
 
-            const claimedItem = parseItemClaimedEvent(receipt)
+            let claimedItem = parseItemClaimedEvent(receipt)
+            if (!claimedItem) {
+                const claimEvent = await waitForEvent({
+                    contract: contracts.items.read,
+                    filter: contracts.items.read.filters.ItemClaimed(kittyId, null, address),
+                    fromBlock: receipt.blockNumber,
+                })
+
+                claimedItem = {
+                    fregId: Number(claimEvent.args.fregId ?? claimEvent.args[0]),
+                    itemTokenId: Number(claimEvent.args.itemTokenId ?? claimEvent.args[1]),
+                    itemType: Number(claimEvent.args.itemType ?? claimEvent.args[3]),
+                }
+            }
 
             const isBeadPunk = claimedItem?.itemType === ITEM_TYPES.BEAD_PUNK
             const itemName = claimedItem ? (ITEM_TYPE_NAMES[claimedItem.itemType] || "Item") : "Item"
@@ -98,7 +118,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
             setClaimingId(null)
             setIsModalLoading(false)
         }
-    }, [contracts, refetch, refetchItems, refetchKitties])
+    }, [address, contracts, refetch, refetchItems, refetchKitties])
 
     // Calculate percentages from weights
     const totalWeight = 10000

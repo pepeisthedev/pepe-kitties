@@ -8,6 +8,8 @@ import { Sparkles, Palette, CheckCircle, XCircle, Gift } from "lucide-react"
 import { useContractData, useContracts, useOwnedKitties, useUnclaimedKitties } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import KittyRenderer from "./KittyRenderer"
+import { waitForEvent } from "../lib/waitForEvent"
+import { readBufferedGasAwareVrfFee } from "../lib/vrfFee"
 import {
     Dialog,
     DialogContent,
@@ -17,8 +19,23 @@ import {
     DialogFooter,
 } from "./ui/dialog"
 
-type MintStatus = 'idle' | 'pending' | 'confirming' | 'success' | 'error'
+type MintStatus = 'idle' | 'pending' | 'confirming' | 'awaitingRandomness' | 'success' | 'error'
 type RevealPhase = 'hidden' | 'exploding' | 'revealed'
+
+const AWAITING_RANDOMNESS_MESSAGES = [
+    {
+        title: "A Freg Is Spotted..."
+    },
+    {
+        title: "The Freg Is Coming Closer..."
+    },
+    {
+        title: "Almost Here..."
+    },
+     {
+        title: "Almoooooost..."
+    },
+]
 
 // Convert HSL to Hex
 const hslToHex = (h: number, s: number, l: number): string => {
@@ -72,11 +89,11 @@ const getGreyscaleValue = (color: string): number | null => {
 }
 
 export default function MintSection(): React.JSX.Element {
-    const { isConnected } = useAppKitAccount()
+    const { address, isConnected } = useAppKitAccount()
     const { open } = useAppKit()
     const contracts = useContracts()
     const { data: contractData, isLoading: dataLoading, refetch } = useContractData()
-    const { refetch: refetchKitties } = useOwnedKitties()
+    const { kitties, refetch: refetchKitties } = useOwnedKitties()
     const { refetch: refetchUnclaimed } = useUnclaimedKitties()
 
     const [skinColor, setSkinColor] = useState<string>("#7CB342")
@@ -91,6 +108,7 @@ export default function MintSection(): React.JSX.Element {
         mouth: number
         stomach: number
     } | null>(null)
+    const [awaitingMessageIndex, setAwaitingMessageIndex] = useState(0)
 
     const [revealPhase, setRevealPhase] = useState<RevealPhase>('hidden')
     const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; angle: number; delay: number; size: number; color: string }>>([])
@@ -101,6 +119,19 @@ export default function MintSection(): React.JSX.Element {
             setRevealPhase('hidden')
             setParticles([])
         }
+    }, [mintStatus])
+
+    useEffect(() => {
+        if (mintStatus !== 'awaitingRandomness') {
+            setAwaitingMessageIndex(0)
+            return
+        }
+
+        const interval = window.setInterval(() => {
+            setAwaitingMessageIndex((current) => (current + 1) % AWAITING_RANDOMNESS_MESSAGES.length)
+        }, 4000)
+
+        return () => window.clearInterval(interval)
     }, [mintStatus])
 
     useEffect(() => {
@@ -170,7 +201,7 @@ export default function MintSection(): React.JSX.Element {
     }
 
     const handleMint = async () => {
-        if (!isConnected) { open(); return }
+        if (!isConnected || !address) { open(); return }
         if (!contracts || !contractData) return
 
         setMintStatus('pending')
@@ -179,16 +210,42 @@ export default function MintSection(): React.JSX.Element {
 
         try {
             const contract = await contracts.fregs.write()
+            const existingTokenIds = new Set(kitties.map(kitty => kitty.tokenId))
+            const bufferedVrfFee = await readBufferedGasAwareVrfFee(
+                contracts.fregs.read,
+                contracts.provider,
+                "quoteMintFee"
+            )
             // Only free mint wallets skip ETH payment — everyone else pays
             const needsPayment = !hasFreeMint
+            const totalValue = needsPayment ? parseEther(contractData.mintPrice) + bufferedVrfFee : bufferedVrfFee
             const tx = await contract.mint(skinColor, {
-                value: needsPayment ? parseEther(contractData.mintPrice) : 0n,
+                value: totalValue,
                 gasLimit: 500000n,
             })
 
             setMintStatus('confirming')
             const receipt = await tx.wait()
-            const kitty = parseFregMintedEvent(receipt)
+            let kitty = parseFregMintedEvent(receipt)
+
+            if (!kitty) {
+                setMintStatus('awaitingRandomness')
+                const mintEvent = await waitForEvent({
+                    contract: contracts.fregs.read,
+                    filter: contracts.fregs.read.filters.FregMinted(null, address),
+                    fromBlock: receipt.blockNumber,
+                    match: (log) => !existingTokenIds.has(Number(log.args.tokenId)),
+                })
+
+                kitty = {
+                    tokenId: Number(mintEvent.args.tokenId),
+                    bodyColor: String(mintEvent.args.bodyColor),
+                    head: Number(mintEvent.args.head),
+                    mouth: Number(mintEvent.args.mouth === BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff") ? 0 : mintEvent.args.mouth),
+                    stomach: Number(mintEvent.args.belly === BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff") ? 0 : mintEvent.args.belly),
+                }
+            }
+
             setMintedKitty(kitty)
             setMintStatus('success')
             // Refresh all relevant data - await to ensure completion
@@ -352,7 +409,7 @@ export default function MintSection(): React.JSX.Element {
                                     key={`${hue}-${index}`}
                                     onClick={() => setSkinColor(hex)}
                                     className={`
-                                        aspect-square rounded-md xl:rounded-lg transition-all duration-200 min-h-[32px] xl:min-h-[48px]
+                                        aspect-square rounded-md xl:rounded-lg transition-all duration-200 min-h-[32px] xl:min-h-[48px] cursor-pointer
                                         hover:scale-110 hover:z-10 relative
                                         ${skinColor === hex
                                             ? "ring-2 ring-white scale-110 z-10"
@@ -483,6 +540,18 @@ export default function MintSection(): React.JSX.Element {
                                 <DialogDescription className="font-righteous text-theme-muted text-base mt-2">
                                     Your Freg is being minted. Please wait...
                                 </DialogDescription>
+                            </>
+                        )}
+
+                        {mintStatus === 'awaitingRandomness' && (
+                            <>
+                                <div className="flex justify-center mb-4">
+                                    <LoadingSpinner size="lg" />
+                                </div>
+                                <DialogTitle className="font-bangers text-3xl text-theme-primary">
+                                    {AWAITING_RANDOMNESS_MESSAGES[awaitingMessageIndex].title}
+                                </DialogTitle>
+                            
                             </>
                         )}
 

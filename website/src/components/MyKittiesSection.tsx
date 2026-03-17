@@ -11,6 +11,8 @@ import LoadingSpinner from "./LoadingSpinner"
 import KittyRenderer from "./KittyRenderer"
 import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
+import { waitForEvent } from "../lib/waitForEvent"
+import { readBufferedGasAwareVrfFee } from "../lib/vrfFee"
 import { ITEM_TYPE_NAMES, ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, ITEMS, checkItemIncompatibility, BASE_HEAD_COUNT, BASE_STOMACH_COUNT } from "../config/contracts"
 import { Gift, LayoutGrid, Rows, Flame, AlertTriangle, Wand2, Palette, Backpack } from "lucide-react"
 import {
@@ -81,6 +83,24 @@ const generatePalette = (hue: number): string[] => {
         { s: 40, l: 25 }, { s: 30, l: 80 }, { s: 40, l: 60 }, { s: 25, l: 45 },
     ]
     return variations.map(v => hslToHex(hue, v.s, v.l))
+}
+
+const parseHexColor = (color: string): { r: number; g: number; b: number } | null => {
+    const match = color.match(/^#([0-9A-Fa-f]{6})$/)
+    if (!match) return null
+
+    const hex = match[1]
+    return {
+        r: parseInt(hex.slice(0, 2), 16),
+        g: parseInt(hex.slice(2, 4), 16),
+        b: parseInt(hex.slice(4, 6), 16),
+    }
+}
+
+const getGreyscaleValue = (color: string): number | null => {
+    const rgb = parseHexColor(color)
+    if (!rgb || rgb.r !== rgb.g || rgb.g !== rgb.b) return null
+    return Math.round((rgb.r / 255) * 100)
 }
 
 const isSkinItem = (itemType: number): boolean => getItemConfig(itemType)?.category === 'skin'
@@ -263,7 +283,7 @@ function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, tra
 }
 
 export default function MyKittiesSection(): React.JSX.Element {
-    const { isConnected } = useAppKitAccount()
+    const { address, isConnected } = useAppKitAccount()
     const contracts = useContracts()
     const { kitties, isLoading, error, refetch: refetchKitties } = useOwnedKitties()
     const { unclaimedIds, refetch: refetchUnclaimed } = useUnclaimedKitties()
@@ -287,6 +307,7 @@ export default function MyKittiesSection(): React.JSX.Element {
     const [selectedItem, setSelectedItem] = useState<Item | null>(null)
     const [newColor, setNewColor] = useState<string>("#7CB342")
     const [hue, setHue] = useState<number>(120)
+    const [greyscale, setGreyscale] = useState<number>(50)
     const [isApplying, setIsApplying] = useState(false)
     const [showItemResultModal, setShowItemResultModal] = useState(false)
     const [showConfirmModal, setShowConfirmModal] = useState(false)
@@ -296,6 +317,13 @@ export default function MyKittiesSection(): React.JSX.Element {
 
     const paletteColors = generatePalette(hue)
     const usableItems = items.filter(item => item.itemType !== ITEM_TYPES.TREASURE_CHEST)
+
+    useEffect(() => {
+        const greyscaleValue = getGreyscaleValue(newColor)
+        if (greyscaleValue !== null && greyscaleValue !== greyscale) {
+            setGreyscale(greyscaleValue)
+        }
+    }, [greyscale, newColor])
 
     // Derive selectedKitty object from items tab's own selection
     const selectedKitty = useMemo(() => {
@@ -356,7 +384,7 @@ export default function MyKittiesSection(): React.JSX.Element {
     const [isModalLoading, setIsModalLoading] = useState(false)
 
     const handleClaim = useCallback(async () => {
-        if (!contracts || selectedKittyId === null || !selectedCanClaim) return
+        if (!contracts || !address || selectedKittyId === null || !selectedCanClaim) return
 
         // Use flushSync to ensure modal renders immediately before wallet popup
         flushSync(() => {
@@ -368,11 +396,30 @@ export default function MyKittiesSection(): React.JSX.Element {
 
         try {
             const contract = await contracts.items.write()
+            const bufferedVrfFee = await readBufferedGasAwareVrfFee(
+                contracts.items.read,
+                contracts.provider,
+                "quoteClaimItemFee"
+            )
             // Manually specify gas to avoid MetaMask gas estimation issues on localhost
-            const tx = await contract.claimItem(selectedKittyId, { gasLimit: 1000000n })
+            const tx = await contract.claimItem(selectedKittyId, { value: bufferedVrfFee, gasLimit: 1000000n })
             const receipt = await tx.wait()
 
-            const claimedItem = parseItemClaimedEvent(receipt)
+            let claimedItem = parseItemClaimedEvent(receipt)
+            if (!claimedItem) {
+                const claimEvent = await waitForEvent({
+                    contract: contracts.items.read,
+                    filter: contracts.items.read.filters.ItemClaimed(selectedKittyId, null, address),
+                    fromBlock: receipt.blockNumber,
+                })
+
+                claimedItem = {
+                    fregId: Number(claimEvent.args.fregId ?? claimEvent.args[0]),
+                    itemTokenId: Number(claimEvent.args.itemTokenId ?? claimEvent.args[1]),
+                    itemType: Number(claimEvent.args.itemType ?? claimEvent.args[3]),
+                }
+            }
+
             const itemName = claimedItem ? (ITEM_TYPE_NAMES[claimedItem.itemType] || "Item") : "Item"
 
             setModalData({
@@ -395,7 +442,7 @@ export default function MyKittiesSection(): React.JSX.Element {
             setIsClaiming(false)
             setIsModalLoading(false)
         }
-    }, [contracts, selectedKittyId, selectedCanClaim, refetchKitties, refetchUnclaimed, refetchItems])
+    }, [address, contracts, selectedKittyId, selectedCanClaim, refetchKitties, refetchUnclaimed, refetchItems])
 
     const handleKittyClick = (tokenId: number) => {
         const canClaimItem = canClaim(tokenId)
@@ -470,6 +517,13 @@ export default function MyKittiesSection(): React.JSX.Element {
         setShowConfirmModal(true)
     }
 
+    const handleGreyscaleChange = (value: number) => {
+        setGreyscale(value)
+        const channel = Math.round((value / 100) * 255)
+        const hex = channel.toString(16).padStart(2, '0').toUpperCase()
+        setNewColor(`#${hex}${hex}${hex}`)
+    }
+
     const parseHeadRerolledEvent = (receipt: any): number | null => {
         const fregsContract = contracts!.fregs.read
         for (const log of receipt.logs) {
@@ -521,7 +575,12 @@ export default function MyKittiesSection(): React.JSX.Element {
                 if (!isValidHexColor(newColor)) throw new Error("Invalid hex color")
                 tx = await contract.useColorChange(selectedItem.tokenId, selectedKitty.tokenId, newColor, gasOpts)
             } else if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) {
-                tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
+                const bufferedVrfFee = await readBufferedGasAwareVrfFee(
+                    contracts.items.read,
+                    contracts.provider,
+                    "quoteHeadRerollFee"
+                )
+                tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId, { ...gasOpts, value: bufferedVrfFee })
             } else if (isSkinItem(selectedItem.itemType)) {
                 tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (isHeadItem(selectedItem.itemType)) {
@@ -538,7 +597,16 @@ export default function MyKittiesSection(): React.JSX.Element {
             if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) {
                 updatedKitty.bodyColor = newColor
             } else if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) {
-                const newHead = parseHeadRerolledEvent(receipt)
+                let newHead = parseHeadRerolledEvent(receipt)
+                if (newHead === null) {
+                    const rerollEvent = await waitForEvent({
+                        contract: contracts.fregs.read,
+                        filter: contracts.fregs.read.filters.TraitSet(selectedKitty.tokenId),
+                        fromBlock: receipt.blockNumber,
+                        match: (log) => Number(log.args.traitType) === TRAIT_TYPES.HEAD,
+                    })
+                    newHead = Number(rerollEvent.args.traitValue)
+                }
                 if (newHead !== null) updatedKitty.head = newHead
             } else if (
                 isSkinItem(selectedItem.itemType) || isHeadItem(selectedItem.itemType) || isDynamicTraitItem(selectedItem)
@@ -1028,12 +1096,26 @@ export default function MyKittiesSection(): React.JSX.Element {
                                                 input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: white; border: 3px solid #000; box-shadow: 0 2px 6px rgba(0,0,0,0.3); cursor: pointer; }
                                             `}</style>
                                         </div>
+                                        <div className="mb-4">
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="100"
+                                                value={greyscale}
+                                                onChange={(e) => handleGreyscaleChange(Number(e.target.value))}
+                                                className="w-full h-4 rounded-full appearance-none cursor-pointer"
+                                                style={{
+                                                    background: "linear-gradient(to right, #000000, #FFFFFF)",
+                                                }}
+                                                aria-label="Greyscale slider"
+                                            />
+                                        </div>
                                         <div className="grid grid-cols-6 gap-2 mb-4">
                                             {paletteColors.map((hex, index) => (
                                                 <button
                                                     key={`${hue}-${index}`}
                                                     onClick={() => setNewColor(hex)}
-                                                    className={`w-full aspect-square rounded-lg transition-all duration-200 hover:scale-110 hover:z-10 relative ${
+                                                    className={`w-full aspect-square rounded-lg cursor-pointer transition-all duration-200 hover:scale-110 hover:z-10 relative ${
                                                         newColor === hex ? "ring-4 ring-white ring-offset-2 ring-offset-black/40 scale-110 z-10" : "ring-1 ring-white/20"
                                                     }`}
                                                     style={{ backgroundColor: hex }}

@@ -4,13 +4,15 @@ pragma solidity ^0.8.9;
 import {ERC721AC} from "@limitbreak/creator-token-standards/src/erc721c/ERC721AC.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./utils/BasicRoyalties.sol";
+import "./interfaces/IFregsRandomizer.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IFregs {
     function ownerOf(uint256 tokenId) external view returns (address);
-    function rerollHead(uint256 tokenId, address sender) external;
+    function prepareHeadReroll(uint256 tokenId, address sender) external;
+    function fulfillHeadReroll(address sender, uint256 tokenId, uint256 randomWord) external;
     function setTrait(uint256 tokenId, uint256 traitType, uint256 traitValue, address sender) external;
     function setBodyColor(uint256 tokenId, string memory _color, address sender) external;
     function setMutated(uint256 tokenId, address sender) external;
@@ -74,12 +76,13 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     IFregs public fregs;
     ISVGItemsRenderer public svgRenderer;
+    IFregsRandomizer public randomizer;
     address public spinTheWheelContract;
     address public fregCoinContract;
     address public shopContract;
 
     uint256 private _tokenIdCounter;
-    uint256 private randomNonce;
+    uint256 public pendingClaimCount;
 
     // Track which fregs have claimed items
     mapping(uint256 => bool) public hasClaimed;
@@ -178,6 +181,13 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         address indexed to,
         uint256 itemType
     );
+    event ClaimItemRequested(uint256 indexed requestId, uint256 indexed fregId, address indexed owner);
+    event HeadRerollRequested(uint256 indexed requestId, uint256 indexed itemTokenId, uint256 indexed fregId, address owner);
+
+    modifier onlyRandomizer() {
+        require(address(randomizer) != address(0) && msg.sender == address(randomizer), "Only randomizer");
+        _;
+    }
 
     constructor(
         address royaltyReceiver_,
@@ -239,94 +249,51 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     // ============ Claim Item ============
 
-    function claimItem(uint256 fregId) external nonReentrant {
+    function claimItem(uint256 fregId) external payable nonReentrant {
+        require(address(randomizer) != address(0), "Randomizer not set");
         require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
         require(!hasClaimed[fregId], "Already claimed");
 
+        uint256 vrfFee = randomizer.quoteClaimItemFee();
+        require(msg.value >= vrfFee, "Insufficient VRF fee");
+
         hasClaimed[fregId] = true;
+        pendingClaimCount += 1;
 
-        // Check if claim chests are still available (max 300)
-        bool chestsAvailable = claimChestCount < MAX_CLAIM_CHESTS;
+        uint256 requestId = randomizer.requestClaimItem{value: vrfFee}(msg.sender, fregId);
+        emit ClaimItemRequested(requestId, fregId, msg.sender);
 
-        // Calculate total weight from claimable items only
-        uint256 totalWeight = colorChangeWeight + headRerollWeight +
-                              metalSkinWeight + goldSkinWeight + diamondSkinWeight +
-                              boneWeight;
-        if (chestsAvailable) {
-            totalWeight += treasureChestWeight;
+        uint256 refund = msg.value - vrfFee;
+        if (refund > 0) {
+            payable(msg.sender).transfer(refund);
         }
-
-        // Determine item type based on weighted random
-        uint256 rand = _getRandom(totalWeight);
-        uint256 newItemType;
-        uint256 cumulative = 0;
-
-        // Check for Treasure Chest first (if still available)
-        if (chestsAvailable) {
-            cumulative += treasureChestWeight;
-            if (rand < cumulative) {
-                uint256 chestId = _tokenIdCounter;
-                _safeMint(msg.sender, 1);
-                _tokenIdCounter += 1;
-                itemType[chestId] = TREASURE_CHEST;
-                claimChestCount += 1;
-                totalChestsMinted += 1;
-
-                emit TreasureChestMinted(chestId, msg.sender);
-                emit ItemClaimed(fregId, chestId, msg.sender, TREASURE_CHEST);
-                return;
-            }
-        }
-
-        cumulative += colorChangeWeight;
-        if (rand < cumulative) {
-            newItemType = COLOR_CHANGE;
-        } else {
-            cumulative += headRerollWeight;
-            if (rand < cumulative) {
-                newItemType = HEAD_REROLL;
-            } else {
-                cumulative += metalSkinWeight;
-                if (rand < cumulative) {
-                    newItemType = METAL_SKIN;
-                } else {
-                    cumulative += goldSkinWeight;
-                    if (rand < cumulative) {
-                        newItemType = GOLD_SKIN;
-                    } else {
-                        cumulative += diamondSkinWeight;
-                        if (rand < cumulative) {
-                            newItemType = DIAMOND_SKIN;
-                        } else {
-                            newItemType = SKELETON_SKIN;
-                        }
-                    }
-                }
-            }
-        }
-
-        uint256 newItemId = _tokenIdCounter;
-        _safeMint(msg.sender, 1);
-        _tokenIdCounter += 1;
-        itemType[newItemId] = newItemType;
-
-        emit ItemClaimed(fregId, newItemId, msg.sender, newItemType);
     }
 
-    function _getRandom(uint256 max) internal returns (uint256) {
-        randomNonce++;
-        return
-            uint256(
-                keccak256(
-                    abi.encodePacked(
-                        block.timestamp,
-                        block.prevrandao,
-                        msg.sender,
-                        randomNonce,
-                        _tokenIdCounter
-                    )
-                )
-            ) % max;
+    function quoteClaimItemFee() external view returns (uint256) {
+        require(address(randomizer) != address(0), "Randomizer not set");
+        return randomizer.quoteClaimItemFee();
+    }
+
+    function quoteHeadRerollFee() external view returns (uint256) {
+        require(address(randomizer) != address(0), "Randomizer not set");
+        return randomizer.quoteHeadRerollFee();
+    }
+
+    // Intentionally not nonReentrant so localhost mock VRF auto-fulfill can settle in the same tx.
+    function fulfillClaimItem(address requester, uint256 fregId, uint256 randomWord) external onlyRandomizer {
+        require(pendingClaimCount > 0, "No pending claim");
+        pendingClaimCount -= 1;
+
+        uint256 newItemType = _selectClaimItemType(randomWord);
+        uint256 newItemId = _mintSingleItem(requester, newItemType);
+
+        if (newItemType == TREASURE_CHEST) {
+            claimChestCount += 1;
+            totalChestsMinted += 1;
+            emit TreasureChestMinted(newItemId, requester);
+        }
+
+        emit ItemClaimed(fregId, newItemId, requester, newItemType);
     }
 
     // ============ Use Items ============
@@ -342,15 +309,33 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         emit ColorChangeUsed(itemTokenId, fregId, msg.sender, newColor);
     }
 
-    function useHeadReroll(uint256 itemTokenId, uint256 fregId) external nonReentrant {
+    function useHeadReroll(uint256 itemTokenId, uint256 fregId) external payable nonReentrant {
+        require(address(randomizer) != address(0), "Randomizer not set");
         require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
         require(itemType[itemTokenId] == HEAD_REROLL, "Not a head reroll item");
         require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
 
-        _burn(itemTokenId);
-        fregs.rerollHead(fregId, msg.sender);
+        uint256 vrfFee = randomizer.quoteHeadRerollFee();
+        require(msg.value >= vrfFee, "Insufficient VRF fee");
 
-        emit HeadRerollUsed(itemTokenId, fregId, msg.sender);
+        fregs.prepareHeadReroll(fregId, msg.sender);
+        _burn(itemTokenId);
+        uint256 requestId = randomizer.requestHeadReroll{value: vrfFee}(msg.sender, itemTokenId, fregId);
+
+        emit HeadRerollRequested(requestId, itemTokenId, fregId, msg.sender);
+
+        uint256 refund = msg.value - vrfFee;
+        if (refund > 0) {
+            payable(msg.sender).transfer(refund);
+        }
+    }
+
+    function fulfillHeadReroll(address requester, uint256 itemTokenId, uint256 fregId, uint256 randomWord)
+        external
+        onlyRandomizer
+    {
+        fregs.fulfillHeadReroll(requester, fregId, randomWord);
+        emit HeadRerollUsed(itemTokenId, fregId, requester);
     }
 
     function useSpecialSkinItem(uint256 itemTokenId, uint256 fregId) external nonReentrant {
@@ -512,6 +497,10 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         fregCoinContract = _fregCoin;
     }
 
+    function setRandomizer(address _randomizer) external onlyOwner {
+        randomizer = IFregsRandomizer(_randomizer);
+    }
+
     // Add a new dynamic item type
     function addItemType(
         string calldata name,
@@ -649,6 +638,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function setTreasureChestWeight(uint256 _weight) external onlyOwner {
+        require(pendingClaimCount == 0, "Claim requests pending");
         treasureChestWeight = _weight;
     }
 
@@ -666,6 +656,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         uint256 _diamond,
         uint256 _bone
     ) external onlyOwner {
+        require(pendingClaimCount == 0, "Claim requests pending");
         colorChangeWeight = _colorChange;
         headRerollWeight = _headReroll;
         treasureChestWeight = _treasureChest;
@@ -685,6 +676,59 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     function depositCoins(uint256 amount) external onlyOwner {
         IERC20(fregCoinContract).transferFrom(msg.sender, address(this), amount);
+    }
+
+    function _mintSingleItem(address to, uint256 _itemType) internal returns (uint256 newItemId) {
+        newItemId = _tokenIdCounter;
+        _mint(to, 1);
+        _tokenIdCounter += 1;
+        itemType[newItemId] = _itemType;
+    }
+
+    function _selectClaimItemType(uint256 randomWord) internal view returns (uint256) {
+        bool chestsAvailable = claimChestCount < MAX_CLAIM_CHESTS;
+        uint256 totalWeight = colorChangeWeight + headRerollWeight + metalSkinWeight + goldSkinWeight + diamondSkinWeight + boneWeight;
+        if (chestsAvailable) {
+            totalWeight += treasureChestWeight;
+        }
+
+        require(totalWeight > 0, "No claim weights configured");
+        uint256 rand = randomWord % totalWeight;
+        uint256 cumulative = 0;
+
+        if (chestsAvailable) {
+            cumulative += treasureChestWeight;
+            if (rand < cumulative) {
+                return TREASURE_CHEST;
+            }
+        }
+
+        cumulative += colorChangeWeight;
+        if (rand < cumulative) {
+            return COLOR_CHANGE;
+        }
+
+        cumulative += headRerollWeight;
+        if (rand < cumulative) {
+            return HEAD_REROLL;
+        }
+
+        cumulative += metalSkinWeight;
+        if (rand < cumulative) {
+            return METAL_SKIN;
+        }
+
+        cumulative += goldSkinWeight;
+        if (rand < cumulative) {
+            return GOLD_SKIN;
+        }
+
+        cumulative += diamondSkinWeight;
+        if (rand < cumulative) {
+            return DIAMOND_SKIN;
+        }
+
+        return SKELETON_SKIN;
     }
 
     // ============ View Functions ============

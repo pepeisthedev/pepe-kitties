@@ -1,15 +1,17 @@
 {
   "network": "baseSepolia",
-  "lastUpdated": "2026-03-14T12:42:26.545Z",
+  "lastUpdated": "2026-03-17T19:53:14.561Z",
   "contracts": {
-    "fregs": "0xd5425E28e8DD3515D7649c63b09f61A9a0Db61E8",
-    "fregsItems": "0x7BCb9B24b16D2AC7Dc975E1ff38536A8839CA0D3",
-    "fregsMintPass": "0xd34DE042b093B61734cE6D2B1b7034186D4CA507",
-    "fregCoin": "0x1cf13cB2b3bF1af07b887F6295471CdE56590a12",
-    "spinTheWheel": "0xB3F985Bc6F6D4F69d89DDB80872af687383Af5C7",
-    "fregsLiquidity": "0xC8b22e74396a9B804819F08391Fb80B1ceE0a411",
-    "fregShop": "0x66b1910208A6809d4Bd96E6fCC70f73D11eb0698",
+    "fregs": "0x993C321491541e6D12d7881a34f7ddcb74bD6471",
+    "fregsItems": "0x72440f480940F8b2deADF12993918E11259806b6",
+    "fregsMintPass": "0x0EaB66afB63547ec2f91bc4EB55480e4fE1b121f",
+    "fregsRandomizer": "0x7Ee1186fB69Bc039924C884F181a2c89Ff1B60d9",
+    "fregCoin": "0x16123B469Cd6EDe9651A36e40863FC98ac38573F",
+    "spinTheWheel": "0xB2731C06c04c7B1A3Cc60e5A85b42B9205A7CADD",
+    "fregsLiquidity": "0x102e71A13Acc0b9d4C91094dcB0eC868F61da3B0",
+    "fregShop": "0x41B68EF21f7CC2cBFd897A323c3a74C5b13569C2",
     "svgRenderer": "0x817F5CF9f74eEAC3e80f079a2300184F69d132e3",
+    "vrfWrapper": "0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed",
     "svgPartWriter": "0x627E965c230205439699D22050058aA2420e88F9"
   },
   "routers": {
