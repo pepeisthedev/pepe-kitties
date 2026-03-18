@@ -248,6 +248,11 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         revert("Item type not found");
     }
 
+    function rescuePendingSpinCount(uint256 amount) external onlyOwner {
+        require(amount <= pendingSpinCount, "Amount exceeds pending");
+        pendingSpinCount -= amount;
+    }
+
     function setItemMaxSupply(uint256 itemType, uint256 maxSupply) external onlyOwner {
         require(pendingSpinCount == 0, "Spin requests pending");
         itemMaxSupply[itemType] = maxSupply;

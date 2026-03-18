@@ -232,7 +232,21 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         return attrs;
     }
 
+    function _validateHexColor(string memory color) internal pure {
+        bytes memory b = bytes(color);
+        require(b.length == 7, "Color must be #RRGGBB");
+        require(b[0] == '#', "Color must start with #");
+        for (uint256 i = 1; i < 7; i++) {
+            bytes1 c = b[i];
+            require(
+                (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'),
+                "Invalid hex character"
+            );
+        }
+    }
+
     function mint(string memory _color) public payable nonReentrant {
+        _validateHexColor(_color);
         require(address(randomizer) != address(0), "Randomizer not set");
         require(_tokenIdCounter + pendingMintCount < supply, "Max supply reached");
 
@@ -384,6 +398,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     function setBodyColor(uint256 tokenId, string memory _color, address sender) external {
         require(msg.sender == itemsContract, "Only items contract");
         require(ownerOf(tokenId) == sender, "Not token owner");
+        _validateHexColor(_color);
 
         string memory oldColor = bodyColor[tokenId];
         bodyColor[tokenId] = _color;
@@ -475,6 +490,16 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     // Trait counts are now determined dynamically from svgRenderer.getTraitCount()
     // No setters needed - just deploy new traits to the SVGRouter
+
+    function rescuePendingMintCount(uint256 amount) external onlyOwner {
+        require(amount <= pendingMintCount, "Amount exceeds pending");
+        pendingMintCount -= amount;
+    }
+
+    function rescuePendingHeadRerollCount(uint256 amount) external onlyOwner {
+        require(amount <= pendingHeadRerollCount, "Amount exceeds pending");
+        pendingHeadRerollCount -= amount;
+    }
 
     function withdraw(uint256 _amount) external onlyOwner {
         payable(owner()).transfer(_amount);

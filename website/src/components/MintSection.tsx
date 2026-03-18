@@ -82,11 +82,6 @@ const parseHexColor = (color: string): { r: number; g: number; b: number } | nul
     }
 }
 
-const getGreyscaleValue = (color: string): number | null => {
-    const rgb = parseHexColor(color)
-    if (!rgb || rgb.r !== rgb.g || rgb.g !== rgb.b) return null
-    return Math.round((rgb.r / 255) * 100)
-}
 
 export default function MintSection(): React.JSX.Element {
     const { address, isConnected } = useAppKitAccount()
@@ -133,13 +128,6 @@ export default function MintSection(): React.JSX.Element {
 
         return () => window.clearInterval(interval)
     }, [mintStatus])
-
-    useEffect(() => {
-        const greyscaleValue = getGreyscaleValue(skinColor)
-        if (greyscaleValue !== null && greyscaleValue !== greyscale) {
-            setGreyscale(greyscaleValue)
-        }
-    }, [greyscale, skinColor])
 
     const handleReveal = useCallback(() => {
         if (revealPhase !== 'hidden') return
@@ -277,7 +265,7 @@ export default function MintSection(): React.JSX.Element {
 
     const handleGreyscaleChange = (value: number) => {
         setGreyscale(value)
-        setSkinColor(hslToHex(0, 0, value))
+        setSkinColor(hslToHex(hue, 80, value))
     }
 
     const isValidHexColor = (color: string): boolean => {
@@ -340,7 +328,11 @@ export default function MintSection(): React.JSX.Element {
                                 min="0"
                                 max="360"
                                 value={hue}
-                                onChange={(e) => setHue(Number(e.target.value))}
+                                onChange={(e) => {
+                                    const newHue = Number(e.target.value)
+                                    setHue(newHue)
+                                    setSkinColor(hslToHex(newHue, 80, greyscale))
+                                }}
                                 className="w-full h-2.5 xl:h-4 rounded-full appearance-none cursor-pointer"
                                 style={{
                                     background: `linear-gradient(to right,
@@ -396,7 +388,7 @@ export default function MintSection(): React.JSX.Element {
                                 onChange={(e) => handleGreyscaleChange(Number(e.target.value))}
                                 className="w-full h-2.5 xl:h-4 rounded-full appearance-none cursor-pointer"
                                 style={{
-                                    background: "linear-gradient(to right, #000000, #FFFFFF)",
+                                    background: `linear-gradient(to right, #000000, hsl(${hue}, 80%, 50%), #FFFFFF)`,
                                 }}
                                 aria-label="Greyscale slider"
                             />

@@ -666,6 +666,11 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         boneWeight = _bone;
     }
 
+    function rescuePendingClaimCount(uint256 amount) external onlyOwner {
+        require(amount <= pendingClaimCount, "Amount exceeds pending");
+        pendingClaimCount -= amount;
+    }
+
     function withdrawExcess() external onlyOwner {
         uint256 activeChests = totalChestsMinted - chestsBurned;
         uint256 reserved = activeChests * chestCoinReward;

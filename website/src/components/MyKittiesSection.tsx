@@ -85,23 +85,7 @@ const generatePalette = (hue: number): string[] => {
     return variations.map(v => hslToHex(hue, v.s, v.l))
 }
 
-const parseHexColor = (color: string): { r: number; g: number; b: number } | null => {
-    const match = color.match(/^#([0-9A-Fa-f]{6})$/)
-    if (!match) return null
 
-    const hex = match[1]
-    return {
-        r: parseInt(hex.slice(0, 2), 16),
-        g: parseInt(hex.slice(2, 4), 16),
-        b: parseInt(hex.slice(4, 6), 16),
-    }
-}
-
-const getGreyscaleValue = (color: string): number | null => {
-    const rgb = parseHexColor(color)
-    if (!rgb || rgb.r !== rgb.g || rgb.g !== rgb.b) return null
-    return Math.round((rgb.r / 255) * 100)
-}
 
 const isSkinItem = (itemType: number): boolean => getItemConfig(itemType)?.category === 'skin'
 const isHeadItem = (itemType: number): boolean => getItemConfig(itemType)?.category === 'head'
@@ -318,12 +302,6 @@ export default function MyKittiesSection(): React.JSX.Element {
     const paletteColors = generatePalette(hue)
     const usableItems = items.filter(item => item.itemType !== ITEM_TYPES.TREASURE_CHEST)
 
-    useEffect(() => {
-        const greyscaleValue = getGreyscaleValue(newColor)
-        if (greyscaleValue !== null && greyscaleValue !== greyscale) {
-            setGreyscale(greyscaleValue)
-        }
-    }, [greyscale, newColor])
 
     // Derive selectedKitty object from items tab's own selection
     const selectedKitty = useMemo(() => {
@@ -519,9 +497,7 @@ export default function MyKittiesSection(): React.JSX.Element {
 
     const handleGreyscaleChange = (value: number) => {
         setGreyscale(value)
-        const channel = Math.round((value / 100) * 255)
-        const hex = channel.toString(16).padStart(2, '0').toUpperCase()
-        setNewColor(`#${hex}${hex}${hex}`)
+        setNewColor(hslToHex(hue, 80, value))
     }
 
     const parseHeadRerolledEvent = (receipt: any): number | null => {
@@ -1085,7 +1061,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                         <div className="mb-4">
                                             <input
                                                 type="range" min="0" max="360" value={hue}
-                                                onChange={(e) => setHue(Number(e.target.value))}
+                                                onChange={(e) => { const newHue = Number(e.target.value); setHue(newHue); setNewColor(hslToHex(newHue, 80, greyscale)) }}
                                                 className="w-full h-4 rounded-full appearance-none cursor-pointer"
                                                 style={{
                                                     background: `linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))`,
@@ -1105,7 +1081,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                                 onChange={(e) => handleGreyscaleChange(Number(e.target.value))}
                                                 className="w-full h-4 rounded-full appearance-none cursor-pointer"
                                                 style={{
-                                                    background: "linear-gradient(to right, #000000, #FFFFFF)",
+                                                    background: `linear-gradient(to right, #000000, hsl(${hue}, 80%, 50%), #FFFFFF)`,
                                                 }}
                                                 aria-label="Greyscale slider"
                                             />
