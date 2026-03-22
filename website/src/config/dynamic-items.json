@@ -4,36 +4,10 @@
       "items": []
     },
     "31337": {
-      "items": [
-        {
-          "id": 101,
-          "name": "Sun",
-          "description": "Lets you add a sun on your Fregs belly!",
-          "category": "stomach",
-          "svgFile": "sun.svg",
-          "targetTraitType": 4,
-          "traitFileName": "1.svg",
-          "isClaimable": false,
-          "claimWeight": 0,
-          "isOwnerMintable": true
-        }
-      ]
+      "items": []
     },
     "84532": {
-      "items": [
-        {
-          "id": 101,
-          "name": "Sun",
-          "description": "Lets you add a sun on your Fregs belly!",
-          "category": "stomach",
-          "svgFile": "sun.svg",
-          "targetTraitType": 4,
-          "traitFileName": "1.svg",
-          "isClaimable": false,
-          "claimWeight": 0,
-          "isOwnerMintable": true
-        }
-      ]
+      "items": []
     }
   }
 }

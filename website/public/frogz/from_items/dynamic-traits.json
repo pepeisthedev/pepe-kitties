@@ -12,24 +12,14 @@
       "head": [],
       "mouth": [],
       "skin": [],
-      "stomach": [
-        {
-          "fileName": "1.svg",
-          "name": "Sun"
-        }
-      ]
+      "stomach": []
     },
     "84532": {
       "background": [],
       "head": [],
       "mouth": [],
       "skin": [],
-      "stomach": [
-        {
-          "fileName": "1.svg",
-          "name": "Sun"
-        }
-      ]
+      "stomach": []
     }
   }
 }

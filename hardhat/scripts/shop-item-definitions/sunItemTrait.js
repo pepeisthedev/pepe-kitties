@@ -12,11 +12,11 @@ module.exports = {
     trait: {
         name: "Sun",
         classPrefix: "sunstomach",
-        sourceSvgPath: path.join(__dirname, "../../../website/public/frogz/from_items/stomach/1.svg"),
+        sourceSvgPath: path.join(__dirname, "assets/sun-stomach.svg"),
     },
     icon: {
         svgFile: "sun.svg",
-        sourceSvgPath: path.join(__dirname, "../../../website/public/items/sun.svg"),
+        sourceSvgPath: path.join(__dirname, "assets/sun-icon.svg"),
     },
     shop: {
         isActive: true,
