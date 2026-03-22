@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 617.49 644.18">
+  <defs><style>.heart-fill{fill:#e63946;}.heart-shine{fill:#ff6b7a;}</style></defs>
+  <path class="heart-fill" d="M308,520 Q220,460 200,390 Q180,320 230,290 Q280,260 308,310 Q336,260 386,290 Q436,320 416,390 Q396,460 308,520Z"/>
+  <path class="heart-shine" d="M260,330 Q250,310 270,300 Q285,295 290,315Z" opacity="0.6"/>
+</svg>

@@ -642,9 +642,16 @@ async function main() {
     console.log("Balance:", ethers.formatEther(await ethers.provider.getBalance(deployerAddress)), "ETH");
     console.log("Verify Contracts:", VERIFY_CONTRACTS);
 
-    // Load or initialize deployment status
-    const deploymentStatus = loadDeploymentStatus(network.name);
-    deploymentStatus.network = network.name;
+    // Initialize fresh deployment status (clear stale data from previous deploys)
+    const deploymentStatus = {
+        network: network.name,
+        lastUpdated: null,
+        contracts: {},
+        routers: {},
+        defaultTraits: {},
+        addedTraits: {},
+        itemTypes: {},
+    };
 
     // Configuration
     const ROYALTY_RECEIVER = deployerAddress;

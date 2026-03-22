@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 617.49 644.18">
+  <defs><style>.spots-body{fill:#4a8c3f;}.spots-dot{fill:#2d5a27;}</style></defs>
+  <path class="spots-body" d="M180,200 Q180,100 308,100 Q436,100 436,200 L436,550 Q436,620 308,620 Q180,620 180,550Z"/>
+  <circle class="spots-dot" cx="240" cy="200" r="18"/>
+  <circle class="spots-dot" cx="370" cy="180" r="22"/>
+  <circle class="spots-dot" cx="300" cy="300" r="16"/>
+  <circle class="spots-dot" cx="220" cy="400" r="20"/>
+  <circle class="spots-dot" cx="380" cy="380" r="15"/>
+  <circle class="spots-dot" cx="310" cy="480" r="19"/>
+  <circle class="spots-dot" cx="260" cy="550" r="14"/>
+  <circle class="spots-dot" cx="400" cy="520" r="17"/>
+</svg>

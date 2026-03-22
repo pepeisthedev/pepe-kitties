@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 617.49 644.18">
+  <defs><style>.tongue-lip{fill:#cc3333;}.tongue-body{fill:#e85555;}.tongue-line{fill:none;stroke:#aa2222;stroke-width:2;}</style></defs>
+  <path class="tongue-lip" d="M240,430 Q260,420 308,425 Q356,420 376,430 Q360,445 308,442 Q256,445 240,430Z"/>
+  <path class="tongue-body" d="M280,435 Q290,435 308,438 Q326,435 336,435 Q330,475 308,490 Q286,475 280,435Z"/>
+  <line class="tongue-line" x1="308" y1="440" x2="308" y2="485"/>
+</svg>
