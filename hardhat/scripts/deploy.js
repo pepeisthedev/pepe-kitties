@@ -316,6 +316,18 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
     // Head uses default + from_items (from_items use explicit typeIds: baseCount + fileNumber)
     // Other traits use default folder only
 
+    // Load from_items trait names for skin/head lookups
+    const fromItemsTraitNames = {};
+    if (fs.existsSync(FROM_ITEMS_TRAITS_JSON_PATH)) {
+        const fromItemsTraits = JSON.parse(fs.readFileSync(FROM_ITEMS_TRAITS_JSON_PATH, "utf8"));
+        for (const [category, entries] of Object.entries(fromItemsTraits)) {
+            fromItemsTraitNames[category] = {};
+            for (const entry of entries) {
+                fromItemsTraitNames[category][entry.fileName] = entry.name;
+            }
+        }
+    }
+
     let allFiles = [];
     let useExplicitTypeIds = false; // For skin folder, typeIds must match fileNames
     let baseTraitCount = 0; // Track base trait count for head offset calculation
@@ -333,6 +345,7 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
             .map(f => ({
                 file: f,
                 path: path.join(folderPath, f),
+                source: 'from_items',
                 typeId: parseInt(f.replace('.svg', '')) // Extract typeId from fileName (2.svg → 2)
             }));
         useExplicitTypeIds = true;
@@ -415,8 +428,10 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
         }
 
         const SVGRenderer = await ethers.getContractFactory("SVGRenderer");
-        const traitName = traitNames[i] || `Type ${i + 1}`;
         const source = fileObj.source || 'default';
+        // Resolve trait name: from_items skins/heads use from_items/traits.json, others use default/traits.json
+        const fromItemsName = fromItemsTraitNames[folderName]?.[fileName];
+        const traitName = (source === 'from_items' && fromItemsName) ? fromItemsName : (traitNames[i] || `Type ${i + 1}`);
         const renderer = await deployContract(SVGRenderer, [addresses], `${folderName}/${fileName} (${source})`);
         const rendererAddress = await renderer.getAddress();
         svgRendererAddresses.push(rendererAddress);
@@ -443,8 +458,10 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
 
         // Set trait names with explicit typeIds
         for (let i = 0; i < files.length; i++) {
-            const traitName = traitNames[i] || `Type ${files[i].typeId}`;
-            await sendTx(router.setTraitName(files[i].typeId, traitName));
+            const source = files[i].source || 'default';
+            const fromItemsName = fromItemsTraitNames[folderName]?.[files[i].file];
+            const name = (source === 'from_items' && fromItemsName) ? fromItemsName : (traitNames[i] || `Type ${files[i].typeId}`);
+            await sendTx(router.setTraitName(files[i].typeId, name));
         }
         console.log(`    Set ${files.length} trait names with explicit typeIds`);
     } else {
