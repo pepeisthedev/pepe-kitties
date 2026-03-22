@@ -672,15 +672,20 @@ export default function MyKittiesSection(): React.JSX.Element {
                 <>
                     {/* Claim Item Banner */}
                     {claimableCount > 0 && (
-                        <div className="mb-8 pb-6 border-b border-theme-muted/20">
+                        <div className="mb-8 rounded-2xl bg-theme-primary/15 border-2 border-theme-primary/40 p-4 animate-pulse-slow">
                             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-full bg-theme-primary/20">
-                                        <Gift className="w-6 h-6 text-theme-primary" />
+                                    <div className="p-2.5 rounded-full bg-theme-primary/30 animate-bounce-slow">
+                                        <Gift className="w-7 h-7 text-theme-primary" />
                                     </div>
-                                    <p className="font-bangers text-xl text-theme-primary">
-                                        {claimableCount} {claimableCount === 1 ? 'Freg' : 'Fregs'} can claim items
-                                    </p>
+                                    <div>
+                                        <p className="font-bangers text-2xl text-theme-primary">
+                                            {claimableCount} {claimableCount === 1 ? 'Freg' : 'Fregs'} can claim items!
+                                        </p>
+                                        <p className="font-righteous text-sm text-theme-muted">
+                                            Select a Freg below to claim a random item
+                                        </p>
+                                    </div>
                                 </div>
                                 <Button
                                     onClick={handleClaim}

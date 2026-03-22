@@ -12,6 +12,10 @@ interface IFregsMintPass {
     function burnForMint(address holder) external;
 }
 
+interface IFregsItemsReader {
+    function hasClaimed(uint256 fregId) external view returns (bool);
+}
+
 interface ISVGRenderer {
     // Renders full SVG
     // background=0 uses bodyColor, background>0 uses special background
@@ -227,6 +231,16 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
         if (mutated) {
             attrs = string(abi.encodePacked(attrs, ',{"trait_type": "Mutated","value": "Yes"}'));
+        }
+
+        if (itemsContract != address(0)) {
+            bool claimed = IFregsItemsReader(itemsContract).hasClaimed(tokenId);
+            attrs = string(abi.encodePacked(
+                attrs,
+                ',{"trait_type": "Item Claimed","value": "',
+                claimed ? "Yes" : "No",
+                '"}'
+            ));
         }
 
         return attrs;

@@ -56,10 +56,8 @@ async function main() {
 
     if (balance < totalCost) {
         const needed = totalCost - balance;
-        console.log(`Insufficient balance, minting ${ethers.formatEther(needed)} FREG...`);
-        const tx = await fregCoin.ownerMint(deployerAddress, needed);
-        await tx.wait();
-        console.log("Minted!");
+        console.log(`Insufficient balance! Need ${ethers.formatEther(needed)} more FREG.`);
+        throw new Error("Insufficient FREG balance");
     }
 
     let purchased = 0;

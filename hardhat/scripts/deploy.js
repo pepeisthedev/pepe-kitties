@@ -829,22 +829,11 @@ async function main() {
 
         // Fund FregsItems with FregCoin for chest rewards (1000 chests x 133.7M = 133.7B)
         const chestFunding = ethers.parseEther("133700000000");
-        console.log("Minting 133.7B FregCoin to FregsItems for chest rewards...");
-        await sendTx(fregCoin.ownerMint(fregsItemsAddress, chestFunding));
+        console.log("Transferring 133.7B FregCoin to FregsItems for chest rewards...");
+        await sendTx(fregCoin.transfer(fregsItemsAddress, chestFunding));
         const itemsCoinBalance = await fregCoin.balanceOf(fregsItemsAddress);
         console.log(`FregsItems FregCoin balance: ${ethers.formatEther(itemsCoinBalance)}`);
 
-        // Fund FregsLiquidity with ETH and FregCoin for testing
-        console.log("\n--- Funding FregsLiquidity ---");
-        const liquidityETH = ethers.parseEther("1.0");
-        await sendTx(fregsLiquidity.depositETH({ value: liquidityETH }));
-        console.log(`FregsLiquidity ETH balance: ${ethers.formatEther(liquidityETH)}`);
-
-        const liquidityCoinAmount = ethers.parseEther("3000000000"); // 3B FregCoin
-        console.log("Minting 3B FregCoin to FregsLiquidity...");
-        await sendTx(fregCoin.ownerMint(fregsLiquidityAddress, liquidityCoinAmount));
-        const liquidityCoinBalance = await fregCoin.balanceOf(fregsLiquidityAddress);
-        console.log(`FregsLiquidity FregCoin balance: ${ethers.formatEther(liquidityCoinBalance)}`);
     }
 
     // ============ Configure Item Configs from items.json ============

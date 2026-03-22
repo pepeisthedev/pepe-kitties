@@ -21,6 +21,8 @@ contract FregShop is Ownable, ReentrancyGuard {
         uint256 mintCount;
     }
 
+    bool public shopActive;
+
     mapping(uint256 => ShopItem) public shopItems;
     uint256[] public listedItemTypes;
 
@@ -33,6 +35,7 @@ contract FregShop is Ownable, ReentrancyGuard {
     constructor() Ownable(msg.sender) {}
 
     function buyItem(address buyer, uint256 itemTypeId) external nonReentrant {
+        require(shopActive, "Shop is not active");
         require(msg.sender == fregCoinContract, "Only FregCoin contract");
 
         ShopItem storage item = shopItems[itemTypeId];
@@ -123,6 +126,10 @@ contract FregShop is Ownable, ReentrancyGuard {
 
     function getListedItemCount() external view returns (uint256) {
         return listedItemTypes.length;
+    }
+
+    function setShopActive(bool _active) external onlyOwner {
+        shopActive = _active;
     }
 
     function setFregCoinContract(address _fregCoin) external onlyOwner {

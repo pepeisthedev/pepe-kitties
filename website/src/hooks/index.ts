@@ -19,3 +19,6 @@ export { useShopItems } from "./useShopItems"
 export type { ShopItem } from "./useShopItems"
 
 export { useFregCoinBalance } from "./useFregCoinBalance"
+
+export { useFeatureFlags } from "./useFeatureFlags"
+export type { FeatureFlags } from "./useFeatureFlags"

@@ -81,6 +81,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     address public fregCoinContract;
     address public shopContract;
 
+    bool public chestOpeningActive;
+
     uint256 private _tokenIdCounter;
     uint256 public pendingClaimCount;
 
@@ -419,6 +421,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function burnChest(uint256 chestTokenId) external nonReentrant {
+        require(chestOpeningActive, "Chest opening is not active");
         require(ownerOf(chestTokenId) == msg.sender, "Not chest owner");
         require(itemType[chestTokenId] == TREASURE_CHEST, "Not a treasure chest");
         require(
@@ -483,6 +486,10 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         itemType[newItemId] = _itemType;
 
         emit MintedFromShop(newItemId, to, _itemType);
+    }
+
+    function setChestOpeningActive(bool _active) external onlyOwner {
+        chestOpeningActive = _active;
     }
 
     function setShopContract(address _shop) external onlyOwner {

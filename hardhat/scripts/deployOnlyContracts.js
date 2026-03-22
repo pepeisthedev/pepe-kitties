@@ -550,21 +550,11 @@ async function main() {
         console.log(`Deployer SpinToken balance: ${spinTokenBalance}`);
 
         const chestFunding = ethers.parseEther("133700000000");
-        console.log("Minting 133.7B FregCoin to FregsItems for chest rewards...");
-        await sendTx(fregCoin.ownerMint(fregsItemsAddress, chestFunding));
+        console.log("Transferring 133.7B FregCoin to FregsItems for chest rewards...");
+        await sendTx(fregCoin.transfer(fregsItemsAddress, chestFunding));
         const itemsCoinBalance = await fregCoin.balanceOf(fregsItemsAddress);
         console.log(`FregsItems FregCoin balance: ${ethers.formatEther(itemsCoinBalance)}`);
 
-        console.log("\n--- Funding FregsLiquidity ---");
-        const liquidityETH = ethers.parseEther("1.0");
-        await sendTx(fregsLiquidity.depositETH({ value: liquidityETH }));
-        console.log(`FregsLiquidity ETH balance: ${ethers.formatEther(liquidityETH)}`);
-
-        const liquidityCoinAmount = ethers.parseEther("3000000000");
-        console.log("Minting 3B FregCoin to FregsLiquidity...");
-        await sendTx(fregCoin.ownerMint(fregsLiquidityAddress, liquidityCoinAmount));
-        const liquidityCoinBalance = await fregCoin.balanceOf(fregsLiquidityAddress);
-        console.log(`FregsLiquidity FregCoin balance: ${ethers.formatEther(liquidityCoinBalance)}`);
     }
 
     // ============ Steg 5: Configure items from items.json ============

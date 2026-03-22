@@ -53,6 +53,8 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
 
     uint256 public pendingSpinCount;
 
+    bool public active;
+
     // Events
     event SpinResult(
         address indexed player,
@@ -77,6 +79,7 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     // ============ Spin the Wheel ============
 
     function spin() external payable nonReentrant {
+        require(active, "Spin is not active");
         require(address(randomizer) != address(0), "Randomizer not set");
         require(balanceOf(msg.sender, SPIN_TOKEN) >= 1, "No SpinToken");
         require(address(mintPassContract) != address(0), "MintPass contract not set");
@@ -149,6 +152,10 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     }
 
     // ============ Owner Functions ============
+
+    function setActive(bool _active) external onlyOwner {
+        active = _active;
+    }
 
     function ownerMint(address to, uint256 amount) external onlyOwner {
         require(amount > 0, "Amount must be greater than 0");

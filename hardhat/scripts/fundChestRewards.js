@@ -45,10 +45,6 @@ async function main() {
     console.log(`  Deployer: ${ethers.formatEther(deployerBalanceBefore)} FREG`);
     console.log(`  FregsItems: ${ethers.formatEther(itemsBalanceBefore)} FREG`);
 
-    const mintTx = await fregCoin.ownerMint(deployerAddress, amount);
-    await mintTx.wait();
-    console.log(`\nMint tx: ${mintTx.hash}`);
-
     const approveTx = await fregCoin.approve(fregsItemsAddress, amount);
     await approveTx.wait();
     console.log(`Approve tx: ${approveTx.hash}`);

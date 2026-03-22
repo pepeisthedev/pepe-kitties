@@ -7,13 +7,14 @@ import TreasureChestSection from "./TreasureChestSection"
 import SpinWheelSection from "./SpinWheelSection"
 import ShopSection from "./ShopSection"
 import AdminSection from "./AdminSection"
-import { useIsOwner } from "../hooks"
+import { useIsOwner, useFeatureFlags } from "../hooks"
 
 export type SectionId = "landing" | "mint" | "my-kitties" | "treasure-chests" | "spin-wheel" | "shop" | "admin"
 
 export default function MainPage(): React.JSX.Element {
     const [activeSection, setActiveSection] = useState<SectionId>("landing")
     const { isOwner } = useIsOwner()
+    const { flags, refetch: refetchFlags } = useFeatureFlags()
 
     const renderSection = () => {
         switch (activeSection) {
@@ -30,7 +31,7 @@ export default function MainPage(): React.JSX.Element {
             case "shop":
                 return <ShopSection />
             case "admin":
-                return isOwner ? <AdminSection /> : <MintSection />
+                return isOwner ? <AdminSection featureFlags={flags} onFeatureFlagsChange={refetchFlags} /> : <MintSection />
             default:
                 return <MintSection />
         }
@@ -41,7 +42,7 @@ export default function MainPage(): React.JSX.Element {
 
     return (
         <div className={isLanding ? "" : "h-screen flex flex-col overflow-hidden"}>
-            <Header activeSection={activeSection} onSectionChange={setActiveSection} />
+            <Header activeSection={activeSection} onSectionChange={setActiveSection} featureFlags={flags} />
 
             <main className={isLanding ? "" : `flex-1 overflow-hidden ${isFullscreen ? "" : "pt-20"}`}>
                 {renderSection()}

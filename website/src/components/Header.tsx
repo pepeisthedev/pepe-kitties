@@ -4,22 +4,24 @@ import { Button } from "./ui/button"
 import { Wallet, Menu, X, Sun, Moon } from "lucide-react"
 import type { SectionId } from "./MainPage"
 import { useIsOwner } from "../hooks"
+import type { FeatureFlags } from "../hooks"
 import { useTheme } from "../context/ThemeContext"
 
 interface HeaderProps {
     activeSection: SectionId
     onSectionChange: (section: SectionId) => void
+    featureFlags: FeatureFlags
 }
 
-const navItems: { id: SectionId; label: string }[] = [
+const allNavItems: { id: SectionId; label: string; flagKey?: keyof FeatureFlags }[] = [
     { id: "mint", label: "Mint" },
     { id: "my-kitties", label: "My Fregs" },
-    { id: "treasure-chests", label: "$FREG" },
-    { id: "spin-wheel", label: "Spin" },
-    { id: "shop", label: "Shop" },
+    { id: "treasure-chests", label: "$FREG", flagKey: "chestOpeningActive" },
+    { id: "spin-wheel", label: "Spin", flagKey: "spinActive" },
+    { id: "shop", label: "Shop", flagKey: "shopActive" },
 ]
 
-export default function Header({ activeSection, onSectionChange }: HeaderProps): React.JSX.Element {
+export default function Header({ activeSection, onSectionChange, featureFlags }: HeaderProps): React.JSX.Element {
     const { address, isConnected } = useAppKitAccount()
     const { open } = useAppKit()
     const { isOwner } = useIsOwner()
@@ -32,7 +34,10 @@ export default function Header({ activeSection, onSectionChange }: HeaderProps):
     const isLanding = activeSection === "landing"
     const isFullscreen = isLanding || activeSection === "spin-wheel"
 
-    // Build nav items dynamically based on owner status
+    // Filter nav items based on feature flags and owner status
+    const navItems = allNavItems.filter(item =>
+        !item.flagKey || featureFlags[item.flagKey]
+    )
     const dynamicNavItems = isOwner
         ? [...navItems, { id: "admin" as SectionId, label: "Admin" }]
         : navItems

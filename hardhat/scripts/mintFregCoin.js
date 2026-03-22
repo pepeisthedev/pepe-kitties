@@ -22,15 +22,9 @@ async function main() {
 
     const fregCoin = await ethers.getContractAt("FregCoin", fregCoinAddress);
 
-    const balanceBefore = await fregCoin.balanceOf(deployerAddress);
-    console.log(`\nBalance before: ${ethers.formatEther(balanceBefore)}`);
-
-    const tx = await fregCoin.ownerMint(deployerAddress, ethers.parseEther(AMOUNT));
-    await tx.wait();
-    console.log(`Mint tx: ${tx.hash}`);
-
-    const balanceAfter = await fregCoin.balanceOf(deployerAddress);
-    console.log(`Balance after: ${ethers.formatEther(balanceAfter)}`);
+    const balance = await fregCoin.balanceOf(deployerAddress);
+    console.log(`\nDeployer balance: ${ethers.formatEther(balance)}`);
+    console.log("All FregCoin is minted to deployer at deploy time. Use transfer() to distribute.");
 }
 
 main()

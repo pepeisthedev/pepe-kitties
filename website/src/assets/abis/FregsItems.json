@@ -1150,6 +1150,19 @@
   },
   {
     "inputs": [],
+    "name": "chestOpeningActive",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "chestsBurned",
     "outputs": [
       {
@@ -2042,6 +2055,19 @@
       }
     ],
     "name": "setChestCoinReward",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bool",
+        "name": "_active",
+        "type": "bool"
+      }
+    ],
+    "name": "setChestOpeningActive",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

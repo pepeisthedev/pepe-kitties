@@ -4,11 +4,12 @@ import Section from "./Section"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
-import { Settings, Package, Plus, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users, Dices, Droplets } from "lucide-react"
+import { Settings, Package, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users, Dices, Droplets, Power, Gem } from "lucide-react"
 import { useContractData, useContracts } from "../hooks"
+import type { FeatureFlags } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog"
-import { TRAIT_TYPES, ITEM_TYPES } from "../config/contracts"
+import { ITEM_TYPES } from "../config/contracts"
 
 type TxStatus = 'idle' | 'pending' | 'confirming' | 'success' | 'error'
 
@@ -17,7 +18,12 @@ interface ItemType {
   name: string
 }
 
-export default function AdminSection(): React.JSX.Element {
+interface AdminSectionProps {
+  featureFlags: FeatureFlags
+  onFeatureFlagsChange: () => void
+}
+
+export default function AdminSection({ featureFlags, onFeatureFlagsChange }: AdminSectionProps): React.JSX.Element {
   const contracts = useContracts()
   const { data: contractData, refetch } = useContractData()
 
@@ -26,8 +32,8 @@ export default function AdminSection(): React.JSX.Element {
   const [showFreeMints, setShowFreeMints] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showMintItems, setShowMintItems] = useState(false)
-  const [showCreateItem, setShowCreateItem] = useState(false)
   const [showMintPass, setShowMintPass] = useState(false)
+  const [showFeatureToggles, setShowFeatureToggles] = useState(true)
 
   // Settings form
   const [mintPrice, setMintPrice] = useState("")
@@ -41,15 +47,6 @@ export default function AdminSection(): React.JSX.Element {
   const [mintAmount, setMintAmount] = useState("1")
   const [mintProgress, setMintProgress] = useState({ current: 0, total: 0 })
   const [itemTypes, setItemTypes] = useState<ItemType[]>([])
-
-  // Create item type form
-  const [newItemName, setNewItemName] = useState("")
-  const [newItemDescription, setNewItemDescription] = useState("")
-  const [newItemTraitType, setNewItemTraitType] = useState<number>(TRAIT_TYPES.HEAD)
-  const [newItemTraitValue, setNewItemTraitValue] = useState("")
-  const [newItemOwnerMintable, setNewItemOwnerMintable] = useState(true)
-  const [newItemClaimable, setNewItemClaimable] = useState(false)
-  const [newItemClaimWeight, setNewItemClaimWeight] = useState("0")
 
   // Free mint wallets form
   const [freeMintAddresses, setFreeMintAddresses] = useState("")
@@ -69,9 +66,14 @@ export default function AdminSection(): React.JSX.Element {
   const [spinAddresses, setSpinAddresses] = useState("")
   const [spinAmount, setSpinAmount] = useState("1")
 
+  // Chest funding panel
+  const [showChestFunding, setShowChestFunding] = useState(false)
+  const [chestCoinBalance, setChestCoinBalance] = useState("0")
+  const [chestDepositAmount, setChestDepositAmount] = useState("")
+  const [chestRewardAmount, setChestRewardAmount] = useState("")
+
   // Liquidity panel
   const [showLiquidity, setShowLiquidity] = useState(false)
-  const [liquidityActive, setLiquidityActive] = useState(false)
   const [liquidityEthBalance, setLiquidityEthBalance] = useState("0")
   const [liquidityDepositAmount, setLiquidityDepositAmount] = useState("")
   const [liquidityWithdrawAmount, setLiquidityWithdrawAmount] = useState("")
@@ -124,14 +126,21 @@ export default function AdminSection(): React.JSX.Element {
         const totalMinted = await contracts.mintPass.read.totalMinted()
         setMintPassData({ totalMinted: Number(totalMinted) })
 
+        // Fetch chest FREG balance
+        try {
+          const itemsAddress = await contracts.items.read.getAddress()
+          const fregCoinAddr = await contracts.items.read.fregCoinContract()
+          if (fregCoinAddr !== "0x0000000000000000000000000000000000000000") {
+            const fregCoinContract = new Contract(fregCoinAddr, ["function balanceOf(address) view returns (uint256)"], contracts.provider)
+            const coinBal = await fregCoinContract.balanceOf(itemsAddress)
+            setChestCoinBalance(formatEther(coinBal))
+          }
+        } catch {}
+
         // Fetch liquidity data
         if (contracts.liquidity) {
           const liqAddress = await contracts.liquidity.read.getAddress()
-          const [active, liqBalance] = await Promise.all([
-            contracts.liquidity.read.active(),
-            contracts.provider.getBalance(liqAddress),
-          ])
-          setLiquidityActive(active)
+          const liqBalance = await contracts.provider.getBalance(liqAddress)
           setLiquidityEthBalance(formatEther(liqBalance))
 
           // Fetch FregCoin balance if set
@@ -250,42 +259,47 @@ export default function AdminSection(): React.JSX.Element {
     }
   }
 
-  const handleCreateItemType = async () => {
+  const handleToggleFeature = async (feature: string) => {
     if (!contracts) return
     setTxStatus('pending')
-    setTxMessage("Creating new item type...")
+    setTxMessage(`Toggling ${feature}...`)
 
     try {
-      const contract = await contracts.items.write()
-      const tx = await contract.addItemType(
-        newItemName,
-        newItemDescription,
-        newItemTraitType,
-        Number(newItemTraitValue),
-        newItemOwnerMintable,
-        newItemClaimable,
-        Number(newItemClaimWeight)
-      )
+      let tx: any
+      switch (feature) {
+        case 'spin': {
+          if (!contracts.spinTheWheel) throw new Error("SpinTheWheel contract not configured")
+          const contract = await contracts.spinTheWheel.write()
+          tx = await contract.setActive(!featureFlags.spinActive)
+          break
+        }
+        case 'chestOpening': {
+          const contract = await contracts.items.write()
+          tx = await contract.setChestOpeningActive(!featureFlags.chestOpeningActive)
+          break
+        }
+        case 'liquidity': {
+          if (!contracts.liquidity) throw new Error("Liquidity contract not configured")
+          const contract = await contracts.liquidity.write()
+          tx = await contract.setActive(!featureFlags.liquidityActive)
+          break
+        }
+        case 'shop': {
+          if (!contracts.fregShop) throw new Error("Shop contract not configured")
+          const contract = await contracts.fregShop.write()
+          tx = await contract.setShopActive(!featureFlags.shopActive)
+          break
+        }
+        default:
+          throw new Error(`Unknown feature: ${feature}`)
+      }
       setTxStatus('confirming')
       await tx.wait()
       setTxStatus('success')
-      setTxMessage(`Item type "${newItemName}" created!`)
-
-      // Reset form
-      setNewItemName("")
-      setNewItemDescription("")
-      setNewItemTraitValue("")
-      setNewItemOwnerMintable(true)
-      setNewItemClaimable(false)
-      setNewItemClaimWeight("0")
-
-      // Refresh item types
-      const types: ItemType[] = [...itemTypes]
-      const newId = types.length > 0 ? Math.max(...types.map(t => t.id)) + 1 : 101
-      types.push({ id: newId, name: newItemName })
-      setItemTypes(types)
+      setTxMessage(`${feature} toggled!`)
+      onFeatureFlagsChange()
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to create item type")
+      setErrorMessage(err.message || `Failed to toggle ${feature}`)
       setTxStatus('error')
     }
   }
@@ -438,23 +452,7 @@ export default function AdminSection(): React.JSX.Element {
   }
 
   const handleToggleLiquidity = async () => {
-    if (!contracts?.liquidity) return
-    const newActive = !liquidityActive
-    setTxStatus('pending')
-    setTxMessage(`${newActive ? 'Activating' : 'Deactivating'} liquidity contract...`)
-
-    try {
-      const contract = await contracts.liquidity.write()
-      const tx = await contract.setActive(newActive)
-      setTxStatus('confirming')
-      await tx.wait()
-      setLiquidityActive(newActive)
-      setTxStatus('success')
-      setTxMessage(`Liquidity contract ${newActive ? 'activated' : 'deactivated'}!`)
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to toggle liquidity")
-      setTxStatus('error')
-    }
+    await handleToggleFeature('liquidity')
   }
 
   const handleLiquidityDeposit = async () => {
@@ -554,6 +552,89 @@ export default function AdminSection(): React.JSX.Element {
     }
   }
 
+  const handleChestDeposit = async () => {
+    if (!contracts || !chestDepositAmount) return
+    setTxStatus('pending')
+    setTxMessage(`Depositing ${chestDepositAmount} FREG for chest rewards...`)
+
+    try {
+      const itemsAddress = await contracts.items.read.getAddress()
+      const fregCoinAddr = await contracts.items.read.fregCoinContract()
+      const signer = await contracts.getSigner()
+      const fregCoin = new Contract(fregCoinAddr, [
+        "function approve(address, uint256) returns (bool)",
+        "function balanceOf(address) view returns (uint256)",
+      ], signer)
+
+      const amount = parseEther(chestDepositAmount)
+
+      // Approve first
+      const approveTx = await fregCoin.approve(itemsAddress, amount)
+      setTxMessage("Approving FREG spend...")
+      await approveTx.wait()
+
+      // Then deposit
+      setTxMessage("Depositing FREG...")
+      const contract = await contracts.items.write()
+      const tx = await contract.depositCoins(amount)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Deposited ${chestDepositAmount} FREG!`)
+      setChestDepositAmount("")
+
+      const coinBal = await fregCoin.balanceOf(itemsAddress)
+      setChestCoinBalance(formatEther(coinBal))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to deposit FREG")
+      setTxStatus('error')
+    }
+  }
+
+  const handleChestWithdrawExcess = async () => {
+    if (!contracts) return
+    setTxStatus('pending')
+    setTxMessage("Withdrawing excess FREG...")
+
+    try {
+      const contract = await contracts.items.write()
+      const tx = await contract.withdrawExcess()
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage("Withdrew excess FREG!")
+
+      const itemsAddress = await contracts.items.read.getAddress()
+      const fregCoinAddr = await contracts.items.read.fregCoinContract()
+      const fregCoin = new Contract(fregCoinAddr, ["function balanceOf(address) view returns (uint256)"], contracts.provider)
+      const coinBal = await fregCoin.balanceOf(itemsAddress)
+      setChestCoinBalance(formatEther(coinBal))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to withdraw excess FREG")
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetChestReward = async () => {
+    if (!contracts || !chestRewardAmount) return
+    setTxStatus('pending')
+    setTxMessage("Updating chest reward amount...")
+
+    try {
+      const contract = await contracts.items.write()
+      const tx = await contract.setChestCoinReward(parseEther(chestRewardAmount))
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Chest reward set to ${chestRewardAmount} FREG!`)
+      setChestRewardAmount("")
+      refetch()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to update chest reward")
+      setTxStatus('error')
+    }
+  }
+
   const closeModal = () => {
     setTxStatus('idle')
     setTxMessage("")
@@ -590,6 +671,54 @@ export default function AdminSection(): React.JSX.Element {
       </div>
 
       <div className="space-y-4">
+        {/* Feature Toggles Panel */}
+        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+          <button
+            onClick={() => setShowFeatureToggles(!showFeatureToggles)}
+            className="w-full p-4 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Power className="w-6 h-6 text-orange-400" />
+              <span className="font-bangers text-2xl text-orange-400">Feature Toggles</span>
+            </div>
+            {showFeatureToggles ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+          </button>
+
+          {showFeatureToggles && (
+            <CardContent className="p-6 pt-0 space-y-3">
+              {[
+                { key: 'spin', label: 'Spin the Wheel', active: featureFlags.spinActive, disabled: !contracts?.spinTheWheel },
+                { key: 'chestOpening', label: 'Open Chests', active: featureFlags.chestOpeningActive },
+                { key: 'liquidity', label: 'Liquidity', active: featureFlags.liquidityActive, disabled: !contracts?.liquidity },
+                { key: 'shop', label: 'Shop', active: featureFlags.shopActive, disabled: !contracts?.fregShop },
+              ].map(({ key, label, active, disabled }) => (
+                <div key={key} className="flex items-center justify-between bg-black/30 rounded-lg p-3">
+                  <div className="flex items-center gap-3">
+                    <span className={`w-3 h-3 rounded-full ${active ? 'bg-green-400' : 'bg-red-400'}`} />
+                    <span className="font-righteous text-white/80">{label}</span>
+                    <span className={`font-righteous text-xs px-2 py-0.5 rounded-full ${
+                      active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                    }`}>
+                      {active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <Button
+                    onClick={() => handleToggleFeature(key)}
+                    disabled={disabled}
+                    className={`font-bangers text-sm px-4 py-1 rounded-lg ${
+                      active
+                        ? "bg-red-500 hover:bg-red-400 text-white"
+                        : "bg-green-500 hover:bg-green-400 text-black"
+                    } disabled:opacity-30`}
+                  >
+                    {active ? 'Deactivate' : 'Activate'}
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          )}
+        </Card>
+
         {/* Mint Phase Panel */}
         <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
           <button
@@ -860,122 +989,6 @@ export default function AdminSection(): React.JSX.Element {
           )}
         </Card>
 
-        {/* Create Item Type Panel */}
-        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
-          <button
-            onClick={() => setShowCreateItem(!showCreateItem)}
-            className="w-full p-4 flex items-center justify-between text-left"
-          >
-            <div className="flex items-center gap-3">
-              <Plus className="w-6 h-6 text-orange-400" />
-              <span className="font-bangers text-2xl text-orange-400">Create New Item Type</span>
-            </div>
-            {showCreateItem ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
-          </button>
-
-          {showCreateItem && (
-            <CardContent className="p-6 pt-0 space-y-4">
-              {/* Name */}
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Name:</label>
-                <Input
-                  type="text"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                  placeholder="Crown"
-                />
-              </div>
-
-              {/* Description */}
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Description:</label>
-                <Input
-                  type="text"
-                  value={newItemDescription}
-                  onChange={(e) => setNewItemDescription(e.target.value)}
-                  className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                  placeholder="A royal crown for your Freg"
-                />
-              </div>
-
-              {/* Trait Type */}
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Trait Type:</label>
-                <select
-                  value={newItemTraitType}
-                  onChange={(e) => setNewItemTraitType(Number(e.target.value))}
-                  className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono p-2 rounded-md"
-                >
-                  {Object.entries(TRAIT_TYPES).map(([name, id]) => (
-                    <option key={id} value={id}>
-                      {name} (ID: {id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Trait Value */}
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Trait Value:</label>
-                <Input
-                  type="number"
-                  value={newItemTraitValue}
-                  onChange={(e) => setNewItemTraitValue(e.target.value)}
-                  className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                  placeholder="ID in router"
-                />
-              </div>
-
-              {/* Checkboxes */}
-              <div className="flex items-center gap-8">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newItemOwnerMintable}
-                    onChange={(e) => setNewItemOwnerMintable(e.target.checked)}
-                    className="w-5 h-5 accent-orange-400"
-                  />
-                  <span className="font-righteous text-white/70">Owner Mintable</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newItemClaimable}
-                    onChange={(e) => setNewItemClaimable(e.target.checked)}
-                    className="w-5 h-5 accent-orange-400"
-                  />
-                  <span className="font-righteous text-white/70">Claimable</span>
-                </label>
-              </div>
-
-              {/* Claim Weight (only if claimable) */}
-              {newItemClaimable && (
-                <div className="flex items-center gap-4">
-                  <label className="font-righteous text-white/70 w-32">Claim Weight:</label>
-                  <Input
-                    type="number"
-                    value={newItemClaimWeight}
-                    onChange={(e) => setNewItemClaimWeight(e.target.value)}
-                    className="w-32 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                    placeholder="0"
-                  />
-                </div>
-              )}
-
-              {/* Create Button */}
-              <Button
-                onClick={handleCreateItemType}
-                disabled={!newItemName || !newItemTraitValue}
-                className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4 disabled:opacity-50"
-              >
-                Create Item Type
-              </Button>
-            </CardContent>
-          )}
-        </Card>
-
         {/* Mint Pass Airdrop Panel */}
         <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
           <button
@@ -1108,6 +1121,91 @@ export default function AdminSection(): React.JSX.Element {
             </CardContent>
           )}
         </Card>
+        {/* Chest Funding Panel */}
+        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+          <button
+            onClick={() => setShowChestFunding(!showChestFunding)}
+            className="w-full p-4 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Gem className="w-6 h-6 text-orange-400" />
+              <span className="font-bangers text-2xl text-orange-400">Chest Rewards</span>
+            </div>
+            {showChestFunding ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+          </button>
+
+          {showChestFunding && (
+            <CardContent className="p-6 pt-0 space-y-4">
+              {/* Current balance and stats */}
+              <div className="bg-black/30 rounded-lg p-3 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-righteous text-white/70">FREG in contract:</span>
+                  <span className="font-mono text-orange-400">{Number(chestCoinBalance).toLocaleString()} FREG</span>
+                </div>
+                {contractData && (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="font-righteous text-white/70">Active chests:</span>
+                      <span className="font-mono text-orange-400">{contractData.activeChestSupply}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-righteous text-white/70">Reward per chest:</span>
+                      <span className="font-mono text-orange-400">{Number(contractData.chestCoinReward).toLocaleString()} FREG</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-righteous text-white/70">Reserved for chests:</span>
+                      <span className="font-mono text-orange-400">{(contractData.activeChestSupply * Number(contractData.chestCoinReward)).toLocaleString()} FREG</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Set reward per chest */}
+              <div className="flex items-center gap-4">
+                <label className="font-righteous text-white/70 w-32">Reward:</label>
+                <Input
+                  type="text"
+                  value={chestRewardAmount}
+                  onChange={(e) => setChestRewardAmount(e.target.value)}
+                  className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                  placeholder={contractData?.chestCoinReward ?? "0"}
+                />
+                <span className="text-white/70 font-righteous">FREG</span>
+                <Button onClick={handleSetChestReward} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
+                  Set
+                </Button>
+              </div>
+
+              {/* Deposit FREG */}
+              <div className="flex items-center gap-4">
+                <label className="font-righteous text-white/70 w-32">Deposit:</label>
+                <Input
+                  type="text"
+                  value={chestDepositAmount}
+                  onChange={(e) => setChestDepositAmount(e.target.value)}
+                  className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                  placeholder="0.0"
+                />
+                <span className="text-white/70 font-righteous">FREG</span>
+                <Button onClick={handleChestDeposit} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
+                  Deposit
+                </Button>
+              </div>
+
+              {/* Withdraw excess */}
+              <div className="flex items-center justify-between">
+                <span className="font-righteous text-white/70">Withdraw unreserved FREG:</span>
+                <Button
+                  onClick={handleChestWithdrawExcess}
+                  className="bg-orange-500 hover:bg-orange-400 text-black font-bangers"
+                >
+                  Withdraw Excess
+                </Button>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
         {/* Liquidity Panel */}
         {contracts?.liquidity && (
         <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
@@ -1119,9 +1217,9 @@ export default function AdminSection(): React.JSX.Element {
               <Droplets className="w-6 h-6 text-orange-400" />
               <span className="font-bangers text-2xl text-orange-400">Liquidity</span>
               <span className={`font-righteous text-xs px-2 py-0.5 rounded-full ${
-                liquidityActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                featureFlags.liquidityActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
               }`}>
-                {liquidityActive ? 'Active' : 'Inactive'}
+                {featureFlags.liquidityActive ? 'Active' : 'Inactive'}
               </span>
             </div>
             {showLiquidity ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
@@ -1135,12 +1233,12 @@ export default function AdminSection(): React.JSX.Element {
                 <Button
                   onClick={handleToggleLiquidity}
                   className={`font-bangers text-lg px-6 py-2 rounded-xl ${
-                    liquidityActive
+                    featureFlags.liquidityActive
                       ? "bg-red-500 hover:bg-red-400 text-white"
                       : "bg-green-500 hover:bg-green-400 text-black"
                   }`}
                 >
-                  {liquidityActive ? 'Deactivate' : 'Activate'}
+                  {featureFlags.liquidityActive ? 'Deactivate' : 'Activate'}
                 </Button>
               </div>
 

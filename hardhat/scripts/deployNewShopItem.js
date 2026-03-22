@@ -338,10 +338,9 @@ async function main() {
 
     const mintFregToDeployer = definition.localhost?.mintFregToDeployer;
     if ((network.name === "localhost" || network.name === "hardhat") && mintFregToDeployer) {
-        console.log("\n--- Minting Test FREG ---");
-        const mintAmount = ethers.parseEther(String(mintFregToDeployer));
-        await sendTx(fregCoin.ownerMint(deployerAddress, mintAmount));
-        console.log(`  Minted ${ethers.formatEther(mintAmount)} FREG to deployer`);
+        console.log("\n--- Test FREG ---");
+        const deployerBalance = await fregCoin.balanceOf(deployerAddress);
+        console.log(`  Deployer FREG balance: ${ethers.formatEther(deployerBalance)}`);
     }
 
     const traitFileName = await computeTraitFileName(svgRenderer, definition.category, newTraitValue);
