@@ -173,7 +173,7 @@ function normalizeStoredItemType(itemTypeId, config) {
         claimWeight: Number(config?.claimWeight ?? 0),
         description: config?.description || "",
         iconRendererAddress: config?.iconRendererAddress || null,
-        iconRouterSlot: Number(config?.iconRouterSlot ?? (itemTypeId - 1)),
+        iconRouterSlot: Number(config?.iconRouterSlot ?? itemTypeId),
         isClaimable: Boolean(config?.isClaimable ?? false),
         isOwnerMintable: Boolean(config?.isOwnerMintable ?? true),
         name: config?.name || "",
@@ -293,9 +293,9 @@ async function restoreDynamicItemTypesFromStatus(fregsItems, fregShop, svgRender
         }
         expectedNextItemTypeId += 1;
 
-        if (config.iconRouterSlot !== itemTypeId - 1) {
+        if (config.iconRouterSlot !== itemTypeId) {
             throw new Error(
-                `Stored itemType ${itemTypeId} uses iconRouterSlot ${config.iconRouterSlot}, but FregsItems.tokenURI expects ${itemTypeId - 1}.`
+                `Stored itemType ${itemTypeId} uses iconRouterSlot ${config.iconRouterSlot}, but FregsItems.tokenURI expects ${itemTypeId}.`
             );
         }
 

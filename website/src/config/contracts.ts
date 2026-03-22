@@ -119,6 +119,9 @@ export const BASE_HEAD_COUNT = 22
 // Base stomach count for calculating stomach trait values from fileNames
 export const BASE_STOMACH_COUNT = 4
 
+// Base mouth count for calculating mouth trait values from fileNames
+export const BASE_MOUTH_COUNT = 6
+
 // Check if an item is incompatible with a freg's current traits
 export function checkItemIncompatibility(
   itemConfig: ItemConfig,

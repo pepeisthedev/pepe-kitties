@@ -7,19 +7,34 @@ const { syncDynamicShopItemArtifacts } = require("./shopItemSync");
 
 const DEFAULT_DEFINITION_PATH = path.join(__dirname, "shop-item-definitions/sunItemTrait.js");
 const CATEGORY_CONFIG = {
+    background: {
+        baseTraitTypeId: null,
+        contractMethod: "backgroundContract",
+        setterMethod: "setBackgroundContract",
+        targetTraitType: 0,
+    },
     head: {
         baseTraitTypeId: 2,
         contractMethod: "headContract",
+        setterMethod: "setHeadContract",
         targetTraitType: 2,
+    },
+    mouth: {
+        baseTraitTypeId: 3,
+        contractMethod: "mouthContract",
+        setterMethod: "setMouthContract",
+        targetTraitType: 3,
     },
     skin: {
         baseTraitTypeId: null,
         contractMethod: "skinContract",
+        setterMethod: "setSkinContract",
         targetTraitType: 1,
     },
     stomach: {
         baseTraitTypeId: 4,
         contractMethod: "bellyContract",
+        setterMethod: "setBellyContract",
         targetTraitType: 4,
     },
 };
@@ -139,11 +154,20 @@ function getTargetTraitConfig(category) {
     return config;
 }
 
-async function getTraitRouter(svgRenderer, category) {
+async function getOrCreateTraitRouter(svgRenderer, category, status) {
     const config = getTargetTraitConfig(category);
-    const routerAddress = await svgRenderer[config.contractMethod]();
+    let routerAddress = await svgRenderer[config.contractMethod]();
+
     if (!routerAddress || routerAddress === ethers.ZeroAddress) {
-        throw new Error(`SVG renderer has no router configured for ${category}.`);
+        console.log(`\n--- Deploying SVGRouter for ${category} ---`);
+        const SVGRouterFactory = await ethers.getContractFactory("SVGRouter");
+        const router = await deployContract(SVGRouterFactory, [], `SVGRouter (${category})`);
+        routerAddress = await router.getAddress();
+        await sendTx(svgRenderer[config.setterMethod](routerAddress));
+        console.log(`  Registered ${category} router on SVG renderer`);
+        status.routers = status.routers || {};
+        status.routers[category] = routerAddress;
+        saveDeploymentStatus(status, network.name);
     }
 
     const router = await ethers.getContractAt("SVGRouter", routerAddress);
@@ -237,7 +261,7 @@ async function main() {
     const svgRenderer = await ethers.getContractAt("FregsSVGRenderer", status.contracts.svgRenderer);
     const itemsRouter = await ethers.getContractAt("SVGRouter", status.routers.items);
 
-    const { router: traitRouter, routerAddress: traitRouterAddress } = await getTraitRouter(svgRenderer, definition.category);
+    const { router: traitRouter, routerAddress: traitRouterAddress } = await getOrCreateTraitRouter(svgRenderer, definition.category, status);
 
     console.log("\n--- Deploying Trait SVG ---");
     const SVGPartWriter = await ethers.getContractFactory("SVGPartWriter");
@@ -249,11 +273,30 @@ async function main() {
 
     console.log("\n--- Registering Trait On Router ---");
     console.log(`  ${definition.category} router: ${traitRouterAddress}`);
-    const previousTraitCount = Number(await traitRouter.getTraitCount());
-    console.log(`  Previous trait count: ${previousTraitCount}`);
-    await sendTx(traitRouter.addRenderContractWithName(traitRendererAddress, definition.trait.name));
-    const newTraitValue = Number(await traitRouter.getTraitCount());
-    console.log(`  New trait value: ${newTraitValue}`);
+
+    // Find the highest occupied slot on the router, then use the next one.
+    // We cannot rely on getTraitCount()/nextTypeId because the initial deploy
+    // uses setRenderContractsBatchWithTypeIds which does not update nextTypeId.
+    // Scan forward from slot 1 to find the highest occupied slot.
+    let highestOccupied = 0;
+    let slot = 1;
+    let consecutiveEmpty = 0;
+    while (consecutiveEmpty < 10) {
+        const existing = await traitRouter.renderContracts(slot);
+        if (!existing || existing === ethers.ZeroAddress) {
+            consecutiveEmpty++;
+        } else {
+            highestOccupied = slot;
+            consecutiveEmpty = 0;
+        }
+        slot++;
+    }
+    const newTraitValue = highestOccupied + 1;
+    console.log(`  Highest occupied slot: ${highestOccupied}, new trait value: ${newTraitValue}`);
+
+    await sendTx(traitRouter.setRenderContract(newTraitValue, traitRendererAddress));
+    await sendTx(traitRouter.setTraitName(newTraitValue, definition.trait.name));
+    console.log(`  Registered trait at slot ${newTraitValue}`);
 
     console.log("\n--- Creating Item Type ---");
     const itemTypeId = Number(await fregsItems.nextItemTypeId());
@@ -273,7 +316,7 @@ async function main() {
         keepSvgTag: true,
         name: `${definition.name} icon renderer`,
     });
-    const iconSlot = itemTypeId - 1;
+    const iconSlot = itemTypeId;
     console.log(`  Setting items router slot ${iconSlot}`);
     await sendTx(itemsRouter.setRenderContract(iconSlot, iconRendererAddress));
 

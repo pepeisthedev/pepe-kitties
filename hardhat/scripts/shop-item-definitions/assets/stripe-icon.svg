@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <ellipse fill="#65b449" cx="50" cy="50" rx="40" ry="45"/>
+  <rect fill="#3d7a2a" opacity="0.6" x="20" y="25" width="60" height="8" rx="4" transform="rotate(-10, 50, 29)"/>
+  <rect fill="#3d7a2a" opacity="0.6" x="18" y="42" width="65" height="8" rx="4" transform="rotate(8, 50, 46)"/>
+  <rect fill="#3d7a2a" opacity="0.6" x="20" y="58" width="60" height="8" rx="4" transform="rotate(-6, 50, 62)"/>
+  <rect fill="#3d7a2a" opacity="0.6" x="25" y="74" width="50" height="8" rx="4" transform="rotate(10, 50, 78)"/>
+</svg>

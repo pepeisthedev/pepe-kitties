@@ -19,6 +19,7 @@ const FROM_ITEMS_PATH = "/frogz/from_items"
 // Base trait counts - IDs above these are item traits (stored in from_items/ folder)
 const BASE_HEAD_COUNT = 22
 const BASE_STOMACH_COUNT = 4
+const BASE_MOUTH_COUNT = 6
 
 
 // Cache for original SVG content to avoid repeated fetches
@@ -84,8 +85,13 @@ export default function KittyRenderer({
     loadBody()
   }, [bodyColor, hasSpecialBody])
 
-  // Fetch background SVG and replace color
+  // Fetch background SVG and replace color (only for default background)
   useEffect(() => {
+    if (background > 0) {
+      setBackgroundSvgUrl(null)
+      return
+    }
+
     const loadBackground = async () => {
       try {
         // Fetch and cache the original SVG if not already cached
@@ -107,14 +113,14 @@ export default function KittyRenderer({
     }
 
     loadBackground()
-  }, [bodyColor])
+  }, [bodyColor, background])
 
   // Track loading state
   useEffect(() => {
-    const bgReady = backgroundSvgUrl !== null
+    const bgReady = background > 0 || backgroundSvgUrl !== null
     const bodyReady = hasSpecialBody || bodySvgUrl !== null
     setIsLoading(!bgReady || !bodyReady)
-  }, [backgroundSvgUrl, bodySvgUrl, hasSpecialBody])
+  }, [backgroundSvgUrl, bodySvgUrl, hasSpecialBody, background])
 
   return (
     <div className={`relative bg-white ${sizeClasses[size]} ${className}`}>
@@ -126,12 +132,20 @@ export default function KittyRenderer({
       )}
 
       {/* Background - always rendered first */}
-      {backgroundSvgUrl && (
+      {background > 0 ? (
         <img
-          src={backgroundSvgUrl}
-          alt="Background"
+          src={`${FROM_ITEMS_PATH}/background/${background}.svg`}
+          alt={`Background ${background}`}
           className="absolute inset-0 w-full h-full object-contain"
         />
+      ) : (
+        backgroundSvgUrl && (
+          <img
+            src={backgroundSvgUrl}
+            alt="Background"
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        )
       )}
 
       {/* Body - special skin or color-based */}
@@ -185,13 +199,22 @@ export default function KittyRenderer({
         />
       )}
 
-      {/* Mouth - hidden in preview mode, 0 = None */}
+      {/* Mouth - hidden in preview mode, 0 = None
+          Base mouths (1-6) are in default/mouth/, item mouths (7+) are in from_items/mouth/ */}
       {!hideTraits && mouth > 0 && (
-        <img
-          src={`${FROGZ_PATH}/mouth/${mouth}.svg`}
-          alt={`Mouth ${mouth}`}
-          className="absolute inset-0 w-full h-full object-contain"
-        />
+        mouth > BASE_MOUTH_COUNT ? (
+          <img
+            src={`${FROM_ITEMS_PATH}/mouth/${mouth - BASE_MOUTH_COUNT}.svg`}
+            alt={`Mouth ${mouth}`}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        ) : (
+          <img
+            src={`${FROGZ_PATH}/mouth/${mouth}.svg`}
+            alt={`Mouth ${mouth}`}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        )
       )}
     </div>
   )

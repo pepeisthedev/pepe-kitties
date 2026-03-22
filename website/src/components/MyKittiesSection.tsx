@@ -13,7 +13,7 @@ import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
 import { waitForEvent } from "../lib/waitForEvent"
 import { readBufferedGasAwareVrfFee } from "../lib/vrfFee"
-import { ITEM_TYPE_NAMES, ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, ITEMS, checkItemIncompatibility, BASE_HEAD_COUNT, BASE_STOMACH_COUNT } from "../config/contracts"
+import { ITEM_TYPE_NAMES, ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, ITEMS, checkItemIncompatibility, BASE_HEAD_COUNT, BASE_STOMACH_COUNT, BASE_MOUTH_COUNT } from "../config/contracts"
 import { Gift, LayoutGrid, Rows, Flame, AlertTriangle, Wand2, Palette, Backpack } from "lucide-react"
 import {
     Dialog,
@@ -57,6 +57,14 @@ const getTraitName = (traitsConfig: TraitsConfig | null, traitType: keyof Traits
             const itemStomach = ITEMS.find(item => item.category === 'stomach' && item.traitFileName === `${index - BASE_STOMACH_COUNT}.svg`)
             return itemStomach?.name || `Special #${index - BASE_STOMACH_COUNT}`
         }
+        if (traitType === 'mouth' && index > BASE_MOUTH_COUNT) {
+            const itemMouth = ITEMS.find(item => item.category === 'mouth' && item.traitFileName === `${index - BASE_MOUTH_COUNT}.svg`)
+            return itemMouth?.name || `Special #${index - BASE_MOUTH_COUNT}`
+        }
+        if (traitType === 'background' && index > 0) {
+            const itemBg = ITEMS.find(item => item.category === 'background' && item.traitFileName === `${index}.svg`)
+            return itemBg?.name || `Special #${index}`
+        }
         return `#${index}`
     }
     return traits[index - 1]?.name || `#${index}`
@@ -87,8 +95,10 @@ const generatePalette = (hue: number): string[] => {
 
 
 
-const isSkinItem = (itemType: number): boolean => getItemConfig(itemType)?.category === 'skin'
-const isHeadItem = (itemType: number): boolean => getItemConfig(itemType)?.category === 'head'
+// Built-in skin/head items use legacy contract functions (useSpecialSkinItem/useHeadTraitItem).
+// Dynamic items (ID >= 100) use useDynamicTraitItem instead.
+const isSkinItem = (itemType: number): boolean => itemType < 100 && getItemConfig(itemType)?.category === 'skin'
+const isHeadItem = (itemType: number): boolean => itemType < 100 && getItemConfig(itemType)?.category === 'head'
 
 const isDynamicTraitItem = (item: Item): boolean => {
     const config = getItemConfig(item.itemType)
@@ -127,6 +137,8 @@ const getPreviewProps = (kitty: Kitty, item: Item): Partial<Kitty> | null => {
     if (config.category === 'skin') return { body: fileNum }
     if (config.category === 'head') return { head: BASE_HEAD_COUNT + fileNum }
     if (config.category === 'stomach') return { stomach: BASE_STOMACH_COUNT + fileNum }
+    if (config.category === 'mouth') return { mouth: BASE_MOUTH_COUNT + fileNum }
+    if (config.category === 'background') return { background: fileNum }
     return null
 }
 
