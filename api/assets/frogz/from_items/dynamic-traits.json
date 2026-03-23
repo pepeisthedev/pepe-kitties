@@ -13,10 +13,6 @@
       "mouth": [],
       "skin": [],
       "stomach": [
-        {
-          "fileName": "1.svg",
-          "name": "Sun"
-        }
       ]
     },
     "84532": {
@@ -25,10 +21,7 @@
       "mouth": [],
       "skin": [],
       "stomach": [
-        {
-          "fileName": "1.svg",
-          "name": "Sun"
-        }
+  
       ]
     }
   }

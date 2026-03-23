@@ -12,6 +12,24 @@ let fregsItemsContract;
 let fregsItemsRendererAddress;
 let fregsItemsRendererContract;
 
+const itemSvgCache = new Map();
+const itemTypeConfigCache = new Map();
+
+const FREG_DATA_TTL_MS = 5 * 60 * 1000;
+const fregDataCache = new Map();
+
+function getCachedFregData(tokenId) {
+  const entry = fregDataCache.get(tokenId);
+  if (!entry || Date.now() > entry.expiresAt) {
+    return null;
+  }
+  return entry.value;
+}
+
+function setCachedFregData(value) {
+  fregDataCache.set(value.tokenId, { value, expiresAt: Date.now() + FREG_DATA_TTL_MS });
+}
+
 function getProvider() {
   if (!provider) {
     const config = getConfig();
@@ -153,27 +171,49 @@ async function fetchFregDataBatch(tokenIds) {
     return [];
   }
 
-  try {
-    const result = await getFregsContract().getFregDataBatch(tokenIds);
-    const bodyColors = result[0];
-    const backgrounds = result[1];
-    const bodies = result[2];
-    const heads = result[3];
-    const mouths = result[4];
-    const bellies = result[5];
+  const cachedResults = new Map();
+  const uncachedIds = [];
 
-    return tokenIds.map((tokenId, index) => ({
-      background: normalizeTraitValue(backgrounds[index]),
-      belly: normalizeTraitValue(bellies[index]),
-      body: normalizeTraitValue(bodies[index]),
-      bodyColor: bodyColors[index],
-      head: normalizeTraitValue(heads[index]),
-      mouth: normalizeTraitValue(mouths[index]),
-      tokenId: Number(tokenId)
-    }));
-  } catch (error) {
-    return Promise.all(tokenIds.map((tokenId) => fetchFregDataFromMappings(tokenId)));
+  for (const tokenId of tokenIds) {
+    const cached = getCachedFregData(tokenId);
+    if (cached) {
+      cachedResults.set(Number(tokenId), cached);
+    } else {
+      uncachedIds.push(tokenId);
+    }
   }
+
+  if (uncachedIds.length > 0) {
+    let fetched;
+    try {
+      const result = await getFregsContract().getFregDataBatch(uncachedIds);
+      const bodyColors = result[0];
+      const backgrounds = result[1];
+      const bodies = result[2];
+      const heads = result[3];
+      const mouths = result[4];
+      const bellies = result[5];
+
+      fetched = uncachedIds.map((tokenId, index) => ({
+        background: normalizeTraitValue(backgrounds[index]),
+        belly: normalizeTraitValue(bellies[index]),
+        body: normalizeTraitValue(bodies[index]),
+        bodyColor: bodyColors[index],
+        head: normalizeTraitValue(heads[index]),
+        mouth: normalizeTraitValue(mouths[index]),
+        tokenId: Number(tokenId)
+      }));
+    } catch (error) {
+      fetched = await Promise.all(uncachedIds.map((tokenId) => fetchFregDataFromMappings(tokenId)));
+    }
+
+    for (const entry of fetched) {
+      setCachedFregData(entry);
+      cachedResults.set(entry.tokenId, entry);
+    }
+  }
+
+  return tokenIds.map((tokenId) => cachedResults.get(Number(tokenId)));
 }
 
 async function fetchFregData(tokenId) {
@@ -231,13 +271,17 @@ async function fetchTokenUri(tokenId) {
 }
 
 async function fetchItemTypeConfig(itemType) {
+  if (itemTypeConfigCache.has(itemType)) {
+    return itemTypeConfigCache.get(itemType);
+  }
+
   const contract = getFregsItemsContract();
   if (!contract) {
     throw new Error("FregsItems contract not configured");
   }
 
   const config = await contract.itemTypeConfigs(itemType);
-  return {
+  const result = {
     claimWeight: Number(config.claimWeight ?? config[6] ?? 0),
     description: config.description ?? config[1] ?? "",
     isClaimable: Boolean(config.isClaimable ?? config[5]),
@@ -246,15 +290,23 @@ async function fetchItemTypeConfig(itemType) {
     targetTraitType: Number(config.targetTraitType ?? config[2] ?? 0),
     traitValue: Number(config.traitValue ?? config[3] ?? 0)
   };
+  itemTypeConfigCache.set(itemType, result);
+  return result;
 }
 
 async function fetchItemSvg(itemType) {
+  if (itemSvgCache.has(itemType)) {
+    return itemSvgCache.get(itemType);
+  }
+
   const renderer = await getFregsItemsRendererContract();
   if (!renderer) {
     throw new Error("FregsItems renderer not configured");
   }
 
-  return renderer.render(itemType, { gasLimit: READ_GAS_LIMIT });
+  const svg = await renderer.render(itemType, { gasLimit: READ_GAS_LIMIT });
+  itemSvgCache.set(itemType, svg);
+  return svg;
 }
 
 async function fetchOwnedItems(owner) {
