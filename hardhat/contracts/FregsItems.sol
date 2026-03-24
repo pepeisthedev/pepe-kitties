@@ -83,6 +83,9 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     bool public chestOpeningActive;
 
+    // Configurable mutation item type (set by owner after deploying the serum as a shop item)
+    uint256 public mutationItemTypeId;
+
     uint256 private _tokenIdCounter;
     uint256 public pendingClaimCount;
 
@@ -410,8 +413,9 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function useMutationItem(uint256 itemTokenId, uint256 fregId) external nonReentrant {
+        require(mutationItemTypeId != 0, "Mutation item not configured");
         require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
-        require(itemType[itemTokenId] == MUTATION, "Not a mutation item");
+        require(itemType[itemTokenId] == mutationItemTypeId, "Not a mutation item");
         require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
 
         _burn(itemTokenId);
@@ -438,6 +442,12 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     // ============ Owner Functions ============
+
+    function setMutationItemTypeId(uint256 _itemTypeId) external onlyOwner {
+        require(_itemTypeId >= 101, "Must be a dynamic item type");
+        require(bytes(itemTypeConfigs[_itemTypeId].name).length > 0, "Item type not configured");
+        mutationItemTypeId = _itemTypeId;
+    }
 
     // Owner mint function for minting any item type to any address
     function ownerMint(address to, uint256 _itemType, uint256 amount) external onlyOwner {
