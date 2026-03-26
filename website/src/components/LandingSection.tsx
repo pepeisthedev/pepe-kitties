@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react"
+import SpinTokenChecker from "./SpinTokenChecker"
 
 // Social link URLs - update these with actual links
 const SOCIAL_LINKS = {
@@ -195,6 +196,11 @@ export default function LandingSection(): React.JSX.Element {
                     />
                 </div>
 
+                {/* SpinTokenChecker - bottom left on desktop, hidden on mobile (shown in bottom bar) */}
+                <div className="absolute left-6 md:left-16 lg:left-24 bottom-24 z-20 hidden md:block">
+                    <SpinTokenChecker />
+                </div>
+
                 {/* Video area - fills remaining space on mobile, full screen on desktop */}
                 <div className="relative flex-1 overflow-hidden">
                     <video
@@ -219,8 +225,9 @@ export default function LandingSection(): React.JSX.Element {
                     </button>
                 </div>
 
-                {/* Bottom bar with scroll arrow - mobile only */}
-                <div className="flex md:hidden items-center justify-center px-6 py-3 z-10">
+                {/* Bottom bar with scroll arrow and checker - mobile only */}
+                <div className="flex md:hidden items-center justify-between px-6 py-3 z-10">
+                    <SpinTokenChecker />
                     <button
                         onClick={scrollToCards}
                         className="animate-bounce"
