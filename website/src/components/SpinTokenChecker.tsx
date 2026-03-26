@@ -49,9 +49,7 @@ export default function SpinTokenChecker() {
                     style={{ backgroundColor: "#0a0a0a" }}
                     overlayClassName="bg-transparent"
                 >
-                    <DialogHeader className="text-center sm:text-center">
-                        <DialogTitle className="text-xl font-bangers text-white text-center">Check address</DialogTitle>
-                    </DialogHeader>
+                    <img src="/wheel.gif" alt="Spin wheel" className="w-40 mx-auto" />
 
                     {checkState === "idle" || checkState === "loading" ? (
                         <div className="flex flex-col gap-4">
