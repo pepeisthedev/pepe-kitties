@@ -197,7 +197,7 @@ export default function LandingSection(): React.JSX.Element {
                 </div>
 
                 {/* SpinTokenChecker - bottom left on desktop, hidden on mobile (shown in bottom bar) */}
-                <div className="absolute left-6 md:left-16 lg:left-24 bottom-24 z-20 hidden md:block">
+                <div className="absolute left-6 md:left-16 lg:left-24 bottom-24 z-20 ">
                     <SpinTokenChecker />
                 </div>
 
@@ -226,8 +226,7 @@ export default function LandingSection(): React.JSX.Element {
                 </div>
 
                 {/* Bottom bar with scroll arrow and checker - mobile only */}
-                <div className="flex md:hidden items-center justify-between px-6 py-3 z-10">
-                    <SpinTokenChecker />
+                <div className="flex md:hidden items-center justify-center px-6 pb-3 pt-8 z-10">
                     <button
                         onClick={scrollToCards}
                         className="animate-bounce"
