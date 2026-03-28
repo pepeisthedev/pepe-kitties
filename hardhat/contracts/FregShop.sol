@@ -4,6 +4,7 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 interface IFregsItemsShop {
     function mintFromShop(address to, uint256 _itemType) external;
@@ -34,19 +35,28 @@ contract FregShop is Ownable, ReentrancyGuard {
 
     constructor() Ownable(msg.sender) {}
 
-    function buyItem(address buyer, uint256 itemTypeId) external nonReentrant {
+    function buyItem(
+        uint256 itemTypeId,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external nonReentrant {
         require(shopActive, "Shop is not active");
-        require(msg.sender == fregCoinContract, "Only FregCoin contract");
 
         ShopItem storage item = shopItems[itemTypeId];
         require(item.isActive, "Item not for sale");
         require(item.price > 0, "Item not configured");
         require(item.maxSupply == 0 || item.mintCount < item.maxSupply, "Sold out");
 
+        uint256 price = item.price;
         item.mintCount += 1;
-        itemsContract.mintFromShop(buyer, itemTypeId);
 
-        emit ItemPurchased(buyer, itemTypeId, item.price);
+        IERC20Permit(fregCoinContract).permit(msg.sender, address(this), price, deadline, v, r, s);
+        fregCoin.transferFrom(msg.sender, address(this), price);
+        itemsContract.mintFromShop(msg.sender, itemTypeId);
+
+        emit ItemPurchased(msg.sender, itemTypeId, price);
     }
 
     function getPrice(uint256 itemTypeId) external view returns (uint256) {

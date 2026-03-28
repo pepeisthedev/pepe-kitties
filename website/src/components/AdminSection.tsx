@@ -4,12 +4,12 @@ import Section from "./Section"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
-import { Settings, Package, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users, Dices, Droplets, Power, Gem } from "lucide-react"
+import { Settings, Package, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users, Dices, Droplets, Power, Gem, Coins } from "lucide-react"
 import { useContractData, useContracts } from "../hooks"
 import type { FeatureFlags } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog"
-import { ITEM_TYPES } from "../config/contracts"
+import { ITEM_TYPES, FREG_COIN_ADDRESS } from "../config/contracts"
 
 type TxStatus = 'idle' | 'pending' | 'confirming' | 'success' | 'error'
 
@@ -71,6 +71,16 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const [chestCoinBalance, setChestCoinBalance] = useState("0")
   const [chestDepositAmount, setChestDepositAmount] = useState("")
   const [chestRewardAmount, setChestRewardAmount] = useState("")
+
+  // Airdrop panel
+  const [showFregAirdrop, setShowFregAirdrop] = useState(false)
+  const [airdropCoinBalance, setAirdropCoinBalance] = useState("0")
+  const [airdropPercentage, setAirdropPercentage] = useState("40")
+  const [airdropDepositAmount, setAirdropDepositAmount] = useState(() => {
+    const TOTAL_SUPPLY = 1_337_000_000_000
+    return String(Math.floor(TOTAL_SUPPLY * 40 / 100))
+  })
+  const [airdropProgress, setAirdropProgress] = useState({ current: 0, total: 0 })
 
   // Liquidity panel
   const [showLiquidity, setShowLiquidity] = useState(false)
@@ -151,6 +161,14 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
               const coinBal = await fregCoinContract.balanceOf(liqAddress)
               setLiquidityCoinBalance(formatEther(coinBal))
             }
+          } catch {}
+        }
+
+        // Fetch airdrop data
+        if (contracts.fregAirdrop) {
+          try {
+            const bal = await contracts.fregAirdrop.read.coinBalance()
+            setAirdropCoinBalance(formatEther(bal))
           } catch {}
         }
       } catch (err) {
@@ -632,6 +650,123 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to update chest reward")
       setTxStatus('error')
+    }
+  }
+
+  const handleAirdropDeposit = async () => {
+    if (!contracts?.fregAirdrop || !airdropDepositAmount) return
+    setTxStatus('pending')
+    setTxMessage(`Approving ${airdropDepositAmount} FREG...`)
+
+    try {
+      const airdropAddress = await contracts.fregAirdrop.read.getAddress()
+      const signer = await contracts.getSigner()
+      const fregCoin = new Contract(FREG_COIN_ADDRESS, [
+        "function approve(address, uint256) returns (bool)",
+      ], signer)
+
+      const amount = parseEther(airdropDepositAmount)
+      const approveTx = await fregCoin.approve(airdropAddress, amount)
+      setTxMessage("Approving FREG spend...")
+      await approveTx.wait()
+
+      setTxMessage("Funding airdrop contract...")
+      const contract = await contracts.fregAirdrop.write()
+      const tx = await contract.fundAirdrop(amount)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Deposited ${airdropDepositAmount} FREG into airdrop contract!`)
+      setAirdropDepositAmount("")
+
+      const bal = await contracts.fregAirdrop.read.coinBalance()
+      setAirdropCoinBalance(formatEther(bal))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to fund airdrop")
+      setTxStatus('error')
+    }
+  }
+
+  const handleWithdrawRemainder = async () => {
+    if (!contracts?.fregAirdrop) return
+    setTxStatus('pending')
+    setTxMessage("Withdrawing remaining FREG...")
+
+    try {
+      const signer = await contracts.getSigner()
+      const signerAddress = await signer.getAddress()
+      const contract = await contracts.fregAirdrop.write()
+      const tx = await contract.withdrawRemainder(signerAddress)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage("Withdrew remaining FREG!")
+
+      const bal = await contracts.fregAirdrop.read.coinBalance()
+      setAirdropCoinBalance(formatEther(bal))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to withdraw remainder")
+      setTxStatus('error')
+    }
+  }
+
+  const handleSnapshotAndAirdrop = async () => {
+    if (!contracts?.fregAirdrop) return
+    setTxStatus('pending')
+    setTxMessage("Snapshotting Freg holders...")
+    setAirdropProgress({ current: 0, total: 0 })
+
+    try {
+      const totalMinted = Number(await contracts.fregs.read.totalMinted())
+      if (totalMinted === 0) throw new Error("No Fregs minted yet")
+
+      // Build holder map — skip burned tokens
+      const holders: Record<string, number> = {}
+      let liveCount = 0
+      for (let tokenId = 0; tokenId < totalMinted; tokenId++) {
+        try {
+          const owner: string = await contracts.fregs.read.ownerOf(tokenId)
+          holders[owner] = (holders[owner] || 0) + 1
+          liveCount++
+        } catch {
+          // burned token — skip
+        }
+      }
+
+      if (liveCount === 0) throw new Error("No live Fregs found")
+
+      const totalBalanceBig = await contracts.fregAirdrop.read.coinBalance()
+      const perFregShare = totalBalanceBig / BigInt(liveCount)
+      if (perFregShare === 0n) throw new Error("Balance too low for distribution")
+
+      const recipients = Object.keys(holders)
+      const amounts = recipients.map(addr => perFregShare * BigInt(holders[addr]))
+
+      const BATCH_SIZE = 150
+      const totalBatches = Math.ceil(recipients.length / BATCH_SIZE)
+      setAirdropProgress({ current: 0, total: totalBatches })
+      setTxStatus('confirming')
+
+      const contract = await contracts.fregAirdrop.write()
+      for (let b = 0; b < totalBatches; b++) {
+        const batchRecipients = recipients.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE)
+        const batchAmounts = amounts.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE)
+        setTxMessage(`Sending batch ${b + 1} of ${totalBatches} (${batchRecipients.length} recipients)...`)
+        const tx = await contract.airdropBatch(batchRecipients, batchAmounts)
+        await tx.wait()
+        setAirdropProgress({ current: b + 1, total: totalBatches })
+      }
+
+      setTxStatus('success')
+      setTxMessage(`Airdrop complete! Sent to ${recipients.length} unique holders across ${totalBatches} batch(es).`)
+      setAirdropProgress({ current: 0, total: 0 })
+
+      const bal = await contracts.fregAirdrop.read.coinBalance()
+      setAirdropCoinBalance(formatEther(bal))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Airdrop failed")
+      setTxStatus('error')
+      setAirdropProgress({ current: 0, total: 0 })
     }
   }
 
@@ -1323,6 +1458,109 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
           )}
         </Card>
         )}
+      {/* FREG Coin Airdrop */}
+      {contracts?.fregAirdrop && (
+        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+          <button
+            onClick={() => setShowFregAirdrop(!showFregAirdrop)}
+            className="w-full p-4 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Coins className="w-6 h-6 text-orange-400" />
+              <span className="font-bangers text-2xl text-orange-400">FREG Coin Airdrop</span>
+            </div>
+            {showFregAirdrop ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+          </button>
+
+          {showFregAirdrop && (
+            <CardContent className="p-6 pt-0 space-y-4">
+              {/* Balance */}
+              <div className="bg-black/30 rounded-lg p-3 flex justify-between items-center">
+                <span className="font-righteous text-white/70">FREG in contract:</span>
+                <span className="font-mono text-orange-400">{Number(airdropCoinBalance).toLocaleString()} FREG</span>
+              </div>
+
+              {/* Deposit FREG */}
+              <div className="border-t border-white/20 pt-4 space-y-3">
+                <div className="flex items-center gap-4">
+                  <label className="font-righteous text-white/70 w-32">Percentage:</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={airdropPercentage}
+                    onChange={(e) => {
+                      const pct = e.target.value
+                      setAirdropPercentage(pct)
+                      const TOTAL_SUPPLY = 1_337_000_000_000
+                      const parsed = parseFloat(pct)
+                      if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+                        setAirdropDepositAmount(String(Math.floor(TOTAL_SUPPLY * parsed / 100)))
+                      }
+                    }}
+                    className="w-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="40"
+                  />
+                  <span className="text-white/70 font-righteous">%</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="font-righteous text-white/70 w-32">Amount:</label>
+                  <Input
+                    type="text"
+                    value={airdropDepositAmount}
+                    onChange={(e) => setAirdropDepositAmount(e.target.value)}
+                    className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="0"
+                  />
+                  <span className="text-white/70 font-righteous">FREG</span>
+                  <Button onClick={handleAirdropDeposit} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
+                    Deposit
+                  </Button>
+                </div>
+              </div>
+
+              {/* Snapshot & Airdrop */}
+              <div className="border-t border-white/20 pt-4 space-y-3">
+                <p className="font-righteous text-white/60 text-sm">
+                  Takes a live snapshot of all Freg holders and distributes the contract balance proportionally (per Freg held).
+                </p>
+
+                {airdropProgress.total > 0 && (
+                  <div className="bg-black/30 rounded-lg p-3">
+                    <p className="font-righteous text-orange-400 text-sm">
+                      Batch {airdropProgress.current} / {airdropProgress.total}
+                    </p>
+                    <div className="w-full bg-black/50 rounded-full h-2 mt-2">
+                      <div
+                        className="bg-orange-400 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${airdropProgress.total > 0 ? (airdropProgress.current / airdropProgress.total) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  onClick={handleSnapshotAndAirdrop}
+                  className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4"
+                >
+                  Snapshot &amp; Airdrop to Freg Holders
+                </Button>
+              </div>
+
+              {/* Withdraw remainder */}
+              <div className="border-t border-white/20 pt-4 flex items-center justify-between">
+                <span className="font-righteous text-white/70">Withdraw remaining FREG:</span>
+                <Button
+                  onClick={handleWithdrawRemainder}
+                  className="bg-orange-500 hover:bg-orange-400 text-black font-bangers"
+                >
+                  Withdraw Remainder
+                </Button>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
       </div>
 
       {/* Transaction Modal */}

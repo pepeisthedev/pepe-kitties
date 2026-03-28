@@ -9,6 +9,7 @@ import {
   FREGS_LIQUIDITY_ADDRESS,
   FREG_SHOP_ADDRESS,
   FREG_COIN_ADDRESS,
+  FREG_AIRDROP_ADDRESS,
   FregsABI,
   FregsItemsABI,
   FregsMintPassABI,
@@ -16,6 +17,7 @@ import {
   FregsLiquidityABI,
   FregShopABI,
   FregCoinABI,
+  FregsAirdropABI,
 } from "../config/contracts"
 
 export function useContracts() {
@@ -78,6 +80,13 @@ export function useContracts() {
         write: async () => {
           const signer = await getSigner()
           return new Contract(FREG_COIN_ADDRESS, FregCoinABI, signer)
+        },
+      } : null,
+      fregAirdrop: FREG_AIRDROP_ADDRESS ? {
+        read: new Contract(FREG_AIRDROP_ADDRESS, FregsAirdropABI, provider),
+        write: async () => {
+          const signer = await getSigner()
+          return new Contract(FREG_AIRDROP_ADDRESS, FregsAirdropABI, signer)
         },
       } : null,
     }

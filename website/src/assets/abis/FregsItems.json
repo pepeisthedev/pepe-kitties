@@ -1705,6 +1705,19 @@
   },
   {
     "inputs": [],
+    "name": "mutationItemTypeId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "name",
     "outputs": [
       {
@@ -2130,6 +2143,19 @@
       }
     ],
     "name": "setHeadItemWeights",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_itemTypeId",
+        "type": "uint256"
+      }
+    ],
+    "name": "setMutationItemTypeId",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

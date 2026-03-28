@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { formatEther } from "ethers"
+import { formatEther, Signature } from "ethers"
 import { useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
@@ -51,18 +51,67 @@ export default function ShopSection(): React.JSX.Element {
     }
 
     const handleBuy = async (itemTypeId: number) => {
-        if (!contracts?.fregCoin) return
+        if (!contracts?.fregShop || !contracts?.fregCoin) return
 
         setConfirmItem(null)
         setBuyingItemId(itemTypeId)
         setBuyStatus("pending")
-        setStatusMessage("Waiting for wallet confirmation...")
+        setStatusMessage("Sign the permit in your wallet...")
 
         try {
-            const fregCoinWrite = await contracts.fregCoin.write()
-            const tx = await fregCoinWrite.buyItem(itemTypeId)
+            const signer = await contracts.getSigner()
+            const signerAddress = await signer.getAddress()
+
+            // Get price from shop
+            const price = await contracts.fregShop.read.getPrice(itemTypeId)
+
+            // Build permit signature
+            const fregCoinRead = contracts.fregCoin.read
+            const [eip712Domain, nonce, block, fregCoinAddress, fregShopAddress] = await Promise.all([
+                fregCoinRead.eip712Domain(),
+                fregCoinRead.nonces(signerAddress),
+                contracts.provider.getBlock("latest"),
+                fregCoinRead.getAddress(),
+                contracts.fregShop.read.getAddress(),
+            ])
+
+            // Use whichever is later — block.timestamp can be ahead of wall clock on localhost.
+            // Use a 1 hour buffer to avoid tight races between signing and the tx being mined.
+            const nowOnChain = Number(block!.timestamp)
+            const nowWallClock = Math.floor(Date.now() / 1000)
+            const deadline = Math.max(nowOnChain, nowWallClock) + 3600
+
+            const domain = {
+                name: eip712Domain.name,
+                version: eip712Domain.version,
+                chainId: eip712Domain.chainId,
+                verifyingContract: fregCoinAddress,
+            }
+            const types = {
+                Permit: [
+                    { name: "owner",   type: "address" },
+                    { name: "spender", type: "address" },
+                    { name: "value",   type: "uint256" },
+                    { name: "nonce",   type: "uint256" },
+                    { name: "deadline",type: "uint256" },
+                ],
+            }
+            const value = {
+                owner:   signerAddress,
+                spender: fregShopAddress,
+                value:   price,
+                nonce,
+                deadline,
+            }
+
+            const rawSig = await signer.signTypedData(domain, types, value)
+            const { v, r, s } = Signature.from(rawSig)
+
+            // Call buyItem on the shop with permit params
+            const fregShopWrite = await contracts.fregShop.write()
             setBuyStatus("confirming")
             setStatusMessage("Confirming transaction...")
+            const tx = await fregShopWrite.buyItem(itemTypeId, deadline, v, r, s)
             await tx.wait()
 
             setBuyStatus("success")

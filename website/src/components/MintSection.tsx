@@ -480,6 +480,28 @@ export default function MintSection(): React.JSX.Element {
                         )}
                     </Button>
 
+                    {/* Phase + Mint Pass info */}
+                    {isConnected && !dataLoading && (
+                        <div className="flex items-center justify-center gap-3">
+                            <span className={`font-righteous text-xs xl:text-sm px-3 py-1 rounded-full ${
+                                mintPhase === 0
+                                    ? "bg-red-500/20 text-red-400"
+                                    : mintPhase === 1
+                                    ? "text-theme-primary border border-theme-primary/40 bg-theme-primary/10"
+                                    : "bg-green-500/20 text-green-400"
+                            }`}>
+                                {mintPhase === 0 ? "PAUSED" : mintPhase === 1 ? "WHITELIST" : "PUBLIC"}
+                            </span>
+                            {mintPhase === 1 && (
+                                <span className="font-righteous text-xs xl:text-sm text-theme-muted">
+                                    {contractData!.userMintPassBalance > 0
+                                        ? `${contractData!.userMintPassBalance} mint pass${contractData!.userMintPassBalance > 1 ? "es" : ""}`
+                                        : "No mint passes"}
+                                </span>
+                            )}
+                        </div>
+                    )}
+
                     {/* Stats - inline */}
                     <div className="flex justify-center gap-6 xl:gap-12 text-center pt-1 xl:pt-6">
                         {dataLoading ? (

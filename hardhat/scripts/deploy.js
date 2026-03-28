@@ -718,6 +718,12 @@ async function main() {
     const fregShop = await deployContract(FregShop, [], "FregShop");
     const fregShopAddress = await fregShop.getAddress();
 
+    // ============ Deploy FregsAirdrop ============
+    console.log("\n--- Deploying FregsAirdrop ---");
+    const FregsAirdrop = await ethers.getContractFactory("FregsAirdrop");
+    const fregsAirdrop = await deployContract(FregsAirdrop, [], "FregsAirdrop");
+    const fregsAirdropAddress = await fregsAirdrop.getAddress();
+
     // ============ Configure Cross-Contract References ============
     console.log("\n--- Configuring Cross-Contract References ---");
 
@@ -787,7 +793,11 @@ async function main() {
     await sendTx(fregShop.setFregCoinContract(fregCoinAddress));
     await sendTx(fregShop.setItemsContract(fregsItemsAddress));
     await sendTx(fregsItems.setShopContract(fregShopAddress));
-    await sendTx(fregCoin.setShopContract(fregShopAddress));
+
+    // Configure FregsAirdrop
+    console.log("Configuring FregsAirdrop...");
+    await sendTx(fregsAirdrop.setFregCoin(fregCoinAddress));
+    await sendTx(fregsAirdrop.setFregs(fregsAddress));
 
     // ============ Set Mint Phase ============
     if (isLocalhost) {
@@ -868,6 +878,7 @@ async function main() {
     deploymentStatus.contracts.spinTheWheel = spinTheWheelAddress;
     deploymentStatus.contracts.fregsLiquidity = fregsLiquidityAddress;
     deploymentStatus.contracts.fregShop = fregShopAddress;
+    deploymentStatus.contracts.fregsAirdrop = fregsAirdropAddress;
     deploymentStatus.contracts.vrfWrapper = vrfWrapperAddress;
 
     // ============ Deploy Art and SVG Renderer ============
@@ -966,6 +977,7 @@ async function main() {
     copyABI("FregCoin", "FregCoin");
     copyABI("FregsLiquidity", "FregsLiquidity");
     copyABI("FregShop", "FregShop");
+    copyABI("FregsAirdrop", "FregsAirdrop");
 
     console.log("ABIs copied successfully!");
 
@@ -1076,6 +1088,7 @@ async function main() {
     console.log("  SpinTheWheel:    ", spinTheWheelAddress);
     console.log("  FregsLiquidity:  ", fregsLiquidityAddress);
     console.log("  FregShop:        ", fregShopAddress);
+    console.log("  FregsAirdrop:    ", fregsAirdropAddress);
     console.log("  SVG Renderer:    ", svgRendererAddress);
     console.log("  VRF Wrapper:     ", vrfWrapperAddress);
     console.log("\nArt Contracts (6 unified routers):");
@@ -1126,6 +1139,7 @@ async function main() {
     console.log(`VITE_SPIN_THE_WHEEL_ADDRESS=${spinTheWheelAddress}`);
     console.log(`VITE_FREGS_LIQUIDITY_ADDRESS=${fregsLiquidityAddress}`);
     console.log(`VITE_FREG_SHOP_ADDRESS=${fregShopAddress}`);
+    console.log(`VITE_FREG_AIRDROP_ADDRESS=${fregsAirdropAddress}`);
     console.log(`VITE_SVG_RENDERER_ADDRESS=${svgRendererAddress}`);
 
 }
