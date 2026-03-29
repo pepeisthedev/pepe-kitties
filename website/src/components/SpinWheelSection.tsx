@@ -626,7 +626,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
           <div className="flex flex-col items-center -mt-8 md:-mt-10">
             <button
               onClick={spinPhase === "result" ? handleCloseResult : handleSpin}
-              disabled={spinPhase === "revealing" || !isConnected || (!canSpin && spinPhase !== "result")}
+              disabled={isSpinning || spinPhase === "revealing" || !isConnected || (!canSpin && spinPhase !== "result")}
               className="relative cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Spin the wheel"
             >

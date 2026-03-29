@@ -85,11 +85,15 @@ export default function Header({ activeSection, onSectionChange, featureFlags }:
     }
 
     // Dynamic styles based on landing state and theme
+    const isSpinWheel = activeSection === "spin-wheel"
+
     const headerBg = isFullscreen
         ? (isAtTop ? 'bg-transparent' : 'bg-white/10 backdrop-blur-md')
-        : (theme === 'dark'
-            ? 'backdrop-blur-md bg-black/30 border-b-4 border-lime-400'
-            : 'backdrop-blur-md bg-[#e8b078] border-b-4 border-orange-700 shadow-md')
+        : isSpinWheel
+            ? ''  // inline style used for spin-wheel
+            : (theme === 'dark'
+                ? 'backdrop-blur-md bg-black/30 border-b-4 border-lime-400'
+                : 'backdrop-blur-md bg-[#e8b078] border-b-4 border-orange-700 shadow-md')
 
     const navTextColor = isLanding
         ? 'text-white hover:text-white/70'
@@ -100,6 +104,11 @@ export default function Header({ activeSection, onSectionChange, featureFlags }:
             className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${headerBg} ${
                 isLanding && !isVisible ? '-translate-y-full' : 'translate-y-0'
             }`}
+            style={isSpinWheel ? {
+                background: "linear-gradient(180deg, #3d1a00 0%, #7c3a00 30%, #c47a00 60%, #e8a800 80%, #f5c842 100%)",
+                borderBottom: "4px solid #f5c842",
+                boxShadow: "0 6px 24px rgba(0,0,0,0.6), inset 0 -2px 0 rgba(255,255,255,0.15)",
+            } : undefined}
         >
             <div className={`py-3 flex items-center justify-between ${
                 isLanding ? 'w-full px-6 md:px-16 lg:px-24' : 'max-w-7xl mx-auto px-4 w-full'
