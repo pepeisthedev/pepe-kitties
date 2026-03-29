@@ -290,27 +290,54 @@ export default function MintSection(): React.JSX.Element {
 
                 {/* Mint Controls */}
                 <div className="space-y-2 xl:space-y-6 flex flex-col justify-center">
-     
 
-                    {/* Price Display */}
-                    <div className="text-center">
-                        <p className="font-righteous text-theme-muted text-xs xl:text-lg mb-0.5">Price</p>
-                        <div className="font-bangers text-2xl xl:text-5xl text-theme-primary">
-                            {dataLoading ? (
-                                <LoadingSpinner size="sm" />
-                            ) : hasFreeMint ? (
-                                <div className="flex flex-col items-center gap-0.5">
-                                    <div className="flex items-center gap-2">
-                                        <Gift className="w-5 h-5 xl:w-8 xl:h-8" />
-                                        <span>FREE</span>
-                                    </div>
-                                    <span className="text-xs xl:text-base text-theme-subtle font-righteous">
-                                        Free Mint ({userFreeMints} left)
+                    {/* Passes + Phase + Price row */}
+                    <div className={`grid gap-3 ${isConnected && !dataLoading && mintPhase < 2 ? "grid-cols-3" : "grid-cols-2"}`}>
+                        {/* Passes — shown for paused and whitelist phases */}
+                        {isConnected && !dataLoading && mintPhase < 2 && (
+                            <div className="flex flex-col items-center justify-center gap-1.5">
+                                <p className="font-righteous text-theme-muted text-xs xl:text-lg">Your Passes</p>
+                                <div className="flex items-center gap-2">
+                                    <img src="/Whitelist.svg" alt="Mint Pass" className="w-7 h-7 xl:w-12 xl:h-12 object-contain" />
+                                    <span className="font-bangers text-2xl xl:text-5xl text-theme-primary leading-none tabular-nums">
+                                        {contractData?.userMintPassBalance ?? 0}
                                     </span>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Phase */}
+                        <div className="flex flex-col items-center justify-center gap-1.5">
+                            <p className="font-righteous text-theme-muted text-xs xl:text-lg">Phase</p>
+                            {dataLoading ? (
+                                <LoadingSpinner size="sm" />
                             ) : (
-                                <span className="animate-count-up">{contractData?.mintPrice || "0"} ETH</span>
+                                <span className="font-bangers text-2xl xl:text-5xl text-theme-primary">
+                                    {mintPhase === 0 ? "PAUSED" : mintPhase === 1 ? "WHITELIST" : "PUBLIC"}
+                                </span>
                             )}
+                        </div>
+
+                        {/* Price */}
+                        <div className="flex flex-col items-center justify-center gap-1.5">
+                            <p className="font-righteous text-theme-muted text-xs xl:text-lg">Price</p>
+                            <div className="font-bangers text-2xl xl:text-5xl text-theme-primary">
+                                {dataLoading ? (
+                                    <LoadingSpinner size="sm" />
+                                ) : hasFreeMint ? (
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <div className="flex items-center gap-2">
+                                            <Gift className="w-5 h-5 xl:w-8 xl:h-8" />
+                                            <span>FREE</span>
+                                        </div>
+                                        <span className="text-xs xl:text-base text-theme-subtle font-righteous">
+                                            ({userFreeMints} left)
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <span className="animate-count-up">{contractData?.mintPrice || "0"} ETH</span>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -479,28 +506,6 @@ export default function MintSection(): React.JSX.Element {
                             </>
                         )}
                     </Button>
-
-                    {/* Phase + Mint Pass info */}
-                    {isConnected && !dataLoading && (
-                        <div className="flex items-center justify-center gap-3">
-                            <span className={`font-righteous text-xs xl:text-sm px-3 py-1 rounded-full ${
-                                mintPhase === 0
-                                    ? "bg-red-500/20 text-red-400"
-                                    : mintPhase === 1
-                                    ? "text-theme-primary border border-theme-primary/40 bg-theme-primary/10"
-                                    : "bg-green-500/20 text-green-600 "
-                            }`}>
-                                {mintPhase === 0 ? "PAUSED" : mintPhase === 1 ? "WHITELIST" : "PUBLIC"}
-                            </span>
-                            {mintPhase === 1 && (
-                                <span className="font-righteous text-xs xl:text-sm text-theme-muted">
-                                    {contractData!.userMintPassBalance > 0
-                                        ? `${contractData!.userMintPassBalance} mint pass${contractData!.userMintPassBalance > 1 ? "es" : ""}`
-                                        : "No mint passes"}
-                                </span>
-                            )}
-                        </div>
-                    )}
 
                     {/* Stats - inline */}
                     <div className="flex justify-center gap-6 xl:gap-12 text-center pt-1 xl:pt-6">
