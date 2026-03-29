@@ -189,6 +189,11 @@
   100% { opacity: 1; }
 }
 
+@keyframes spin-orbit {
+  from { transform: rotate(0deg) translateX(var(--orbit-r)) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(var(--orbit-r)) rotate(-360deg); }
+}
+
 @keyframes confetti-fall {
   0% {
     transform: translateY(-100%) rotate(0deg);

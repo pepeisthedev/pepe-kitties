@@ -631,25 +631,45 @@ export default function SpinWheelSection(): React.JSX.Element | null {
               aria-label="Spin the wheel"
             >
               {/* Outer ring */}
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center"
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center relative"
                 style={{
                   background: "linear-gradient(135deg, #ff9a00 0%, #ff4500 50%, #cc2200 100%)",
                   boxShadow: "0 0 0 4px #f5c842, 0 0 0 7px #c47a00, 0 8px 24px rgba(0,0,0,0.6), inset 0 2px 6px rgba(255,255,255,0.3)",
                 }}
               >
+                {/* Orbiting glow dot */}
+                {isSpinning && (
+                  <span
+                    className="absolute w-3 h-3 rounded-full"
+                    style={{
+                      background: "radial-gradient(circle, #fff 0%, #ffe066 50%, transparent 100%)",
+                      boxShadow: "0 0 6px 3px #ffe066, 0 0 12px 5px #ff9900",
+                      top: "50%",
+                      left: "50%",
+                      marginTop: "-6px",
+                      marginLeft: "-6px",
+                      "--orbit-r": "36px",
+                      animation: "spin-orbit 1.2s linear infinite",
+                    } as React.CSSProperties}
+                  />
+                )}
                 {/* Inner button face */}
-                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center"
+                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center relative z-10"
                   style={{
                     background: "linear-gradient(135deg, #ff6030 0%, #cc2200 60%, #991500 100%)",
                     boxShadow: "inset 0 3px 8px rgba(255,255,255,0.25), inset 0 -3px 6px rgba(0,0,0,0.4)",
                   }}
                 >
-                  <span className="font-bangers text-lg md:text-xl text-white leading-tight tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                  <span className={`font-bangers text-white leading-tight tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] ${
+                    !isSpinning && !canSpin && spinPhase !== "result" ? "text-xs md:text-sm" : "text-lg md:text-xl"
+                  }`}>
                     {isSpinning
                       ? (spinPhase === "confirming" ? "CONFIRM" : "SPINNING")
                       : spinPhase === "result"
                         ? (canSpin ? "SPIN AGAIN" : "CLOSE")
-                        : "SPIN"}
+                        : !canSpin
+                          ? "NO SPIN TOKENS"
+                          : "SPIN"}
                   </span>
                 </div>
               </div>
@@ -658,8 +678,8 @@ export default function SpinWheelSection(): React.JSX.Element | null {
 
           {/* Right: Coins display */}
           <div className="flex items-center gap-1.5 rounded-full border-2 border-[#3d1a00]/60 bg-[#2b1237] px-3 py-1.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.4)]">
-            <img src="/spincoin.png" alt="SpinToken" className="h-5 w-5 md:h-6 md:w-6 object-contain" />
-            <span className="font-bangers text-xl md:text-2xl text-lime-300 leading-none tabular-nums">
+            <img src="/spincoin.png" alt="SpinToken" className="h-6 w-6 md:h-8 md:w-8 object-contain" />
+            <span className="font-bangers text-xl md:text-3xl text-lime-300 leading-none tabular-nums">
               {isConnected ? displayedBalance : "—"}
             </span>
           </div>
