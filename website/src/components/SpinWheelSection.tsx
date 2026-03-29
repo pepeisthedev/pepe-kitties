@@ -21,6 +21,17 @@ const PRIZE_MINTPASS = 1
 const PRIZE_ITEM = 2
 const SPIN_COST = 1
 
+const SPINNING_MESSAGES = [
+    "The wheel is turning...",
+    "Round and round she goes...",
+    "Where it stops, nobody knows...",
+    "Gud Tek, Gud Freg (Not fast Tek)",
+    "Feeling lucky today?",
+    "The house always... wait.",
+    "Come on, big money!",
+    "Stars aligning...",
+]
+
 type PrizeInfoEntry = {
   key: string
   label: string
@@ -257,6 +268,18 @@ export default function SpinWheelSection(): React.JSX.Element | null {
   const [isInfoOpen, setIsInfoOpen] = useState(false)
   const [prizeInfo, setPrizeInfo] = useState<PrizeInfoEntry[]>(FALLBACK_PRIZE_INFO)
   const [isPrizeInfoLoading, setIsPrizeInfoLoading] = useState(false)
+  const [spinningMessageIndex, setSpinningMessageIndex] = useState(0)
+
+  useEffect(() => {
+    if (spinPhase !== "spinning") {
+      setSpinningMessageIndex(0)
+      return
+    }
+    const interval = window.setInterval(() => {
+      setSpinningMessageIndex(i => (i + 1) % SPINNING_MESSAGES.length)
+    }, 3000)
+    return () => window.clearInterval(interval)
+  }, [spinPhase])
 
   // Wheel animation refs (decoupled from React render cycle for smooth 60fps)
   const wheelImgRef = useRef<HTMLImageElement>(null)
@@ -577,6 +600,15 @@ export default function SpinWheelSection(): React.JSX.Element | null {
               className="absolute inset-0 w-full h-full object-contain z-10 pointer-events-none"
             />
           </div>
+
+          {/* Spinning message */}
+          {spinPhase === "spinning" && (
+            <div className="bg-black/50 rounded-xl px-6 py-2 animate-pulse">
+              <p className="font-bangers text-2xl text-yellow-300 text-center">
+                {SPINNING_MESSAGES[spinningMessageIndex]}
+              </p>
+            </div>
+          )}
 
           {/* Spin Button */}
           <Button

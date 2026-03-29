@@ -142,6 +142,24 @@ const getPreviewProps = (kitty: Kitty, item: Item): Partial<Kitty> | null => {
     return null
 }
 
+const CLAIM_MESSAGES = [
+    "Reaching into the loot bag...",
+    "The item is materializing...",
+    "Randomness in progress...",
+    "Something stirs in the swamp...",
+    "The gods of RNG are deciding...",
+    "Almost... almost...",
+]
+
+const REROLL_MESSAGES = [
+    "Consulting the frog gods...",
+    "Rolling the dice...",
+    "A new head is forming...",
+    "The RNG oracle is thinking...",
+    "Could be anything...",
+    "Almoooooost...",
+]
+
 // Carousel Card component with flip support
 interface CarouselCardProps {
     kitty: Kitty
@@ -372,6 +390,30 @@ export default function MyKittiesSection(): React.JSX.Element {
     }
 
     const [isModalLoading, setIsModalLoading] = useState(false)
+    const [claimMessageIndex, setClaimMessageIndex] = useState(0)
+    const [rerollMessageIndex, setRerollMessageIndex] = useState(0)
+
+    useEffect(() => {
+        if (!isModalLoading || modalData.isBurn) {
+            setClaimMessageIndex(0)
+            return
+        }
+        const interval = window.setInterval(() => {
+            setClaimMessageIndex(i => (i + 1) % CLAIM_MESSAGES.length)
+        }, 3000)
+        return () => window.clearInterval(interval)
+    }, [isModalLoading, modalData.isBurn])
+
+    useEffect(() => {
+        if (!isApplying || !resultWasRandom) {
+            setRerollMessageIndex(0)
+            return
+        }
+        const interval = window.setInterval(() => {
+            setRerollMessageIndex(i => (i + 1) % REROLL_MESSAGES.length)
+        }, 3000)
+        return () => window.clearInterval(interval)
+    }, [isApplying, resultWasRandom])
 
     const handleClaim = useCallback(async () => {
         if (!contracts || !address || selectedKittyId === null || !selectedCanClaim) return
@@ -1199,7 +1241,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                 isOpen={showModal}
                 onClose={() => setShowModal(false)}
                 title={isModalLoading ? (modalData.isBurn ? "Burning..." : "Claiming...") : modalData.success ? (modalData.isBurn ? "Burned!" : "Item Claimed!") : "Error"}
-                description={isModalLoading ? (modalData.isBurn ? "Please wait while your Freg is being burned" : "Please wait while your item is being claimed") : modalData.message}
+                description={isModalLoading ? (modalData.isBurn ? "Please wait while your Freg is being burned" : CLAIM_MESSAGES[claimMessageIndex]) : modalData.message}
                 success={modalData.success}
                 loading={isModalLoading}
             >
@@ -1320,8 +1362,8 @@ export default function MyKittiesSection(): React.JSX.Element {
             <ResultModal
                 isOpen={showItemResultModal}
                 onClose={() => { setShowItemResultModal(false); setResultKitty(null) }}
-                title={isApplying ? "Applying..." : itemModalData.success ? "Item Applied!" : "Error"}
-                description={isApplying ? "Please wait while your item is being applied" : itemModalData.success ? undefined : itemModalData.message}
+                title={isApplying ? (resultWasRandom ? "Rolling..." : "Applying...") : itemModalData.success ? "Item Applied!" : "Error"}
+                description={isApplying ? (resultWasRandom ? REROLL_MESSAGES[rerollMessageIndex] : "Please wait while your item is being applied") : itemModalData.success ? undefined : itemModalData.message}
                 success={itemModalData.success}
                 loading={isApplying}
                 reveal={resultWasRandom}
