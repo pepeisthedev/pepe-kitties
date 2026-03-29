@@ -22,13 +22,15 @@ const PRIZE_ITEM = 2
 const SPIN_COST = 1
 
 const SPINNING_MESSAGES = [
+    "What happens in Freg Vegas, stays in Freg vegas...",
     "The wheel is turning...",
     "Round and round she goes...",
     "Where it stops, nobody knows...",
+    "Too weird to live, and too rare to die",
     "Gud Tek, Not fast Tek...",
     "Feeling lucky today?",
-    "The house always... wait.",
     "Come on, big money!",
+    "The house always... wait.",
     "Stars aligning...",
 ]
 
@@ -532,112 +534,135 @@ export default function SpinWheelSection(): React.JSX.Element | null {
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: "url('/vegas-bg.png')" }}
       />
-      {/* Wheel info — top left overlay */}
-      <div className="absolute top-20 left-4 z-20 sm:left-6 md:left-8">
-        <button
-          type="button"
-          onClick={() => setIsInfoOpen(true)}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-full border-2 border-yellow-300 bg-[#2b1237]/90 px-3 py-2 text-sm font-righteous text-yellow-100 shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition-colors hover:bg-[#3a1849] sm:gap-3 sm:px-5 sm:py-3 sm:text-base"
-        >
-          <CircleHelp className="h-4 w-4 sm:h-5 sm:w-5" />
-          Wheel info
-        </button>
+      {/* Spinning message banner — slides down from top, covers top of wheel only */}
+      <div
+        className={`absolute left-0 right-0 z-30 transition-all duration-500 ease-out ${
+          isSpinning ? "top-16 opacity-100" : "-top-20 opacity-0 pointer-events-none"
+        }`}
+      >
+        <div className="mx-auto max-w-sm px-4">
+          <div className="rounded-b-2xl px-6 py-3 text-center"
+            style={{
+              background: "linear-gradient(180deg, #1a0a2e 0%, #2b1237 80%, #2b1237cc 100%)",
+              border: "2px solid rgba(245,200,66,0.6)",
+              borderTop: "none",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+            }}
+          >
+            <p className="font-bangers text-xl md:text-2xl text-yellow-300 leading-snug">
+              {spinPhase === "confirming"
+                ? "Confirm in wallet..."
+                : SPINNING_MESSAGES[spinningMessageIndex]}
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Your Coins — top right overlay */}
-      {isConnected && (
-        <div className="absolute top-20 right-4 z-20 sm:right-6 md:right-8">
-          <Card className="w-fit border-2 border-yellow-300/80 bg-[#2b1237]/90 shadow-[0_14px_40px_rgba(0,0,0,0.45)]">
-            <CardContent className="px-3 py-2 sm:px-4 sm:py-3">
-              <p className="mb-1 text-center font-bangers text-lg text-theme-primary sm:mb-3 sm:text-2xl">
-                Your Coins
+      {/* Wheel area — scrollable, centered */}
+      <div className="flex-1 overflow-y-auto flex items-center justify-center px-4 pt-20 pb-2 relative z-10">
+        {!isConnected ? (
+          <Card className="bg-black/80 border-4 border-purple-400 rounded-3xl">
+            <CardContent className="p-12 text-center">
+              <p className="font-righteous text-xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                Connect your wallet to spin the wheel
               </p>
-              <div className="flex items-center justify-center gap-2 sm:gap-2.5">
-                <img
-                  src="/spincoin.png"
-                  alt="SpinToken"
-                  className="h-12 w-12 object-contain sm:h-16 sm:w-16"
-                />
-                <p className="font-bangers text-[2.1rem] leading-none text-lime-300 sm:text-[2.7rem]">
-                  {displayedBalance}
-                </p>
-              </div>
             </CardContent>
           </Card>
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 pt-24 pb-8">
-        <div className="mx-auto relative z-10 max-w-6xl">
-      {!isConnected ? (
-        <Card className="bg-black/80 border-4 border-purple-400 rounded-3xl">
-          <CardContent className="p-12 text-center">
-            <p className="font-righteous text-xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-              Connect your wallet to spin the wheel
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="flex flex-col items-center gap-8 relative">
-
-          {/* Spin Wheel: rotating disc + static frame overlay */}
-          <div className="relative w-80 h-80 md:w-140 md:h-140 2xl:w-[44rem] 2xl:h-[44rem] mt-40 md:mt-0 2xl:mt-60">
-            {/* Rotating wheel disc (behind the frame) */}
-            <div
-              ref={wheelImgRef}
-              className="absolute inset-0 w-full h-full"
-              style={{
-                transform: `rotate(${currentAngleRef.current}deg)`,
-                transformOrigin: "50% 45%",
-              }}
-            >
+        ) : (
+          <div className="flex flex-col items-center gap-4">
+            {/* Spin Wheel: rotating disc + static frame overlay */}
+            <div className="relative w-72 h-72 sm:w-96 sm:h-96 md:w-[30rem] md:h-[30rem] lg:w-[36rem] lg:h-[36rem]">
+              {/* Rotating wheel disc (behind the frame) */}
+              <div
+                ref={wheelImgRef}
+                className="absolute inset-0 w-full h-full"
+                style={{
+                  transform: `rotate(${currentAngleRef.current}deg)`,
+                  transformOrigin: "50% 45%",
+                }}
+              >
+                <img
+                  src="/wheel14x.png"
+                  alt="Spin wheel disc"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              {/* Static frame overlay (pointer, border, center hub, stand) */}
               <img
-                src="/wheel14x.png"
-                alt="Spin wheel disc"
-                className="w-full h-full object-contain"
+                src="/wheel-frame.png"
+                alt="Wheel frame"
+                className="absolute inset-0 w-full h-full object-contain z-10 pointer-events-none"
               />
             </div>
-            {/* Static frame overlay (pointer, border, center hub, stand) */}
-            <img
-              src="/wheel-frame.png"
-              alt="Wheel frame"
-              className="absolute inset-0 w-full h-full object-contain z-10 pointer-events-none"
-            />
+
+          </div>
+        )}
+      </div>
+
+      {/* Slot machine control bar */}
+      <div className="relative z-20 flex-shrink-0"
+        style={{
+          background: "linear-gradient(180deg, #3d1a00 0%, #7c3a00 30%, #c47a00 60%, #e8a800 80%, #f5c842 100%)",
+          borderTop: "4px solid #f5c842",
+          boxShadow: "0 -6px 24px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.15)",
+        }}
+      >
+        {/* Inner ridge line */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/20" />
+
+        <div className="flex items-center justify-between gap-2 px-4 py-3 md:px-8 md:py-4 max-w-4xl mx-auto">
+
+          {/* Left: Info button */}
+          <button
+            type="button"
+            onClick={() => setIsInfoOpen(true)}
+            className="flex items-center justify-center w-11 h-11 md:w-13 md:h-13 rounded-full border-2 border-[#3d1a00]/60 bg-[#2b1237] shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.4)] hover:bg-[#3a1849] transition-colors cursor-pointer"
+            aria-label="Wheel info"
+          >
+            <CircleHelp className="h-5 w-5 md:h-6 md:w-6 text-yellow-200" />
+          </button>
+
+          {/* Center: Big spin button — always visible */}
+          <div className="flex flex-col items-center -mt-8 md:-mt-10">
+            <button
+              onClick={spinPhase === "result" ? handleCloseResult : handleSpin}
+              disabled={spinPhase === "revealing" || !isConnected || (!canSpin && spinPhase !== "result")}
+              className="relative cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Spin the wheel"
+            >
+              {/* Outer ring */}
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center"
+                style={{
+                  background: "linear-gradient(135deg, #ff9a00 0%, #ff4500 50%, #cc2200 100%)",
+                  boxShadow: "0 0 0 4px #f5c842, 0 0 0 7px #c47a00, 0 8px 24px rgba(0,0,0,0.6), inset 0 2px 6px rgba(255,255,255,0.3)",
+                }}
+              >
+                {/* Inner button face */}
+                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center"
+                  style={{
+                    background: "linear-gradient(135deg, #ff6030 0%, #cc2200 60%, #991500 100%)",
+                    boxShadow: "inset 0 3px 8px rgba(255,255,255,0.25), inset 0 -3px 6px rgba(0,0,0,0.4)",
+                  }}
+                >
+                  <span className="font-bangers text-lg md:text-xl text-white leading-tight tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                    {isSpinning
+                      ? (spinPhase === "confirming" ? "CONFIRM" : "SPINNING")
+                      : spinPhase === "result"
+                        ? (canSpin ? "SPIN AGAIN" : "CLOSE")
+                        : "SPIN"}
+                  </span>
+                </div>
+              </div>
+            </button>
           </div>
 
-          {/* Spinning message */}
-          {spinPhase === "spinning" && (
-            <div className="bg-black/50 rounded-xl px-6 py-2 animate-pulse">
-              <p className="font-bangers text-2xl text-yellow-300 text-center">
-                {SPINNING_MESSAGES[spinningMessageIndex]}
-              </p>
-            </div>
-          )}
-
-          {/* Spin Button */}
-          <Button
-            onClick={spinPhase === "result" ? handleCloseResult : handleSpin}
-            disabled={isSpinning || spinPhase === "revealing"}
-            className={`px-12 py-6 rounded-2xl font-bangers text-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-white disabled:opacity-50 disabled:cursor-not-allowed ${spinPhase !== "result" && !canSpin ? "cursor-default" : "hover:from-purple-500 hover:to-pink-500"}`}
-          >
-            {isSpinning ? (
-              <>
-                <RotateCw className="w-6 h-6 mr-2 animate-spin" />
-                {spinPhase === "confirming" ? "Confirm..." : "Spinning..."}
-              </>
-            ) : spinPhase === "result" ? (
-              canSpin ? "Spin Again!" : "Close"
-            ) : !canSpin ? (
-              "No SpinTokens"
-            ) : (
-              <>
-                Spin (1 SpinToken)
-              </>
-            )}
-          </Button>
-
-        </div>
-      )}
+          {/* Right: Coins display */}
+          <div className="flex items-center gap-1.5 rounded-full border-2 border-[#3d1a00]/60 bg-[#2b1237] px-3 py-1.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.4)]">
+            <img src="/spincoin.png" alt="SpinToken" className="h-5 w-5 md:h-6 md:w-6 object-contain" />
+            <span className="font-bangers text-xl md:text-2xl text-lime-300 leading-none tabular-nums">
+              {isConnected ? displayedBalance : "—"}
+            </span>
+          </div>
 
         </div>
       </div>
