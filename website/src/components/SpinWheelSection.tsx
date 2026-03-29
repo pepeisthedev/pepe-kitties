@@ -25,7 +25,7 @@ const SPINNING_MESSAGES = [
     "The wheel is turning...",
     "Round and round she goes...",
     "Where it stops, nobody knows...",
-    "Gud Tek, Gud Freg (Not fast Tek)",
+    "Gud Tek, Not fast Tek...",
     "Feeling lucky today?",
     "The house always... wait.",
     "Come on, big money!",
@@ -532,39 +532,43 @@ export default function SpinWheelSection(): React.JSX.Element | null {
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: "url('/vegas-bg.png')" }}
       />
+      {/* Wheel info — top left overlay */}
+      <div className="absolute top-20 left-4 z-20 sm:left-6 md:left-8">
+        <button
+          type="button"
+          onClick={() => setIsInfoOpen(true)}
+          className="inline-flex cursor-pointer items-center gap-2 rounded-full border-2 border-yellow-300 bg-[#2b1237]/90 px-3 py-2 text-sm font-righteous text-yellow-100 shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition-colors hover:bg-[#3a1849] sm:gap-3 sm:px-5 sm:py-3 sm:text-base"
+        >
+          <CircleHelp className="h-4 w-4 sm:h-5 sm:w-5" />
+          Wheel info
+        </button>
+      </div>
+
+      {/* Your Coins — top right overlay */}
+      {isConnected && (
+        <div className="absolute top-20 right-4 z-20 sm:right-6 md:right-8">
+          <Card className="w-fit border-2 border-yellow-300/80 bg-[#2b1237]/90 shadow-[0_14px_40px_rgba(0,0,0,0.45)]">
+            <CardContent className="px-3 py-2 sm:px-4 sm:py-3">
+              <p className="mb-1 text-center font-bangers text-lg text-theme-primary sm:mb-3 sm:text-2xl">
+                Your Coins
+              </p>
+              <div className="flex items-center justify-center gap-2 sm:gap-2.5">
+                <img
+                  src="/spincoin.png"
+                  alt="SpinToken"
+                  className="h-12 w-12 object-contain sm:h-16 sm:w-16"
+                />
+                <p className="font-bangers text-[2.1rem] leading-none text-lime-300 sm:text-[2.7rem]">
+                  {displayedBalance}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto px-4 md:px-8 pt-24 pb-8">
         <div className="mx-auto relative z-10 max-w-6xl">
-          <div className="w-full max-w-4xl mx-auto flex items-start justify-between gap-3 mt-2 md:mt-6">
-            <button
-              type="button"
-              onClick={() => setIsInfoOpen(true)}
-              className="self-start inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full border-2 border-yellow-300 bg-[#2b1237] px-3 py-2 text-sm font-righteous text-yellow-100 shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition-colors hover:bg-[#3a1849] sm:gap-3 sm:px-5 sm:py-3 sm:text-base"
-            >
-              <CircleHelp className="h-4 w-4 sm:h-5 sm:w-5" />
-              Wheel info
-            </button>
-
-            {isConnected && (
-              <Card className="w-fit shrink-0 border-2 border-yellow-300/80 bg-[#2b1237] shadow-[0_14px_40px_rgba(0,0,0,0.45)]">
-                <CardContent className="px-3 py-2 sm:px-4 sm:py-3">
-                  <p className="mb-1 text-center font-bangers text-lg text-theme-primary sm:mb-3 sm:text-2xl">
-                    Your Coins
-                  </p>
-                  <div className="flex items-center justify-center gap-2 sm:gap-2.5">
-                    <img
-                      src="/spincoin.png"
-                      alt="SpinToken"
-                      className="h-12 w-12 object-contain sm:h-16 sm:w-16"
-                    />
-                    <p className="font-bangers text-[2.1rem] leading-none text-lime-300 sm:text-[2.7rem]">
-                      {displayedBalance}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
       {!isConnected ? (
         <Card className="bg-black/80 border-4 border-purple-400 rounded-3xl">
           <CardContent className="p-12 text-center">
