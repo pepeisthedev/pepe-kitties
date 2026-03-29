@@ -51,25 +51,25 @@ async function main() {
     console.log("\n--- Updating SpinTheWheel Prize Configuration ---");
 
     console.log("Setting lose weight to 0 (no lose)...");
-    await sendTx(spinTheWheel.setLoseWeight(0));
+    await sendTx(() => spinTheWheel.setLoseWeight(0));
 
     console.log("Setting MintPass weight to 9000 (90%)...");
-    await sendTx(spinTheWheel.setMintPassWeight(9000));
+    await sendTx(() => spinTheWheel.setMintPassWeight(9000));
 
     console.log("Removing Silver Skin prize (item type 200)...");
-    await sendTx(spinTheWheel.removeItemPrize(200));
+    await sendTx(() => spinTheWheel.removeItemPrize(200));
 
     console.log("Removing Neon Skin prize (item type 201)...");
-    await sendTx(spinTheWheel.removeItemPrize(201));
+    await sendTx(() => spinTheWheel.removeItemPrize(201));
 
     console.log("Adding Hoodie prize (item type 9, weight 300 = 3%)...");
-    await sendTx(spinTheWheel.addItemPrize(9, 300));
+    await sendTx(() => spinTheWheel.addItemPrize(9, 300));
 
     console.log("Adding Frogsuit prize (item type 10, weight 300 = 3%)...");
-    await sendTx(spinTheWheel.addItemPrize(10, 300));
+    await sendTx(() => spinTheWheel.addItemPrize(10, 300));
 
     console.log("Adding Treasure Chest prize (item type 6, weight 400 = 4%)...");
-    await sendTx(spinTheWheel.addItemPrize(6, 400));
+    await sendTx(() => spinTheWheel.addItemPrize(6, 400));
 
     // ============ Ensure Prize Item Types Are Configured ============
     console.log("\n--- Ensuring Prize Item Types Are Configured ---");
@@ -91,14 +91,14 @@ async function main() {
             // Not configured yet
         }
         console.log(`  Configuring ${item.name} (type ${item.id})...`);
-        await sendTx(fregsItems.setBuiltInItemConfig(item.id, item.name, item.desc));
+        await sendTx(() => fregsItems.setBuiltInItemConfig(item.id, item.name, item.desc));
     }
 
     // ============ Remove Hoodie/Frogsuit from Normal Claims ============
     console.log("\n--- Removing Hoodie/Frogsuit from Normal Item Claims ---");
 
     console.log("Setting head item weights to 0 (hoodie=0, frogsuit=0)...");
-    await sendTx(fregsItems.setHeadItemWeights(0, 0));
+    await sendTx(() => fregsItems.setHeadItemWeights(0, 0));
 
     // ============ Summary ============
     console.log("\n" + "=".repeat(60));

@@ -93,8 +93,8 @@ async function main() {
     const randomizerAddress = await randomizer.getAddress();
 
     console.log("Configuring FregsRandomizer...");
-    await sendTx(randomizer.setContracts(await fregs.getAddress(), await items.getAddress(), await spin.getAddress()));
-    await sendTx(
+    await sendTx(() => randomizer.setContracts(await fregs.getAddress(), await items.getAddress(), await spin.getAddress()));
+    await sendTx(() => 
         randomizer.setCallbackGasLimits(
             mintCallbackGasLimit,
             claimItemCallbackGasLimit,
@@ -102,15 +102,15 @@ async function main() {
             spinCallbackGasLimit
         )
     );
-    await sendTx(randomizer.setRequestConfirmations(requestConfirmations));
+    await sendTx(() => randomizer.setRequestConfirmations(requestConfirmations));
     if (autoFulfill) {
-        await sendTx(randomizer.setAutoFulfill(true));
+        await sendTx(() => randomizer.setAutoFulfill(true));
     }
 
     console.log("Rewiring contracts to the new randomizer...");
-    await sendTx(fregs.setRandomizer(randomizerAddress));
-    await sendTx(items.setRandomizer(randomizerAddress));
-    await sendTx(spin.setRandomizer(randomizerAddress));
+    await sendTx(() => fregs.setRandomizer(randomizerAddress));
+    await sendTx(() => items.setRandomizer(randomizerAddress));
+    await sendTx(() => spin.setRandomizer(randomizerAddress));
 
     status.network = network.name;
     status.contracts = {

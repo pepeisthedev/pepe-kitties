@@ -163,7 +163,7 @@ async function getOrCreateTraitRouter(svgRenderer, category, status) {
         const SVGRouterFactory = await ethers.getContractFactory("SVGRouter");
         const router = await deployContract(SVGRouterFactory, [], `SVGRouter (${category})`);
         routerAddress = await router.getAddress();
-        await sendTx(svgRenderer[config.setterMethod](routerAddress));
+        await sendTx(() => svgRenderer[config.setterMethod](routerAddress));
         console.log(`  Registered ${category} router on SVG renderer`);
         status.routers = status.routers || {};
         status.routers[category] = routerAddress;
@@ -294,13 +294,13 @@ async function main() {
     const newTraitValue = highestOccupied + 1;
     console.log(`  Highest occupied slot: ${highestOccupied}, new trait value: ${newTraitValue}`);
 
-    await sendTx(traitRouter.setRenderContract(newTraitValue, traitRendererAddress));
-    await sendTx(traitRouter.setTraitName(newTraitValue, definition.trait.name));
+    await sendTx(() => traitRouter.setRenderContract(newTraitValue, traitRendererAddress));
+    await sendTx(() => traitRouter.setTraitName(newTraitValue, definition.trait.name));
     console.log(`  Registered trait at slot ${newTraitValue}`);
 
     console.log("\n--- Creating Item Type ---");
     const itemTypeId = Number(await fregsItems.nextItemTypeId());
-    await sendTx(fregsItems.addItemType(
+    await sendTx(() => fregsItems.addItemType(
         definition.name,
         definition.description,
         definition.targetTraitType,
@@ -318,7 +318,7 @@ async function main() {
     });
     const iconSlot = itemTypeId;
     console.log(`  Setting items router slot ${iconSlot}`);
-    await sendTx(itemsRouter.setRenderContract(iconSlot, iconRendererAddress));
+    await sendTx(() => itemsRouter.setRenderContract(iconSlot, iconRendererAddress));
 
     let shopPrice = null;
     const shopMaxSupply = Number(definition.shop?.maxSupply || 0);
@@ -327,9 +327,9 @@ async function main() {
     if (definition.shop?.priceFreg !== undefined && definition.shop?.priceFreg !== null) {
         console.log("\n--- Listing In Shop ---");
         shopPrice = ethers.parseEther(String(definition.shop.priceFreg));
-        await sendTx(fregShop.listItem(itemTypeId, shopPrice, shopMaxSupply));
+        await sendTx(() => fregShop.listItem(itemTypeId, shopPrice, shopMaxSupply));
         if (!shopIsActive) {
-            await sendTx(fregShop.updateItem(itemTypeId, shopPrice, false, shopMaxSupply));
+            await sendTx(() => fregShop.updateItem(itemTypeId, shopPrice, false, shopMaxSupply));
         }
         console.log(`  Price: ${ethers.formatEther(shopPrice)} FREG`);
         console.log(`  Max supply: ${shopMaxSupply === 0 ? "unlimited" : shopMaxSupply}`);

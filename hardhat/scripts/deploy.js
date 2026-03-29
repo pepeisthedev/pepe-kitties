@@ -8,10 +8,12 @@ const {
 } = require("./deployUtils");
 const { loadDeploymentStatus, saveDeploymentStatus } = require("./deploymentStatus");
 
-// Helper to send transaction with retry and proper waiting
-async function sendTx(txPromise, confirmations = 1) {
+// Helper to send transaction with retry and proper waiting.
+// Always pass a factory function: sendTx(() => contract.method(args))
+// This ensures retries submit a fresh transaction with a fresh nonce.
+async function sendTx(txFn, confirmations = 1) {
     return await retryWithBackoff(async () => {
-        const tx = await txPromise;
+        const tx = await txFn();
         const receipt = await tx.wait(confirmations);
         // Small delay to let the network catch up
         if (network.name !== "localhost" && network.name !== "hardhat") {
@@ -303,7 +305,7 @@ async function deployBody(svgPartWriter, traitsConfig) {
             }
 
             const skinName = skinNames[i]?.name || `Skin ${skinId}`;
-            await sendTx(bodyRenderer.setSkin(skinId, pointers, skinName));
+            await sendTx(() => bodyRenderer.setSkin(skinId, pointers, skinName));
             console.log(`      Skin ${skinId} (${skinName}) deployed (${totalChunks} chunks)`);
         }
     }
@@ -454,25 +456,25 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
         // For skin: use explicit typeIds matching fileNames
         const typeIds = files.map(f => f.typeId);
         console.log(`    Using explicit typeIds: [${typeIds.join(', ')}]`);
-        await sendTx(router.setRenderContractsBatchWithTypeIds(typeIds, svgRendererAddresses));
+        await sendTx(() => router.setRenderContractsBatchWithTypeIds(typeIds, svgRendererAddresses));
 
         // Set trait names with explicit typeIds
         for (let i = 0; i < files.length; i++) {
             const source = files[i].source || 'default';
             const fromItemsName = fromItemsTraitNames[folderName]?.[files[i].file];
             const name = (source === 'from_items' && fromItemsName) ? fromItemsName : (traitNames[i] || `Type ${files[i].typeId}`);
-            await sendTx(router.setTraitName(files[i].typeId, name));
+            await sendTx(() => router.setTraitName(files[i].typeId, name));
         }
         console.log(`    Set ${files.length} trait names with explicit typeIds`);
     } else {
         // For other traits: use sequential IDs (1, 2, 3...)
-        await sendTx(router.setRenderContractsBatch(svgRendererAddresses));
+        await sendTx(() => router.setRenderContractsBatch(svgRendererAddresses));
 
         // Set trait names if provided
         if (traitNames.length > 0) {
             // Only set names for the number of files we actually deployed
             const namesToSet = traitNames.slice(0, files.length);
-            await sendTx(router.setTraitNamesBatch(namesToSet));
+            await sendTx(() => router.setTraitNamesBatch(namesToSet));
             console.log(`    Set ${namesToSet.length} trait names`);
         }
     }
@@ -544,7 +546,7 @@ async function deployItems(svgPartWriter) {
     const router = await deployContract(SVGRouter, [], "Items router");
 
     console.log(`  Setting item router with typeIds: [${typeIds.join(', ')}]`);
-    await sendTx(router.setRenderContractsBatchWithTypeIds(typeIds, svgRendererAddresses));
+    await sendTx(() => router.setRenderContractsBatchWithTypeIds(typeIds, svgRendererAddresses));
 
     const routerAddress = await router.getAddress();
     return routerAddress;
@@ -728,8 +730,8 @@ async function main() {
     console.log("\n--- Configuring Cross-Contract References ---");
 
     console.log("Configuring FregsRandomizer...");
-    await sendTx(fregsRandomizer.setContracts(fregsAddress, fregsItemsAddress, spinTheWheelAddress));
-    await sendTx(
+    await sendTx(() => fregsRandomizer.setContracts(fregsAddress, fregsItemsAddress, spinTheWheelAddress));
+    await sendTx(() => 
         fregsRandomizer.setCallbackGasLimits(
             VRF_CALLBACK_GAS.mint,
             VRF_CALLBACK_GAS.claimItem,
@@ -737,75 +739,75 @@ async function main() {
             VRF_CALLBACK_GAS.spin
         )
     );
-    await sendTx(fregsRandomizer.setRequestConfirmations(VRF_REQUEST_CONFIRMATIONS));
+    await sendTx(() => fregsRandomizer.setRequestConfirmations(VRF_REQUEST_CONFIRMATIONS));
     if (isLocalhost) {
-        await sendTx(fregsRandomizer.setAutoFulfill(true));
+        await sendTx(() => fregsRandomizer.setAutoFulfill(true));
     }
 
     console.log("Setting items contract on Fregs...");
-    await sendTx(fregs.setItemsContract(fregsItemsAddress));
+    await sendTx(() => fregs.setItemsContract(fregsItemsAddress));
 
     console.log("Setting mint pass contract on Fregs...");
-    await sendTx(fregs.setMintPassContract(fregsMintPassAddress));
+    await sendTx(() => fregs.setMintPassContract(fregsMintPassAddress));
 
     console.log("Setting randomizer on Fregs...");
-    await sendTx(fregs.setRandomizer(fregsRandomizerAddress));
+    await sendTx(() => fregs.setRandomizer(fregsRandomizerAddress));
 
     console.log("Setting Fregs on MintPass...");
-    await sendTx(fregsMintPass.setFregsContract(fregsAddress));
+    await sendTx(() => fregsMintPass.setFregsContract(fregsAddress));
 
     // Configure SpinTheWheel
     console.log("Configuring SpinTheWheel...");
-    await sendTx(spinTheWheel.setMintPassContract(fregsMintPassAddress));
-    await sendTx(spinTheWheel.setItemsContract(fregsItemsAddress));
-    await sendTx(spinTheWheel.setLoseWeight(SPIN_LOSE_WEIGHT));
-    await sendTx(spinTheWheel.setMintPassWeight(SPIN_MINTPASS_WEIGHT));
-    await sendTx(spinTheWheel.addItemPrize(HOODIE_ITEM_TYPE, SPIN_HOODIE_WEIGHT));
-    await sendTx(spinTheWheel.addItemPrize(FROGSUIT_ITEM_TYPE, SPIN_FROGSUIT_WEIGHT));
-    await sendTx(spinTheWheel.addItemPrize(CHEST_ITEM_TYPE, SPIN_CHEST_WEIGHT));
+    await sendTx(() => spinTheWheel.setMintPassContract(fregsMintPassAddress));
+    await sendTx(() => spinTheWheel.setItemsContract(fregsItemsAddress));
+    await sendTx(() => spinTheWheel.setLoseWeight(SPIN_LOSE_WEIGHT));
+    await sendTx(() => spinTheWheel.setMintPassWeight(SPIN_MINTPASS_WEIGHT));
+    await sendTx(() => spinTheWheel.addItemPrize(HOODIE_ITEM_TYPE, SPIN_HOODIE_WEIGHT));
+    await sendTx(() => spinTheWheel.addItemPrize(FROGSUIT_ITEM_TYPE, SPIN_FROGSUIT_WEIGHT));
+    await sendTx(() => spinTheWheel.addItemPrize(CHEST_ITEM_TYPE, SPIN_CHEST_WEIGHT));
 
     // Set max supply caps for spin prizes
-    await sendTx(spinTheWheel.setItemMaxSupply(CHEST_ITEM_TYPE, 700));
-    await sendTx(spinTheWheel.setItemMaxSupply(HOODIE_ITEM_TYPE, 30));
-    await sendTx(spinTheWheel.setItemMaxSupply(FROGSUIT_ITEM_TYPE, 30));
+    await sendTx(() => spinTheWheel.setItemMaxSupply(CHEST_ITEM_TYPE, 700));
+    await sendTx(() => spinTheWheel.setItemMaxSupply(HOODIE_ITEM_TYPE, 30));
+    await sendTx(() => spinTheWheel.setItemMaxSupply(FROGSUIT_ITEM_TYPE, 30));
 
     // Set SpinTheWheel on MintPass and Items
     console.log("Setting SpinTheWheel on MintPass and Items...");
-    await sendTx(fregsMintPass.setSpinTheWheelContract(spinTheWheelAddress));
-    await sendTx(fregsItems.setSpinTheWheelContract(spinTheWheelAddress));
+    await sendTx(() => fregsMintPass.setSpinTheWheelContract(spinTheWheelAddress));
+    await sendTx(() => fregsItems.setSpinTheWheelContract(spinTheWheelAddress));
 
     // Set FregCoin on FregsItems
     console.log("Setting FregCoin on FregsItems...");
-    await sendTx(fregsItems.setFregCoinContract(fregCoinAddress));
+    await sendTx(() => fregsItems.setFregCoinContract(fregCoinAddress));
     console.log("Setting randomizer on FregsItems...");
-    await sendTx(fregsItems.setRandomizer(fregsRandomizerAddress));
+    await sendTx(() => fregsItems.setRandomizer(fregsRandomizerAddress));
     console.log("Setting randomizer on SpinTheWheel...");
-    await sendTx(spinTheWheel.setRandomizer(fregsRandomizerAddress));
+    await sendTx(() => spinTheWheel.setRandomizer(fregsRandomizerAddress));
 
     // Configure FregsLiquidity
     console.log("Configuring FregsLiquidity...");
-    await sendTx(fregsLiquidity.setFregs(fregsAddress));
-    await sendTx(fregsLiquidity.setFregCoin(fregCoinAddress));
-    await sendTx(fregs.setLiquidityContract(fregsLiquidityAddress));
+    await sendTx(() => fregsLiquidity.setFregs(fregsAddress));
+    await sendTx(() => fregsLiquidity.setFregCoin(fregCoinAddress));
+    await sendTx(() => fregs.setLiquidityContract(fregsLiquidityAddress));
 
     // Configure FregShop
     console.log("Configuring FregShop...");
-    await sendTx(fregShop.setFregCoinContract(fregCoinAddress));
-    await sendTx(fregShop.setItemsContract(fregsItemsAddress));
-    await sendTx(fregsItems.setShopContract(fregShopAddress));
+    await sendTx(() => fregShop.setFregCoinContract(fregCoinAddress));
+    await sendTx(() => fregShop.setItemsContract(fregsItemsAddress));
+    await sendTx(() => fregsItems.setShopContract(fregShopAddress));
 
     // Configure FregsAirdrop
     console.log("Configuring FregsAirdrop...");
-    await sendTx(fregsAirdrop.setFregCoin(fregCoinAddress));
-    await sendTx(fregsAirdrop.setFregs(fregsAddress));
+    await sendTx(() => fregsAirdrop.setFregCoin(fregCoinAddress));
+    await sendTx(() => fregsAirdrop.setFregs(fregsAddress));
 
     // ============ Set Mint Phase ============
     if (isLocalhost) {
         console.log("\n--- Setting mint phase to Public (2) for localhost ---");
-        await sendTx(fregs.setMintPhase(2));
+        await sendTx(() => fregs.setMintPhase(2));
     } else {
         console.log("\n--- Setting mint phase to Paused (0) for live network ---");
-        await sendTx(fregs.setMintPhase(0));
+        await sendTx(() => fregs.setMintPhase(0));
     }
 
     // ============ Mint Mint Passes to Deployer (localhost only) ============
@@ -813,14 +815,14 @@ async function main() {
     if (isLocalhost) {
         console.log("\n--- Minting Mint Passes ---");
         console.log(`Minting ${MINT_PASSES_TO_MINT} mint passes to deployer...`);
-        await sendTx(fregsMintPass.ownerMint(deployerAddress, MINT_PASSES_TO_MINT, { gasLimit: 200000n }));
+        await sendTx(() => fregsMintPass.ownerMint(deployerAddress, MINT_PASSES_TO_MINT, { gasLimit: 200000n }));
         mintPassBalance = await fregsMintPass.balanceOf(deployerAddress, 1); // Token ID 1 = MINT_PASS
         console.log(`Deployer mint pass balance: ${mintPassBalance}`);
 
         // Also mint to additional recipient if configured
         if (ADDITIONAL_MINTPASS_RECIPIENT && ADDITIONAL_MINTPASS_RECIPIENT !== "0x0000000000000000000000000000000000000000") {
             console.log(`Minting ${MINT_PASSES_TO_MINT} mint passes to ${ADDITIONAL_MINTPASS_RECIPIENT}...`);
-            await sendTx(fregsMintPass.ownerMint(ADDITIONAL_MINTPASS_RECIPIENT, MINT_PASSES_TO_MINT, { gasLimit: 200000n }));
+            await sendTx(() => fregsMintPass.ownerMint(ADDITIONAL_MINTPASS_RECIPIENT, MINT_PASSES_TO_MINT, { gasLimit: 200000n }));
             const additionalBalance = await fregsMintPass.balanceOf(ADDITIONAL_MINTPASS_RECIPIENT, 1);
             console.log(`Additional recipient mint pass balance: ${additionalBalance}`);
         }
@@ -833,14 +835,14 @@ async function main() {
     if (isLocalhost && INITIAL_SPIN_TOKENS_TO_MINT > 0) {
         console.log("\n--- Minting SpinTokens ---");
         console.log(`Minting ${INITIAL_SPIN_TOKENS_TO_MINT} SpinTokens to deployer...`);
-        await sendTx(spinTheWheel.ownerMint(deployerAddress, INITIAL_SPIN_TOKENS_TO_MINT));
+        await sendTx(() => spinTheWheel.ownerMint(deployerAddress, INITIAL_SPIN_TOKENS_TO_MINT));
         spinTokenBalance = await spinTheWheel.balanceOf(deployerAddress, 1);
         console.log(`Deployer SpinToken balance: ${spinTokenBalance}`);
 
         // Fund FregsItems with FregCoin for chest rewards (1000 chests x 133.7M = 133.7B)
         const chestFunding = ethers.parseEther("133700000000");
         console.log("Transferring 133.7B FregCoin to FregsItems for chest rewards...");
-        await sendTx(fregCoin.transfer(fregsItemsAddress, chestFunding));
+        await sendTx(() => fregCoin.transfer(fregsItemsAddress, chestFunding));
         const itemsCoinBalance = await fregCoin.balanceOf(fregsItemsAddress);
         console.log(`FregsItems FregCoin balance: ${ethers.formatEther(itemsCoinBalance)}`);
 
@@ -861,7 +863,7 @@ async function main() {
         const descriptions = itemTypeIds.map(id => configs[id].description);
 
         console.log(`  Configuring ${itemTypeIds.length} item configs from items.json...`);
-        await sendTx(fregsItems.setBuiltInItemConfigsBatch(itemTypeIds, names, descriptions));
+        await sendTx(() => fregsItems.setBuiltInItemConfigsBatch(itemTypeIds, names, descriptions));
         console.log("  Item configs set!");
     } else {
         console.log("  ⚠️  No items/items.json found, skipping item config");
@@ -895,7 +897,7 @@ async function main() {
     // Configure SVG Renderer with art contracts (simplified: 5 contracts)
     console.log("\n--- Configuring FregsSVGRenderer ---");
     console.log("Setting art contracts on SVG Renderer...");
-    await sendTx(svgRenderer.setAllContracts(
+    await sendTx(() => svgRenderer.setAllContracts(
         artAddresses.background || ethers.ZeroAddress,  // background (0=color rect, 1+=special)
         artAddresses.body || ethers.ZeroAddress,        // body (colorable skin via BodyRenderer)
         artAddresses.skin || ethers.ZeroAddress,        // skin (special skins: Bronze=1, Diamond=2, Metal=3)
@@ -908,7 +910,7 @@ async function main() {
     // Set base trait counts for mint randomization
     if (artAddresses.baseTraitCounts) {
         console.log("Setting base trait counts...");
-        await sendTx(svgRenderer.setAllBaseTraitCounts(
+        await sendTx(() => svgRenderer.setAllBaseTraitCounts(
             artAddresses.baseTraitCounts.head || 0,
             artAddresses.baseTraitCounts.mouth || 0,
             artAddresses.baseTraitCounts.stomach || 0
@@ -918,7 +920,7 @@ async function main() {
 
     // Set SVG Renderer on Fregs
     console.log("Setting SVG Renderer on Fregs...");
-    await sendTx(fregs.setSVGRenderer(svgRendererAddress));
+    await sendTx(() => fregs.setSVGRenderer(svgRendererAddress));
     console.log("SVG Renderer set on Fregs!");
 
     // Configure weighted trait selection on Fregs
@@ -931,7 +933,7 @@ async function main() {
             const noneId = artAddresses.noneTraitIds[traitName] || 0;
             if (weights && weights.length > 0) {
                 console.log(`  Setting ${traitName} weights: [${weights.join(', ')}], noneTraitId: ${noneId}`);
-                await sendTx(fregs.setTraitWeights(traitTypeId, weights, noneId));
+                await sendTx(() => fregs.setTraitWeights(traitTypeId, weights, noneId));
                 console.log(`  ${traitName} weights configured!`);
             }
         }
@@ -940,7 +942,7 @@ async function main() {
     // Set Items SVG Renderer on FregsItems
     if (artAddresses.items) {
         console.log("Setting SVG Renderer on FregsItems...");
-        await sendTx(fregsItems.setSVGRenderer(artAddresses.items));
+        await sendTx(() => fregsItems.setSVGRenderer(artAddresses.items));
         console.log("SVG Renderer set on FregsItems!");
     }
 
@@ -954,7 +956,7 @@ async function main() {
             const allTraitValues = traitMappings.map(m => m.traitValue);
 
             console.log(`  Configuring ${allItemTypes.length} trait item mappings...`);
-            await sendTx(fregsItems.setTraitItemMappingsBatch(allItemTypes, allTraitValues));
+            await sendTx(() => fregsItems.setTraitItemMappingsBatch(allItemTypes, allTraitValues));
             console.log("  Trait item mappings configured!");
         }
     }

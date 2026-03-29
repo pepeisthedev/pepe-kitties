@@ -190,17 +190,17 @@ async function main() {
     console.log("\n--- Configuring SpinTheWheel ---");
 
     console.log("Setting MintPass contract...");
-    await sendTx(spinTheWheel.setMintPassContract(mintPassAddress));
+    await sendTx(() => spinTheWheel.setMintPassContract(mintPassAddress));
 
     console.log("Setting Items contract...");
-    await sendTx(spinTheWheel.setItemsContract(itemsAddress));
+    await sendTx(() => spinTheWheel.setItemsContract(itemsAddress));
 
     console.log("Setting randomizer...");
-    await sendTx(spinTheWheel.setRandomizer(fregsRandomizerAddress));
+    await sendTx(() => spinTheWheel.setRandomizer(fregsRandomizerAddress));
 
     console.log("\n--- Configuring FregsRandomizer ---");
-    await sendTx(fregsRandomizer.setContracts(fregsAddress, itemsAddress, spinTheWheelAddress));
-    await sendTx(
+    await sendTx(() => fregsRandomizer.setContracts(fregsAddress, itemsAddress, spinTheWheelAddress));
+    await sendTx(() => 
         fregsRandomizer.setCallbackGasLimits(
             VRF_CALLBACK_GAS.mint,
             VRF_CALLBACK_GAS.claimItem,
@@ -208,28 +208,28 @@ async function main() {
             VRF_CALLBACK_GAS.spin
         )
     );
-    await sendTx(fregsRandomizer.setRequestConfirmations(VRF_REQUEST_CONFIRMATIONS));
+    await sendTx(() => fregsRandomizer.setRequestConfirmations(VRF_REQUEST_CONFIRMATIONS));
     if (isLocalhost) {
-        await sendTx(fregsRandomizer.setAutoFulfill(true));
+        await sendTx(() => fregsRandomizer.setAutoFulfill(true));
     }
 
     console.log("Setting lose weight:", LOSE_WEIGHT, "(", LOSE_WEIGHT / 100, "%)");
-    await sendTx(spinTheWheel.setLoseWeight(LOSE_WEIGHT));
+    await sendTx(() => spinTheWheel.setLoseWeight(LOSE_WEIGHT));
 
     console.log("Setting MintPass weight:", MINTPASS_WEIGHT, "(", MINTPASS_WEIGHT / 100, "%)");
-    await sendTx(spinTheWheel.setMintPassWeight(MINTPASS_WEIGHT));
+    await sendTx(() => spinTheWheel.setMintPassWeight(MINTPASS_WEIGHT));
 
     console.log("Adding Hoodie prize (type", HOODIE_ITEM_TYPE, ") with weight:", HOODIE_WEIGHT, "(", HOODIE_WEIGHT / 100, "%)");
-    await sendTx(spinTheWheel.addItemPrize(HOODIE_ITEM_TYPE, HOODIE_WEIGHT));
+    await sendTx(() => spinTheWheel.addItemPrize(HOODIE_ITEM_TYPE, HOODIE_WEIGHT));
 
     console.log("Adding Frogsuit prize (type", FROGSUIT_ITEM_TYPE, ") with weight:", FROGSUIT_WEIGHT, "(", FROGSUIT_WEIGHT / 100, "%)");
-    await sendTx(spinTheWheel.addItemPrize(FROGSUIT_ITEM_TYPE, FROGSUIT_WEIGHT));
+    await sendTx(() => spinTheWheel.addItemPrize(FROGSUIT_ITEM_TYPE, FROGSUIT_WEIGHT));
 
     console.log("Adding Treasure Chest prize (type", CHEST_ITEM_TYPE, ") with weight:", CHEST_WEIGHT, "(", CHEST_WEIGHT / 100, "%)");
-    await sendTx(spinTheWheel.addItemPrize(CHEST_ITEM_TYPE, CHEST_WEIGHT));
+    await sendTx(() => spinTheWheel.addItemPrize(CHEST_ITEM_TYPE, CHEST_WEIGHT));
 
     console.log("Setting max supply for Treasure Chest (type", CHEST_ITEM_TYPE, ") to 700...");
-    await sendTx(spinTheWheel.setItemMaxSupply(CHEST_ITEM_TYPE, 700));
+    await sendTx(() => spinTheWheel.setItemMaxSupply(CHEST_ITEM_TYPE, 700));
 
     // ============ Configure Existing Contracts ============
     console.log("\n--- Configuring Existing Contracts ---");
@@ -239,17 +239,17 @@ async function main() {
     const fregsItems = await ethers.getContractAt("FregsItems", itemsAddress);
 
     console.log("Setting SpinTheWheel on FregsMintPass...");
-    await sendTx(fregsMintPass.setSpinTheWheelContract(spinTheWheelAddress));
+    await sendTx(() => fregsMintPass.setSpinTheWheelContract(spinTheWheelAddress));
 
     console.log("Setting SpinTheWheel on FregsItems...");
-    await sendTx(fregsItems.setSpinTheWheelContract(spinTheWheelAddress));
+    await sendTx(() => fregsItems.setSpinTheWheelContract(spinTheWheelAddress));
 
     if (!existingRandomizerAddress) {
         console.log("Setting randomizer on Fregs...");
-        await sendTx(fregs.setRandomizer(fregsRandomizerAddress));
+        await sendTx(() => fregs.setRandomizer(fregsRandomizerAddress));
 
         console.log("Setting randomizer on FregsItems...");
-        await sendTx(fregsItems.setRandomizer(fregsRandomizerAddress));
+        await sendTx(() => fregsItems.setRandomizer(fregsRandomizerAddress));
     }
 
     // ============ Ensure Prize Item Types Are Configured ============
@@ -274,14 +274,14 @@ async function main() {
             // Not configured yet
         }
         console.log(`  Configuring ${item.name} (type ${item.id})...`);
-        await sendTx(fregsItems.setBuiltInItemConfig(item.id, item.name, item.desc));
+        await sendTx(() => fregsItems.setBuiltInItemConfig(item.id, item.name, item.desc));
     }
 
     // ============ Mint Initial SpinTokens ============
     if (isLocalhost && INITIAL_TOKENS_TO_MINT > 0) {
         console.log("\n--- Minting Initial SpinTokens ---");
         console.log(`Minting ${INITIAL_TOKENS_TO_MINT} SpinTokens to deployer...`);
-        await sendTx(spinTheWheel.ownerMint(deployerAddress, INITIAL_TOKENS_TO_MINT));
+        await sendTx(() => spinTheWheel.ownerMint(deployerAddress, INITIAL_TOKENS_TO_MINT));
         const balance = await spinTheWheel.balanceOf(deployerAddress, 1);
         console.log(`Deployer SpinToken balance: ${balance}`);
     }
