@@ -228,6 +228,9 @@ async function main() {
     console.log("Adding Treasure Chest prize (type", CHEST_ITEM_TYPE, ") with weight:", CHEST_WEIGHT, "(", CHEST_WEIGHT / 100, "%)");
     await sendTx(spinTheWheel.addItemPrize(CHEST_ITEM_TYPE, CHEST_WEIGHT));
 
+    console.log("Setting max supply for Treasure Chest (type", CHEST_ITEM_TYPE, ") to 700...");
+    await sendTx(spinTheWheel.setItemMaxSupply(CHEST_ITEM_TYPE, 700));
+
     // ============ Configure Existing Contracts ============
     console.log("\n--- Configuring Existing Contracts ---");
 

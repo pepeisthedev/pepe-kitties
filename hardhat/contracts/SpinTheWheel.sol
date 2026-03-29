@@ -325,30 +325,12 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
 
     function _encodeMetadata() internal pure returns (string memory) {
         bytes memory json = abi.encodePacked(
-            '{"name": "SpinToken",',
+            '{"name": "Freg Spin Token",',
             '"description": "Spin the wheel for a chance to win prizes! Burn 1 SpinToken to spin.",',
-            '"image": "data:image/svg+xml;base64,',
-            _encodeCoinSVG(),
-            '","attributes": [{"trait_type": "Type", "value": "Game Token"}]}'
+            '"image": "ipfs://bafybeifb7xhcawlecjqxnvw3x43wkg66lppk24wqelk3of5aem7ude7qma",',
+            '"attributes": [{"trait_type": "Type", "value": "Spin Token"}]}'
         );
         return _base64Encode(json);
-    }
-
-    function _encodeCoinSVG() internal pure returns (string memory) {
-        bytes memory svg = abi.encodePacked(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">',
-            '<defs><linearGradient id="coinGrad" x1="0%" y1="0%" x2="100%" y2="100%">',
-            '<stop offset="0%" style="stop-color:#FFD700"/>',
-            '<stop offset="50%" style="stop-color:#FFA500"/>',
-            '<stop offset="100%" style="stop-color:#FFD700"/>',
-            '</linearGradient></defs>',
-            '<circle cx="100" cy="100" r="90" fill="url(#coinGrad)" stroke="#B8860B" stroke-width="5"/>',
-            '<circle cx="100" cy="100" r="70" fill="none" stroke="#B8860B" stroke-width="2"/>',
-            '<text x="100" y="90" text-anchor="middle" fill="#8B4513" font-size="24" font-weight="bold">SPIN</text>',
-            '<text x="100" y="120" text-anchor="middle" fill="#8B4513" font-size="18">TOKEN</text>',
-            '</svg>'
-        );
-        return _base64Encode(svg);
     }
 
     function _base64Encode(bytes memory data) internal pure returns (string memory) {

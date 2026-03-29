@@ -71,14 +71,15 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const [chestCoinBalance, setChestCoinBalance] = useState("0")
   const [chestDepositAmount, setChestDepositAmount] = useState("")
   const [chestRewardAmount, setChestRewardAmount] = useState("")
+  const [chestPercentage, setChestPercentage] = useState("")
 
   // Airdrop panel
   const [showFregAirdrop, setShowFregAirdrop] = useState(false)
   const [airdropCoinBalance, setAirdropCoinBalance] = useState("0")
-  const [airdropPercentage, setAirdropPercentage] = useState("40")
+  const [airdropPercentage, setAirdropPercentage] = useState("60")
   const [airdropDepositAmount, setAirdropDepositAmount] = useState(() => {
     const TOTAL_SUPPLY = 1_337_000_000_000
-    return String(Math.floor(TOTAL_SUPPLY * 40 / 100))
+    return String(Math.floor(TOTAL_SUPPLY * 60 / 100))
   })
   const [airdropProgress, setAirdropProgress] = useState({ current: 0, total: 0 })
 
@@ -1295,36 +1296,60 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
                 )}
               </div>
 
-              {/* Set reward per chest */}
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Reward:</label>
-                <Input
-                  type="text"
-                  value={chestRewardAmount}
-                  onChange={(e) => setChestRewardAmount(e.target.value)}
-                  className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                  placeholder={contractData?.chestCoinReward ?? "0"}
-                />
-                <span className="text-white/70 font-righteous">FREG</span>
-                <Button onClick={handleSetChestReward} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
-                  Set
-                </Button>
-              </div>
-
-              {/* Deposit FREG */}
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Deposit:</label>
-                <Input
-                  type="text"
-                  value={chestDepositAmount}
-                  onChange={(e) => setChestDepositAmount(e.target.value)}
-                  className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                  placeholder="0.0"
-                />
-                <span className="text-white/70 font-righteous">FREG</span>
-                <Button onClick={handleChestDeposit} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
-                  Deposit
-                </Button>
+              {/* Percentage-based reward calculator */}
+              <div className="border-t border-white/20 pt-4 space-y-3">
+                <div className="flex items-center gap-4">
+                  <label className="font-righteous text-white/70 w-32">Percentage:</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={chestPercentage}
+                    onChange={(e) => {
+                      const pct = e.target.value
+                      setChestPercentage(pct)
+                      const TOTAL_SUPPLY = 1_337_000_000_000
+                      const TOTAL_CHESTS = 1000
+                      const parsed = parseFloat(pct)
+                      if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+                        const perChest = Math.floor(TOTAL_SUPPLY * parsed / 100 / TOTAL_CHESTS)
+                        setChestRewardAmount(String(perChest))
+                        setChestDepositAmount(String(perChest * TOTAL_CHESTS))
+                      }
+                    }}
+                    className="w-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="10"
+                  />
+                  <span className="text-white/70 font-righteous">%</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="font-righteous text-white/70 w-32">Per chest:</label>
+                  <Input
+                    type="text"
+                    value={chestRewardAmount}
+                    onChange={(e) => setChestRewardAmount(e.target.value)}
+                    className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="0"
+                  />
+                  <span className="text-white/70 font-righteous">FREG</span>
+                  <Button onClick={handleSetChestReward} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
+                    Set
+                  </Button>
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="font-righteous text-white/70 w-32">Total deposit:</label>
+                  <Input
+                    type="text"
+                    value={chestDepositAmount}
+                    onChange={(e) => setChestDepositAmount(e.target.value)}
+                    className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="0"
+                  />
+                  <span className="text-white/70 font-righteous">FREG</span>
+                  <Button onClick={handleChestDeposit} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
+                    Deposit
+                  </Button>
+                </div>
               </div>
 
               {/* Withdraw excess */}
@@ -1499,7 +1524,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
                       }
                     }}
                     className="w-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                    placeholder="40"
+                    placeholder="60"
                   />
                   <span className="text-white/70 font-righteous">%</span>
                 </div>
