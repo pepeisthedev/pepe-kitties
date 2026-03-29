@@ -81,7 +81,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     const TOTAL_SUPPLY = 1_337_000_000_000
     return String(Math.floor(TOTAL_SUPPLY * 60 / 100))
   })
-  const [airdropProgress, setAirdropProgress] = useState({ current: 0, total: 0 })
+
 
   // Liquidity panel
   const [showLiquidity, setShowLiquidity] = useState(false)
@@ -711,65 +711,6 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     }
   }
 
-  const handleSnapshotAndAirdrop = async () => {
-    if (!contracts?.fregAirdrop) return
-    setTxStatus('pending')
-    setTxMessage("Snapshotting Freg holders...")
-    setAirdropProgress({ current: 0, total: 0 })
-
-    try {
-      const totalMinted = Number(await contracts.fregs.read.totalMinted())
-      if (totalMinted === 0) throw new Error("No Fregs minted yet")
-
-      // Build holder map — skip burned tokens
-      const holders: Record<string, number> = {}
-      let liveCount = 0
-      for (let tokenId = 0; tokenId < totalMinted; tokenId++) {
-        try {
-          const owner: string = await contracts.fregs.read.ownerOf(tokenId)
-          holders[owner] = (holders[owner] || 0) + 1
-          liveCount++
-        } catch {
-          // burned token — skip
-        }
-      }
-
-      if (liveCount === 0) throw new Error("No live Fregs found")
-
-      const totalBalanceBig = await contracts.fregAirdrop.read.coinBalance()
-      const perFregShare = totalBalanceBig / BigInt(liveCount)
-      if (perFregShare === 0n) throw new Error("Balance too low for distribution")
-
-      const recipients = Object.keys(holders)
-      const amounts = recipients.map(addr => perFregShare * BigInt(holders[addr]))
-
-      const BATCH_SIZE = 150
-      const totalBatches = Math.ceil(recipients.length / BATCH_SIZE)
-      setAirdropProgress({ current: 0, total: totalBatches })
-      setTxStatus('confirming')
-
-      const contract = await contracts.fregAirdrop.write()
-      for (let b = 0; b < totalBatches; b++) {
-        const batchRecipients = recipients.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE)
-        const batchAmounts = amounts.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE)
-        setTxMessage(`Sending batch ${b + 1} of ${totalBatches} (${batchRecipients.length} recipients)...`)
-        const tx = await contract.airdropBatch(batchRecipients, batchAmounts)
-        await tx.wait()
-        setAirdropProgress({ current: b + 1, total: totalBatches })
-      }
-
-      setTxStatus('success')
-      setTxMessage(`Airdrop complete! Sent to ${recipients.length} unique holders across ${totalBatches} batch(es).`)
-      setAirdropProgress({ current: 0, total: 0 })
-
-      const bal = await contracts.fregAirdrop.read.coinBalance()
-      setAirdropCoinBalance(formatEther(bal))
-    } catch (err: any) {
-      setErrorMessage(err.message || "Airdrop failed")
-      setTxStatus('error')
-      setAirdropProgress({ current: 0, total: 0 })
-    }
-  }
 
   const closeModal = () => {
     setTxStatus('idle')
@@ -1544,32 +1485,11 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
                 </div>
               </div>
 
-              {/* Snapshot & Airdrop */}
-              <div className="border-t border-white/20 pt-4 space-y-3">
-                <p className="font-righteous text-white/60 text-sm">
-                  Takes a live snapshot of all Freg holders and distributes the contract balance proportionally (per Freg held).
+              {/* How to trigger airdrop */}
+              <div className="border-t border-white/20 pt-4">
+                <p className="font-righteous text-white/50 text-sm">
+                  To distribute: run <span className="font-mono text-orange-400">node scripts/airdropFregCoin.js --network base</span> from the hardhat directory. Use <span className="font-mono text-orange-400">--dry-run</span> to preview, <span className="font-mono text-orange-400">--resume &lt;file&gt;</span> to continue after a failure.
                 </p>
-
-                {airdropProgress.total > 0 && (
-                  <div className="bg-black/30 rounded-lg p-3">
-                    <p className="font-righteous text-orange-400 text-sm">
-                      Batch {airdropProgress.current} / {airdropProgress.total}
-                    </p>
-                    <div className="w-full bg-black/50 rounded-full h-2 mt-2">
-                      <div
-                        className="bg-orange-400 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${airdropProgress.total > 0 ? (airdropProgress.current / airdropProgress.total) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <Button
-                  onClick={handleSnapshotAndAirdrop}
-                  className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4"
-                >
-                  Snapshot &amp; Airdrop to Freg Holders
-                </Button>
               </div>
 
               {/* Withdraw remainder */}

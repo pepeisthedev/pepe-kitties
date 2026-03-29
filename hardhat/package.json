@@ -13,7 +13,9 @@
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network baseSepolia",
     "deploy:mainnet": "hardhat run scripts/deploy.ts --network base",
     "verify": "VERIFY_CONTRACTS=true hardhat run scripts/deploy.ts",
-    "node": "hardhat node"
+    "node": "hardhat node",
+    "airdrop:dry-run:base": "hardhat run scripts/airdropFregCoin.js --network base -- --dry-run",
+    "airdrop:base": "hardhat run scripts/airdropFregCoin.js --network base"
   },
   "repository": {
     "type": "git",
