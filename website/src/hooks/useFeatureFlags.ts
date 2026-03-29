@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback } from "react"
 import { useAppKitProvider } from "@reown/appkit/react"
 import { BrowserProvider, Contract } from "ethers"
 import {
+  FREGS_ADDRESS,
   FREGS_ITEMS_ADDRESS,
   SPIN_THE_WHEEL_ADDRESS,
   FREG_SHOP_ADDRESS,
   FREGS_LIQUIDITY_ADDRESS,
+  FregsABI,
   FregsItemsABI,
   SpinTheWheelABI,
   FregShopABI,
@@ -13,6 +15,7 @@ import {
 } from "../config/contracts"
 
 export interface FeatureFlags {
+  mintActive: boolean
   spinActive: boolean
   chestOpeningActive: boolean
   liquidityActive: boolean
@@ -20,6 +23,7 @@ export interface FeatureFlags {
 }
 
 const DEFAULT_FLAGS: FeatureFlags = {
+  mintActive: false,
   spinActive: false,
   chestOpeningActive: false,
   liquidityActive: false,
@@ -38,10 +42,12 @@ export function useFeatureFlags() {
     setIsLoading(true)
     try {
       const provider = new BrowserProvider(walletProvider as any)
+      const fregs = new Contract(FREGS_ADDRESS, FregsABI, provider)
       const items = new Contract(FREGS_ITEMS_ADDRESS, FregsItemsABI, provider)
 
       const promises: Promise<any>[] = [
         items.chestOpeningActive(),
+        fregs.mintPhase(),
       ]
 
       if (SPIN_THE_WHEEL_ADDRESS) {
@@ -65,10 +71,11 @@ export function useFeatureFlags() {
         promises.push(Promise.resolve(false))
       }
 
-      const [chestOpeningActive, spinActive, liquidityActive, shopActive] =
+      const [chestOpeningActive, mintPhase, spinActive, liquidityActive, shopActive] =
         await Promise.all(promises)
 
       setFlags({
+        mintActive: Number(mintPhase) > 0,
         spinActive,
         chestOpeningActive,
         liquidityActive,

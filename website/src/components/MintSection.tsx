@@ -488,7 +488,7 @@ export default function MintSection(): React.JSX.Element {
                                     ? "bg-red-500/20 text-red-400"
                                     : mintPhase === 1
                                     ? "text-theme-primary border border-theme-primary/40 bg-theme-primary/10"
-                                    : "bg-green-500/20 text-green-400"
+                                    : "bg-green-500/20 text-green-600 "
                             }`}>
                                 {mintPhase === 0 ? "PAUSED" : mintPhase === 1 ? "WHITELIST" : "PUBLIC"}
                             </span>

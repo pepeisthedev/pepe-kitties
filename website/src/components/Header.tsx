@@ -15,7 +15,7 @@ interface HeaderProps {
 
 const allNavItems: { id: SectionId; label: string; flagKey?: keyof FeatureFlags }[] = [
     { id: "mint", label: "Mint" },
-    { id: "my-kitties", label: "My Fregs" },
+    { id: "my-kitties", label: "My Fregs", flagKey: "mintActive" },
     { id: "treasure-chests", label: "$FREG", flagKey: "chestOpeningActive" },
     { id: "spin-wheel", label: "Spin", flagKey: "spinActive" },
     { id: "shop", label: "Shop", flagKey: "shopActive" },
