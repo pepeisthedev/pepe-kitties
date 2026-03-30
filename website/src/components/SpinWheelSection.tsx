@@ -14,7 +14,7 @@ import { waitForEvent } from "../lib/waitForEvent"
 import { readBufferedGasAwareVrfFee } from "../lib/vrfFee"
 import ItemCard from "./ItemCard"
 import { ITEM_TYPE_NAMES, ITEM_TYPES, SPIN_THE_WHEEL_ADDRESS } from "../config/contracts"
-import { CircleHelp, RotateCw, X } from "lucide-react"
+import { CircleHelp, RotateCw, X, Lock } from "lucide-react"
 
 // Prize types from contract
 const PRIZE_MINTPASS = 1
@@ -259,7 +259,11 @@ function StarBurst() {
   )
 }
 
-export default function SpinWheelSection(): React.JSX.Element | null {
+interface SpinWheelProps {
+  spinActive: boolean
+}
+
+export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.JSX.Element | null {
   const { address, isConnected } = useAppKitAccount()
   const contracts = useContracts()
   const { balance, isLoading: balanceLoading, refetch: refetchBalance } = useSpinTokenBalance()
@@ -560,7 +564,19 @@ export default function SpinWheelSection(): React.JSX.Element | null {
 
       {/* Wheel area — scrollable, centered */}
       <div className="flex-1 overflow-y-auto flex items-center justify-center px-4 pt-20 pb-2 relative z-10">
-        {!isConnected ? (
+        {!spinActive ? (
+          <Card className="bg-black/80 border-4 border-yellow-400 rounded-3xl">
+            <CardContent className="p-12 text-center">
+              <Lock className="w-12 h-12 mx-auto mb-4 text-yellow-300 opacity-80" />
+              <p className="font-bangers text-3xl text-yellow-300 mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                Spin not available yet
+              </p>
+              <p className="font-righteous text-lg text-white/80 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                The wheel is coming soon — check back later!
+              </p>
+            </CardContent>
+          </Card>
+        ) : !isConnected ? (
           <Card className="bg-black/80 border-4 border-purple-400 rounded-3xl">
             <CardContent className="p-12 text-center">
               <p className="font-righteous text-xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
@@ -626,7 +642,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
           <div className="flex flex-col items-center -mt-8 md:-mt-10">
             <button
               onClick={spinPhase === "result" ? handleCloseResult : handleSpin}
-              disabled={isSpinning || spinPhase === "revealing" || !isConnected || (!canSpin && spinPhase !== "result")}
+              disabled={!spinActive || isSpinning || spinPhase === "revealing" || !isConnected || (!canSpin && spinPhase !== "result")}
               className="relative cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Spin the wheel"
             >

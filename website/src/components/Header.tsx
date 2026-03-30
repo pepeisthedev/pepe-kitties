@@ -34,10 +34,8 @@ export default function Header({ activeSection, onSectionChange, featureFlags }:
     const isLanding = activeSection === "landing"
     const isFullscreen = isLanding || activeSection === "spin-wheel"
 
-    // Filter nav items based on feature flags and owner status
-    const navItems = allNavItems.filter(item =>
-        !item.flagKey || featureFlags[item.flagKey]
-    )
+    // All nav items are always shown; feature flags only affect section behavior, not visibility
+    const navItems = allNavItems
     const dynamicNavItems = isOwner
         ? [...navItems, { id: "admin" as SectionId, label: "Admin" }]
         : navItems

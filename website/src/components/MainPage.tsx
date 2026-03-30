@@ -25,9 +25,9 @@ export default function MainPage(): React.JSX.Element {
             case "my-kitties":
                 return <MyKittiesSection />
             case "treasure-chests":
-                return <TreasureChestSection />
+                return <TreasureChestSection chestOpeningActive={flags.chestOpeningActive} />
             case "spin-wheel":
-                return <SpinWheelSection />
+                return <SpinWheelSection spinActive={flags.spinActive} />
             case "shop":
                 return <ShopSection />
             case "admin":
