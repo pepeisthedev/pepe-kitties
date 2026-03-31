@@ -83,6 +83,13 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   })
 
 
+  // VRF gas limits panel
+  const [showVrfGasLimits, setShowVrfGasLimits] = useState(false)
+  const [vrfMintGas, setVrfMintGas] = useState("350000")
+  const [vrfClaimItemGas, setVrfClaimItemGas] = useState("300000")
+  const [vrfHeadRerollGas, setVrfHeadRerollGas] = useState("100000")
+  const [vrfSpinGas, setVrfSpinGas] = useState("150000")
+
   // Liquidity panel
   const [showLiquidity, setShowLiquidity] = useState(false)
   const [liquidityEthBalance, setLiquidityEthBalance] = useState("0")
@@ -274,6 +281,28 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
       setMintProgress({ current: 0, total: 0 })
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to mint items")
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetVrfGasLimits = async () => {
+    if (!contracts?.fregsRandomizer) return
+    setTxStatus('pending')
+    setTxMessage('Updating VRF callback gas limits...')
+    try {
+      const contract = await contracts.fregsRandomizer.write()
+      const tx = await contract.setCallbackGasLimits(
+        Number(vrfMintGas),
+        Number(vrfClaimItemGas),
+        Number(vrfHeadRerollGas),
+        Number(vrfSpinGas)
+      )
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxMessage('VRF gas limits updated!')
+      setTxStatus('success')
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to update VRF gas limits')
       setTxStatus('error')
     }
   }
@@ -1502,6 +1531,67 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
                   Withdraw Remainder
                 </Button>
               </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* VRF Callback Gas Limits */}
+      {contracts?.fregsRandomizer && (
+        <Card className="bg-white/5 border-white/10">
+          <div
+            className="flex items-center justify-between p-4 cursor-pointer"
+            onClick={() => setShowVrfGasLimits(!showVrfGasLimits)}
+          >
+            <h3 className="font-bangers text-xl text-white">VRF Callback Gas Limits</h3>
+            <span className="text-white/60">{showVrfGasLimits ? '▲' : '▼'}</span>
+          </div>
+          {showVrfGasLimits && (
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="font-righteous text-white/70 text-sm block mb-1">Mint gas limit</label>
+                  <input
+                    type="number"
+                    value={vrfMintGas}
+                    onChange={(e) => setVrfMintGas(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-white font-mono text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="font-righteous text-white/70 text-sm block mb-1">Claim item gas limit</label>
+                  <input
+                    type="number"
+                    value={vrfClaimItemGas}
+                    onChange={(e) => setVrfClaimItemGas(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-white font-mono text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="font-righteous text-white/70 text-sm block mb-1">Head reroll gas limit</label>
+                  <input
+                    type="number"
+                    value={vrfHeadRerollGas}
+                    onChange={(e) => setVrfHeadRerollGas(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-white font-mono text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="font-righteous text-white/70 text-sm block mb-1">Spin gas limit</label>
+                  <input
+                    type="number"
+                    value={vrfSpinGas}
+                    onChange={(e) => setVrfSpinGas(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-white font-mono text-sm"
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleSetVrfGasLimits}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-bangers"
+              >
+                Update Gas Limits
+              </Button>
             </CardContent>
           )}
         </Card>

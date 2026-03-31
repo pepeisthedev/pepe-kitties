@@ -39,10 +39,10 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
         string color;
     }
 
-    uint32 public mintCallbackGasLimit = 700_000;
-    uint32 public claimItemCallbackGasLimit = 500_000;
-    uint32 public headRerollCallbackGasLimit = 350_000;
-    uint32 public spinCallbackGasLimit = 450_000;
+    uint32 public mintCallbackGasLimit = 350_000;
+    uint32 public claimItemCallbackGasLimit = 300_000;
+    uint32 public headRerollCallbackGasLimit = 100_000;
+    uint32 public spinCallbackGasLimit = 150_000;
     uint16 public requestConfirmations = 3;
     uint32 public constant NUM_WORDS = 1;
     bool public autoFulfill;

@@ -71,27 +71,10 @@ export default function TreasureChestSection({ chestOpeningActive }: Props): Rea
                     The official token of the Fregs ecosystem
                 </p>
 
-                {/* External Links */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
-                    <Button
-                        onClick={() => window.open("https://dexscreener.com/base/0x3735e0fad9DcD3BB9a0e4a2E86bD24f8a86AeF17", "_blank")}
-                        className="inline-flex items-center justify-center gap-3 px-6 py-3 rounded-2xl font-bangers text-lg
-                            btn-theme-primary
-                            hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
-                    >
-                        <img src="/dexscreener-logo.svg" alt="DexScreener" className="w-6 h-6 icon-theme-button" />
-                        DexScreener
-                    </Button>
-                    <Button
-                        onClick={() => window.open("https://app.uniswap.org/swap?outputCurrency=0x3735e0fad9DcD3BB9a0e4a2E86bD24f8a86AeF17&chain=base", "_blank")}
-                        className="inline-flex items-center justify-center gap-3 px-6 py-3 rounded-2xl font-bangers text-lg
-                            btn-theme-primary
-                            hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
-                    >
-                        <img src="/uniswap-logo.svg" alt="Uniswap" className="w-6 h-6 icon-theme-button" />
-                        Buy on Uniswap
-                    </Button>
-                </div>
+                {/* Coming Soon */}
+                <p className="font-righteous text-theme-muted text-lg mb-10">
+                    Trading coming soon — LP launching on Base
+                </p>
 
                 
             </div>

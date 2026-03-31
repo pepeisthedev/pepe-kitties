@@ -6,6 +6,7 @@ import FregsLiquidityABI from "../assets/abis/FregsLiquidity.json"
 import FregShopABI from "../assets/abis/FregShop.json"
 import FregCoinABI from "../assets/abis/FregCoin.json"
 import FregsAirdropABI from "../assets/abis/FregsAirdrop.json"
+import FregsRandomizerABI from "../assets/abis/FregsRandomizer.json"
 import itemsData from "./items.json"
 import dynamicItemsData from "./dynamic-items.json"
 
@@ -37,10 +38,11 @@ export const FREGS_LIQUIDITY_ADDRESS = import.meta.env.VITE_FREGS_LIQUIDITY_ADDR
 export const FREG_SHOP_ADDRESS = import.meta.env.VITE_FREG_SHOP_ADDRESS as string
 export const FREG_COIN_ADDRESS = import.meta.env.VITE_FREGCOIN_ADDRESS as string
 export const FREG_AIRDROP_ADDRESS = import.meta.env.VITE_FREG_AIRDROP_ADDRESS as string
+export const FREGS_RANDOMIZER_ADDRESS = import.meta.env.VITE_FREGS_RANDOMIZER_ADDRESS as string
 export const ACTIVE_CHAIN_ID = parseChainId(import.meta.env.VITE_CHAIN_ID, 84532)
 
 // Export ABIs
-export { FregsABI, FregsItemsABI, FregsMintPassABI, SpinTheWheelABI, FregsLiquidityABI, FregShopABI, FregCoinABI, FregsAirdropABI }
+export { FregsABI, FregsItemsABI, FregsMintPassABI, SpinTheWheelABI, FregsLiquidityABI, FregShopABI, FregCoinABI, FregsAirdropABI, FregsRandomizerABI }
 
 function mergeItems() {
   const mergedItems = new Map<number, ItemConfig>()

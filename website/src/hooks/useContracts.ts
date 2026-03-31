@@ -10,6 +10,7 @@ import {
   FREG_SHOP_ADDRESS,
   FREG_COIN_ADDRESS,
   FREG_AIRDROP_ADDRESS,
+  FREGS_RANDOMIZER_ADDRESS,
   FregsABI,
   FregsItemsABI,
   FregsMintPassABI,
@@ -18,6 +19,7 @@ import {
   FregShopABI,
   FregCoinABI,
   FregsAirdropABI,
+  FregsRandomizerABI,
 } from "../config/contracts"
 
 export function useContracts() {
@@ -87,6 +89,13 @@ export function useContracts() {
         write: async () => {
           const signer = await getSigner()
           return new Contract(FREG_AIRDROP_ADDRESS, FregsAirdropABI, signer)
+        },
+      } : null,
+      fregsRandomizer: FREGS_RANDOMIZER_ADDRESS ? {
+        read: new Contract(FREGS_RANDOMIZER_ADDRESS, FregsRandomizerABI, provider),
+        write: async () => {
+          const signer = await getSigner()
+          return new Contract(FREGS_RANDOMIZER_ADDRESS, FregsRandomizerABI, signer)
         },
       } : null,
     }
