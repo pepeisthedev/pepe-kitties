@@ -1143,6 +1143,9 @@ async function main() {
     console.log(`VITE_FREG_SHOP_ADDRESS=${fregShopAddress}`);
     console.log(`VITE_FREG_AIRDROP_ADDRESS=${fregsAirdropAddress}`);
     console.log(`VITE_SVG_RENDERER_ADDRESS=${svgRendererAddress}`);
+    console.log(`VITE_FREGS_RANDOMIZER_ADDRESS=${fregsRandomizerAddress}`);
+
+    
 
 }
 
