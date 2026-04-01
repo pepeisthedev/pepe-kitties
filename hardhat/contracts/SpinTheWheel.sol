@@ -327,7 +327,8 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         bytes memory json = abi.encodePacked(
             '{"name": "Freg Spin Token",',
             '"description": "Spin the wheel for a chance to win prizes! Burn 1 SpinToken to spin.",',
-            '"image": "ipfs://bafybeifb7xhcawlecjqxnvw3x43wkg66lppk24wqelk3of5aem7ude7qma",',
+            '"image": "ipfs://bafybeidvpudkt75b56scxtnwtm2fmpodf5a7jslcmhmlh25vl6elmlw6cq",',
+            '"animation_url": "ipfs://bafybeiaufjnxtaa4gkc6qouifr2mi7r6d44lbhwhpis2ygck6octup46ue",',
             '"attributes": [{"trait_type": "Type", "value": "Spin Token"}]}'
         );
         return _base64Encode(json);
