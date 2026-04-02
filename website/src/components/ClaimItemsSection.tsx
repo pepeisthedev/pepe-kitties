@@ -176,7 +176,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
                 </Card>
             ) : isLoading ? (
                 <div className="flex justify-center py-12">
-                    <LoadingSpinner size="lg" message="Loading unclaimed kitties..." />
+                    <LoadingSpinner size="lg" message="Loading unclaimed fregs..." />
                 </div>
             ) : error ? (
                 <Card className="bg-black/40 border-4 border-red-400 rounded-3xl">
@@ -189,7 +189,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
                     <CardContent className="p-12 text-center">
                         <p className="font-bangers text-3xl text-white/70 mb-4">All Items Claimed!</p>
                         <p className="font-righteous text-lg text-white/50">
-                            All your kitties have already claimed their items
+                            All your Fregs have already claimed their items
                         </p>
                     </CardContent>
                 </Card>

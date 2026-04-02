@@ -536,10 +536,10 @@ export default function MyKittiesSection(): React.JSX.Element {
     const getConfirmMessage = () => {
         if (!selectedItem) return ""
         const config = getItemConfig(selectedItem.itemType)
-        if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) return "Are you sure you want to change the color of this Pepe?"
-        if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) return "Are you sure you want to re-roll the head trait? This will randomly change the head."
+        if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) return "Are you sure you want to change the Fregs color?"
+        if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) return "Are you sure you want to re-roll the head trait? Your current head trait will be permanently lost."
         if (config?.category === 'skin') return `Are you sure you want to apply ${selectedItem.name}? This will apply a special body skin.`
-        if (config?.category === 'head') return `Are you sure you want to apply ${selectedItem.name}? This will change your Freg's head.`
+        if (config?.category === 'head') return `Are you sure you want to apply ${selectedItem.name}? Your current head trait will be permanently lost.`
         return `Are you sure you want to use ${selectedItem.name}?`
     }
 
