@@ -152,7 +152,7 @@ const CLAIM_MESSAGES = [
 ]
 
 const REROLL_MESSAGES = [
-    "Consulting the frog gods...",
+    "Consulting the freg gods...",
     "Rolling the dice...",
     "A new head is forming...",
     "The RNG oracle is thinking...",
@@ -271,7 +271,7 @@ function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, tra
                             <div className="border-t border-theme-muted/30 pt-0.5 mt-0.5">
                                 <p className="text-[8px] text-theme-muted font-righteous text-center">Burn value:</p>
                                 <p className="text-[8px] text-theme-primary font-bangers text-center truncate">
-                                    {redeemETH} ETH + {redeemCoin} FROG
+                                    {redeemETH} ETH{redeemCoin && redeemCoin !== "0" ? ` + ${redeemCoin} $FREG` : ""}
                                 </p>
                             </div>
                         )}
@@ -519,7 +519,7 @@ export default function MyKittiesSection(): React.JSX.Element {
 
             setModalData({
                 success: true,
-                message: `Freg #${tokenId} burned! You received ${redeemETH} ETH + ${redeemCoin} FREGCOIN.`,
+                message: `Freg #${tokenId} burned! You received ${redeemETH} ETH${redeemCoin && redeemCoin !== "0" ? ` + ${redeemCoin} FREGCOIN` : ""}.`,
                 isBurn: true,
             })
 
@@ -915,7 +915,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                                         <div className="border-t border-theme-muted/30 pt-1 mt-1">
                                                             <p className="text-[9px] text-theme-muted font-righteous text-center">Burn value:</p>
                                                             <p className="text-[10px] text-theme-primary font-bangers text-center truncate">
-                                                                {redeemETH} ETH + {redeemCoin} FROG
+                                                                {redeemETH} ETH{redeemCoin && redeemCoin !== "0" ? ` + ${redeemCoin} $FREG` : ""}
                                                             </p>
                                                         </div>
                                                     )}
@@ -1215,7 +1215,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                     <div className="bg-theme-card/50 border border-theme-muted/30 rounded-xl p-3 my-2">
                         <p className="font-righteous text-xs text-theme-muted text-center mb-1">You will receive:</p>
                         <p className="font-bangers text-lg text-theme-primary text-center">
-                            {redeemETH} ETH + {redeemCoin} FREGCOIN
+                            {redeemETH} ETH{redeemCoin && redeemCoin !== "0" ? ` + ${redeemCoin} $FREG` : ""}
                         </p>
                     </div>
                     <DialogFooter className="flex gap-3 sm:justify-center">
