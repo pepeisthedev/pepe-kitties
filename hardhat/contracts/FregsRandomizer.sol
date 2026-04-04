@@ -39,11 +39,11 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
         string color;
     }
 
-    uint32 public mintCallbackGasLimit = 350_000;
-    uint32 public claimItemCallbackGasLimit = 300_000;
-    uint32 public headRerollCallbackGasLimit = 100_000;
-    uint32 public spinCallbackGasLimit = 150_000;
-    uint16 public requestConfirmations = 3;
+  uint32 public mintCallbackGasLimit = 700_000;
+    uint32 public claimItemCallbackGasLimit = 500_000;
+    uint32 public headRerollCallbackGasLimit = 350_000;
+    uint32 public spinCallbackGasLimit = 450_000;
+    uint16 public requestConfirmations = 1;
     uint32 public constant NUM_WORDS = 1;
     bool public autoFulfill;
 
@@ -52,6 +52,8 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
     address public spinTheWheelContract;
 
     mapping(uint256 => PendingRequest) public pendingRequests;
+    mapping(uint256 => uint256) public storedRandomWords;
+    mapping(uint256 => bool) public failedRequests;
 
     event RandomnessRequested(
         uint256 indexed requestId,
@@ -62,6 +64,18 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
     );
 
     event RandomnessFulfilled(
+        uint256 indexed requestId,
+        ActionType indexed actionType,
+        address indexed requester
+    );
+
+    event RandomnessFailed(
+        uint256 indexed requestId,
+        ActionType indexed actionType,
+        address indexed requester
+    );
+
+    event RandomnessRetried(
         uint256 indexed requestId,
         ActionType indexed actionType,
         address indexed requester
@@ -233,30 +247,70 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
             return;
         }
 
+        uint256 randomWord = randomWords[0];
+        bool success = _executeCallback(pending, randomWord);
+
+        if (success) {
+            delete pendingRequests[requestId];
+            emit RandomnessFulfilled(requestId, pending.actionType, pending.requester);
+        } else {
+            storedRandomWords[requestId] = randomWord;
+            failedRequests[requestId] = true;
+            emit RandomnessFailed(requestId, pending.actionType, pending.requester);
+        }
+    }
+
+    function retryFulfill(uint256 requestId) external {
+        require(failedRequests[requestId], "Not a failed request");
+
+        PendingRequest memory pending = pendingRequests[requestId];
+        require(pending.actionType != ActionType.NONE, "Request not found");
+
+        uint256 randomWord = storedRandomWords[requestId];
+
+        // Clear stored state before external call.
+        // If the callback reverts, the entire tx reverts atomically,
+        // restoring this state so the request remains available for retry.
+        delete failedRequests[requestId];
+        delete storedRandomWords[requestId];
         delete pendingRequests[requestId];
 
-        uint256 randomWord = randomWords[0];
+        _executeCallbackOrRevert(pending, randomWord);
 
+        emit RandomnessRetried(requestId, pending.actionType, pending.requester);
+    }
+
+    function _executeCallback(PendingRequest memory pending, uint256 randomWord) internal returns (bool) {
+        if (pending.actionType == ActionType.MINT) {
+            try IFregsRandomMintConsumer(fregsContract).fulfillMint(pending.requester, pending.color, randomWord) {
+                return true;
+            } catch { return false; }
+        } else if (pending.actionType == ActionType.CLAIM_ITEM) {
+            try IFregsItemsRandomConsumer(itemsContract).fulfillClaimItem(pending.requester, pending.primaryId, randomWord) {
+                return true;
+            } catch { return false; }
+        } else if (pending.actionType == ActionType.HEAD_REROLL) {
+            try IFregsItemsRandomConsumer(itemsContract).fulfillHeadReroll(pending.requester, pending.primaryId, pending.secondaryId, randomWord) {
+                return true;
+            } catch { return false; }
+        } else if (pending.actionType == ActionType.SPIN) {
+            try ISpinTheWheelRandomConsumer(spinTheWheelContract).fulfillSpin(pending.requester, randomWord) {
+                return true;
+            } catch { return false; }
+        }
+        return false;
+    }
+
+    function _executeCallbackOrRevert(PendingRequest memory pending, uint256 randomWord) internal {
         if (pending.actionType == ActionType.MINT) {
             IFregsRandomMintConsumer(fregsContract).fulfillMint(pending.requester, pending.color, randomWord);
         } else if (pending.actionType == ActionType.CLAIM_ITEM) {
-            IFregsItemsRandomConsumer(itemsContract).fulfillClaimItem(
-                pending.requester,
-                pending.primaryId,
-                randomWord
-            );
+            IFregsItemsRandomConsumer(itemsContract).fulfillClaimItem(pending.requester, pending.primaryId, randomWord);
         } else if (pending.actionType == ActionType.HEAD_REROLL) {
-            IFregsItemsRandomConsumer(itemsContract).fulfillHeadReroll(
-                pending.requester,
-                pending.primaryId,
-                pending.secondaryId,
-                randomWord
-            );
+            IFregsItemsRandomConsumer(itemsContract).fulfillHeadReroll(pending.requester, pending.primaryId, pending.secondaryId, randomWord);
         } else if (pending.actionType == ActionType.SPIN) {
             ISpinTheWheelRandomConsumer(spinTheWheelContract).fulfillSpin(pending.requester, randomWord);
         }
-
-        emit RandomnessFulfilled(requestId, pending.actionType, pending.requester);
     }
 
     function _requestRandomness(uint32 callbackGasLimit, uint256 requestPrice) internal returns (uint256) {
@@ -273,6 +327,36 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
         if (autoFulfill) {
             IMockVRFV2PlusWrapper(address(i_vrfV2PlusWrapper)).fulfillRequest(requestId);
         }
+    }
+
+    // ============ View Functions ============
+
+    function isRequestFailed(uint256 requestId) external view returns (bool) {
+        return failedRequests[requestId];
+    }
+
+    function getFailedRequest(uint256 requestId)
+        external
+        view
+        returns (
+            ActionType actionType,
+            address requester,
+            uint256 primaryId,
+            uint256 secondaryId,
+            string memory color,
+            uint256 randomWord
+        )
+    {
+        require(failedRequests[requestId], "Not a failed request");
+        PendingRequest memory pending = pendingRequests[requestId];
+        return (
+            pending.actionType,
+            pending.requester,
+            pending.primaryId,
+            pending.secondaryId,
+            pending.color,
+            storedRandomWords[requestId]
+        );
     }
 
     receive() external payable {}

@@ -11,4 +11,7 @@ interface IFregsRandomizer {
     function requestClaimItem(address requester, uint256 fregId) external payable returns (uint256);
     function requestHeadReroll(address requester, uint256 itemTokenId, uint256 fregId) external payable returns (uint256);
     function requestSpin(address player) external payable returns (uint256);
+
+    function retryFulfill(uint256 requestId) external;
+    function isRequestFailed(uint256 requestId) external view returns (bool);
 }

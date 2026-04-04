@@ -2,10 +2,7 @@ const { ethers, network } = require("hardhat");
 const { loadDeploymentStatus } = require("./deploymentStatus");
 
 const NONE = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-const WHITELIST_PHASE = 1;
-const PUBLIC_PHASE = 2;
 const MINT_COUNT = 30;
-const EXTRA_PASSES = 20;
 const MINT_GAS_LIMIT = 800000n;
 const CLAIM_GAS_LIMIT = 700000n;
 const EVENT_TIMEOUT_MS = Number(process.env.VRF_EVENT_TIMEOUT_MS || 180000);
@@ -73,7 +70,9 @@ async function getTxGasPrice() {
 }
 
 async function readGasAwareQuote(contract, functionName, gasPrice) {
-    return callUint(contract, functionName, [], { gasPrice });
+    // Add 20% buffer so minor gas price fluctuations between quote and send don't cause "Insufficient VRF fee"
+    const fee = await callUint(contract, functionName, [], { gasPrice });
+    return fee * 120n / 100n;
 }
 
 async function waitForEvent({ contract, filter, fromBlock, description, match }) {
@@ -140,16 +139,39 @@ async function sendTx(sendFn, txOptions, nonceState) {
     throw lastError;
 }
 
-async function mintBatch({ count, deployer, fregs, label, mintPrice, needsMintPrice, color, mintedTokenIds, nonceState }) {
-    console.log(`\n--- ${label} ---`);
+async function main() {
+    const status = loadDeploymentStatus(network.name);
+    const [deployer] = await ethers.getSigners();
 
-    for (let i = 0; i < count; i++) {
+    const fregs = await ethers.getContractAt("Fregs", status.contracts.fregs);
+    const fregsItems = await ethers.getContractAt("FregsItems", status.contracts.fregsItems);
+    const nonceState = {
+        address: deployer.address,
+        nextNonce: await ethers.provider.getTransactionCount(deployer.address, "pending"),
+    };
+
+    const mintPrice = await fregs.mintPrice();
+    const initialGasPrice = await getTxGasPrice();
+    const mintVrfFee = await readGasAwareQuote(fregs, "quoteMintFee", initialGasPrice);
+    const claimVrfFee = await readGasAwareQuote(fregsItems, "quoteClaimItemFee", initialGasPrice);
+
+    console.log(`Network:       ${network.name}`);
+    console.log(`Deployer:      ${deployer.address}`);
+    console.log(`Mint price:    ${ethers.formatEther(mintPrice)} ETH`);
+    console.log(`Mint VRF fee:  ${ethers.formatEther(mintVrfFee)} ETH`);
+    console.log(`Claim VRF fee: ${ethers.formatEther(claimVrfFee)} ETH`);
+    console.log(`Minting ${MINT_COUNT} fregs in public phase...\n`);
+
+    const mintedTokenIds = [];
+
+    for (let i = 0; i < MINT_COUNT; i++) {
+        let mintTxHash = null;
         try {
             const gasPrice = await getTxGasPrice();
             const vrfFee = await readGasAwareQuote(fregs, "quoteMintFee", gasPrice);
-            const totalValue = needsMintPrice ? mintPrice + vrfFee : vrfFee;
-            const { receipt } = await sendTx(
-                (txOptions) => fregs.mint(color, txOptions),
+            const totalValue = mintPrice + vrfFee;
+            const { tx, receipt } = await sendTx(
+                (txOptions) => fregs.mint("#ff5733", txOptions),
                 {
                     value: totalValue,
                     gasLimit: MINT_GAS_LIMIT,
@@ -157,6 +179,7 @@ async function mintBatch({ count, deployer, fregs, label, mintPrice, needsMintPr
                 },
                 nonceState
             );
+            mintTxHash = tx.hash;
 
             let parsed = parseEvent(receipt, fregs, "FregMinted");
             if (!parsed) {
@@ -170,119 +193,19 @@ async function mintBatch({ count, deployer, fregs, label, mintPrice, needsMintPr
             }
 
             if (!parsed) {
-                console.log(`  Mint ${i}: OK (gas: ${receipt.gasUsed}) [no FregMinted event parsed]`);
+                console.log(`  Mint ${i}: OK tx=${mintTxHash} (gas: ${receipt.gasUsed}) [no FregMinted event parsed]`);
                 continue;
             }
 
             const tokenId = Number(parsed.args.tokenId);
-            const head = parsed.args.head;
-            const mouth = parsed.args.mouth;
-            const belly = parsed.args.belly;
-
             mintedTokenIds.push(tokenId);
             console.log(
-                `  Mint ${i}: OK (gas: ${receipt.gasUsed}) fee=${formatWei(vrfFee)} token=${tokenId} head=${head} mouth=${formatTrait(mouth)} belly=${formatTrait(belly)}`
+                `  Mint ${i}: token=${tokenId} head=${parsed.args.head} mouth=${formatTrait(parsed.args.mouth)} belly=${formatTrait(parsed.args.belly)} (gas: ${receipt.gasUsed})`
             );
         } catch (error) {
-            console.log(`  Mint ${i}: FAILED - ${String(error.message || error).slice(0, 300)}`);
-        }
-    }
-}
-
-async function main() {
-    const status = loadDeploymentStatus(network.name);
-    const [deployer] = await ethers.getSigners();
-
-    const fregs = await ethers.getContractAt("Fregs", status.contracts.fregs);
-    const mintPass = await ethers.getContractAt("FregsMintPass", status.contracts.fregsMintPass);
-    const fregsItems = await ethers.getContractAt("FregsItems", status.contracts.fregsItems);
-    const nonceState = {
-        address: deployer.address,
-        nextNonce: await ethers.provider.getTransactionCount(deployer.address, "pending"),
-    };
-
-    const originalMintPhase = Number(await fregs.mintPhase());
-    const mintPrice = await fregs.mintPrice();
-    const initialGasPrice = await getTxGasPrice();
-    const mintVrfFee = await readGasAwareQuote(fregs, "quoteMintFee", initialGasPrice);
-    const claimVrfFee = await readGasAwareQuote(fregsItems, "quoteClaimItemFee", initialGasPrice);
-
-    console.log(`Network: ${network.name}`);
-    console.log(`Mint price: ${ethers.formatEther(mintPrice)} ETH`);
-    console.log(`Current tx gas price: ${initialGasPrice} wei`);
-    console.log(`Mint VRF fee: ${ethers.formatEther(mintVrfFee)} ETH`);
-    console.log(`Claim VRF fee: ${ethers.formatEther(claimVrfFee)} ETH`);
-
-    console.log(`Minting ${EXTRA_PASSES} extra passes for testing...`);
-    await sendTx(
-        (txOptions) => mintPass.ownerMint(deployer.address, EXTRA_PASSES, txOptions),
-        {
-            gasLimit: 200000n,
-            gasPrice: initialGasPrice,
-        },
-        nonceState
-    );
-
-    const balance = await mintPass.balanceOf(deployer.address, 1);
-    console.log(`Mint passes: ${balance}`);
-
-    const mintedTokenIds = [];
-
-    try {
-        console.log("\nSetting mint phase to Whitelist (1)...");
-        await sendTx(
-            (txOptions) => fregs.setMintPhase(WHITELIST_PHASE, txOptions),
-            {
-                gasLimit: 200000n,
-                gasPrice: await getTxGasPrice(),
-            },
-            nonceState
-        );
-
-        await mintBatch({
-            count: MINT_COUNT,
-            color: "#ff5733",
-            deployer,
-            fregs,
-            label: `Minting via MintPass in whitelist phase with gasLimit ${MINT_GAS_LIMIT}`,
-            mintPrice,
-            needsMintPrice: true,
-            mintedTokenIds,
-            nonceState,
-        });
-
-        console.log("\nSetting mint phase to Public (2)...");
-        await sendTx(
-            (txOptions) => fregs.setMintPhase(PUBLIC_PHASE, txOptions),
-            {
-                gasLimit: 200000n,
-                gasPrice: await getTxGasPrice(),
-            },
-            nonceState
-        );
-
-        await mintBatch({
-            count: MINT_COUNT,
-            color: "#33ff57",
-            deployer,
-            fregs,
-            label: `Direct public mint with gasLimit ${MINT_GAS_LIMIT}`,
-            mintPrice,
-            needsMintPrice: true,
-            mintedTokenIds,
-            nonceState,
-        });
-    } finally {
-        if (Number(await fregs.mintPhase()) !== originalMintPhase) {
-            console.log(`\nRestoring mint phase to ${originalMintPhase}...`);
-            await sendTx(
-                (txOptions) => fregs.setMintPhase(originalMintPhase, txOptions),
-                {
-                    gasLimit: 200000n,
-                    gasPrice: await getTxGasPrice(),
-                },
-                nonceState
-            );
+            const txHash = mintTxHash || error?.receipt?.hash || error?.transaction?.hash || null;
+            const txInfo = txHash ? ` tx=${txHash}` : "";
+            console.log(`  Mint ${i}: FAILED${txInfo} - ${String(error.message || error).slice(0, 300)}`);
         }
     }
 
@@ -290,10 +213,11 @@ async function main() {
     const claimCounts = {};
 
     for (const tokenId of mintedTokenIds) {
+        let claimTxHash = null;
         try {
             const gasPrice = await getTxGasPrice();
             const vrfFee = await readGasAwareQuote(fregsItems, "quoteClaimItemFee", gasPrice);
-            const { receipt } = await sendTx(
+            const { tx, receipt } = await sendTx(
                 (txOptions) => fregsItems.claimItem(tokenId, txOptions),
                 {
                     value: vrfFee,
@@ -302,6 +226,7 @@ async function main() {
                 },
                 nonceState
             );
+            claimTxHash = tx.hash;
 
             let parsed = parseEvent(receipt, fregsItems, "ItemClaimed");
             if (!parsed) {
@@ -315,7 +240,7 @@ async function main() {
             }
 
             if (!parsed) {
-                console.log(`  Freg #${tokenId}: claimed (gas: ${receipt.gasUsed}) [no ItemClaimed event parsed]`);
+                console.log(`  Freg #${tokenId}: claimed tx=${claimTxHash} (gas: ${receipt.gasUsed}) [no ItemClaimed event parsed]`);
                 continue;
             }
 
@@ -324,7 +249,9 @@ async function main() {
             claimCounts[name] = (claimCounts[name] || 0) + 1;
             console.log(`  Freg #${tokenId}: ${name} (gas: ${receipt.gasUsed}, fee=${formatWei(vrfFee)})`);
         } catch (error) {
-            console.log(`  Freg #${tokenId}: FAILED - ${String(error.message || error).slice(0, 300)}`);
+            const txHash = claimTxHash || error?.receipt?.hash || error?.transaction?.hash || null;
+            const txInfo = txHash ? ` tx=${txHash}` : "";
+            console.log(`  Freg #${tokenId}: FAILED${txInfo} - ${String(error.message || error).slice(0, 300)}`);
         }
     }
 
