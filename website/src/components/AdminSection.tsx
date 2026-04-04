@@ -83,6 +83,10 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   })
 
 
+  // VRF request confirmations panel
+  const [showVrfConfirmations, setShowVrfConfirmations] = useState(false)
+  const [vrfConfirmations, setVrfConfirmations] = useState("3")
+
   // VRF gas limits panel
   const [showVrfGasLimits, setShowVrfGasLimits] = useState(false)
   const [vrfMintGas, setVrfMintGas] = useState("350000")
@@ -281,6 +285,23 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
       setMintProgress({ current: 0, total: 0 })
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to mint items")
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetVrfConfirmations = async () => {
+    if (!contracts?.fregsRandomizer) return
+    setTxStatus('pending')
+    setTxMessage('Updating VRF request confirmations...')
+    try {
+      const contract = await contracts.fregsRandomizer.write()
+      const tx = await contract.setRequestConfirmations(Number(vrfConfirmations))
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxMessage('Request confirmations updated!')
+      setTxStatus('success')
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to update request confirmations')
       setTxStatus('error')
     }
   }
@@ -1531,6 +1552,39 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
                   Withdraw Remainder
                 </Button>
               </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* VRF Request Confirmations */}
+      {contracts?.fregsRandomizer && (
+        <Card className="bg-white/5 border-white/10">
+          <div
+            className="flex items-center justify-between p-4 cursor-pointer"
+            onClick={() => setShowVrfConfirmations(!showVrfConfirmations)}
+          >
+            <h3 className="font-bangers text-xl text-white">VRF Request Confirmations</h3>
+            <span className="text-white/60">{showVrfConfirmations ? '▲' : '▼'}</span>
+          </div>
+          {showVrfConfirmations && (
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-white/70 text-sm">Confirmations (min 1, recommended 3)</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={vrfConfirmations}
+                  onChange={(e) => setVrfConfirmations(e.target.value)}
+                  className="bg-white/10 border-white/20 text-white mt-1"
+                />
+              </div>
+              <Button
+                onClick={handleSetVrfConfirmations}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-bangers"
+              >
+                Update Confirmations
+              </Button>
             </CardContent>
           )}
         </Card>
