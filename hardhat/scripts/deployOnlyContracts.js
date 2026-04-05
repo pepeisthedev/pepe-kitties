@@ -59,7 +59,7 @@ const VRF_CALLBACK_GAS = {
     headReroll: Number(process.env.VRF_HEAD_REROLL_CALLBACK_GAS_LIMIT || 350000),
     spin: Number(process.env.VRF_SPIN_CALLBACK_GAS_LIMIT || 450000),
 };
-const VRF_REQUEST_CONFIRMATIONS = Number(process.env.VRF_REQUEST_CONFIRMATIONS || 3);
+const VRF_REQUEST_CONFIRMATIONS = Number(process.env.VRF_REQUEST_CONFIRMATIONS || 1);
 const DEFAULT_VRF_WRAPPER_ADDRESSES = {
     baseSepolia: "0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed",
     base: "0xb0407dbe851f8318bd31404A49e658143C982F23",
@@ -514,7 +514,6 @@ async function main() {
     await sendTx(fregShop.setFregCoinContract(fregCoinAddress));
     await sendTx(fregShop.setItemsContract(fregsItemsAddress));
     await sendTx(fregsItems.setShopContract(fregShopAddress));
-    await sendTx(fregCoin.setShopContract(fregShopAddress));
 
     // ============ Steg 4: Set Mint Phase + localhost setup ============
     if (isLocalhost) {

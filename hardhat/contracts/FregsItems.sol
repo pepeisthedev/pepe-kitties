@@ -13,6 +13,7 @@ interface IFregs {
     function ownerOf(uint256 tokenId) external view returns (address);
     function prepareHeadReroll(uint256 tokenId, address sender) external;
     function fulfillHeadReroll(address sender, uint256 tokenId, uint256 randomWord) external;
+    function clearPendingHeadReroll(uint256 tokenId) external;
     function setTrait(uint256 tokenId, uint256 traitType, uint256 traitValue, address sender) external;
     function setBodyColor(uint256 tokenId, string memory _color, address sender) external;
     function setMutated(uint256 tokenId, address sender) external;
@@ -343,6 +344,15 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         emit HeadRerollUsed(itemTokenId, fregId, requester);
     }
 
+    // Rescue a stuck head reroll — clears the pending flag and mints a new HEAD_REROLL
+    // item to the freg owner so they can re-roll themselves. No VRF fee required.
+    function rescueHeadReroll(uint256 fregId) external nonReentrant {
+        address fregOwner = fregs.ownerOf(fregId);
+        require(msg.sender == fregOwner || msg.sender == owner(), "Not authorized");
+        fregs.clearPendingHeadReroll(fregId); // reverts if no pending reroll
+        _mintSingleItem(fregOwner, HEAD_REROLL);
+    }
+
     function useSpecialSkinItem(uint256 itemTokenId, uint256 fregId) external nonReentrant {
         require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
         require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
@@ -445,7 +455,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     function setMutationItemTypeId(uint256 _itemTypeId) external onlyOwner {
         require(_itemTypeId >= 101, "Must be a dynamic item type");
-        require(bytes(itemTypeConfigs[_itemTypeId].name).length > 0, "Item type not configured");
+        require(bytes(itemTypeConfigs[_itemTypeId].name).length > 0, "Unknown item type");
         mutationItemTypeId = _itemTypeId;
     }
 
@@ -453,7 +463,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     function ownerMint(address to, uint256 _itemType, uint256 amount) external onlyOwner {
         require(amount > 0, "Amount must be greater than 0");
         require(_itemType >= 101, "Cannot owner-mint built-in items");
-        require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Item type not configured");
+        require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Unknown item type");
 
         uint256 startTokenId = _tokenIdCounter;
         _safeMint(to, amount);
@@ -469,8 +479,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     // Mint from SpinTheWheel spin wheel
     function mintFromCoin(address to, uint256 _itemType) external {
-        require(msg.sender == spinTheWheelContract, "Only SpinTheWheel contract");
-        require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Item type not configured");
+        require(msg.sender == spinTheWheelContract, "Only spin contract");
+        require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Unknown item type");
 
         uint256 newItemId = _tokenIdCounter;
         _safeMint(to, 1);
@@ -488,7 +498,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     function mintFromShop(address to, uint256 _itemType) external {
         require(msg.sender == shopContract, "Only shop contract");
         require(_itemType >= 101, "Only dynamic items");
-        require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Item type not configured");
+        require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Unknown item type");
 
         uint256 newItemId = _tokenIdCounter;
         _safeMint(to, 1);
@@ -558,7 +568,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         bool isClaimable,
         uint256 claimWeight
     ) external onlyOwner {
-        require(bytes(itemTypeConfigs[itemTypeId].name).length > 0, "Item type does not exist");
+        require(bytes(itemTypeConfigs[itemTypeId].name).length > 0, "Unknown item type");
 
         itemTypeConfigs[itemTypeId] = ItemTypeConfig({
             name: name,

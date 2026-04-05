@@ -1860,6 +1860,19 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      }
+    ],
+    "name": "rescueHeadReroll",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
       }

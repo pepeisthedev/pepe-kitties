@@ -64,7 +64,7 @@ const VRF_CALLBACK_GAS = {
     headReroll: Number(process.env.VRF_HEAD_REROLL_CALLBACK_GAS_LIMIT || 350000),
     spin: Number(process.env.VRF_SPIN_CALLBACK_GAS_LIMIT || 450000),
 };
-const VRF_REQUEST_CONFIRMATIONS = Number(process.env.VRF_REQUEST_CONFIRMATIONS || 3);
+const VRF_REQUEST_CONFIRMATIONS = Number(process.env.VRF_REQUEST_CONFIRMATIONS || 1);
 
 // Path to website ABIs folder (relative to hardhat folder)
 const WEBSITE_ABI_PATH = path.join(__dirname, "../../website/src/assets/abis");

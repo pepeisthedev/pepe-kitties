@@ -524,6 +524,14 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         }
     }
 
+    // Single-token variant called by FregsItems.rescueHeadReroll — avoids array allocation in items contract
+    function clearPendingHeadReroll(uint256 tokenId) external {
+        require(msg.sender == itemsContract, "Only items contract");
+        require(pendingHeadReroll[tokenId], "No pending head reroll");
+        pendingHeadReroll[tokenId] = false;
+        pendingHeadRerollCount -= 1;
+    }
+
     function withdraw(uint256 _amount) external onlyOwner {
         payable(owner()).transfer(_amount);
     }

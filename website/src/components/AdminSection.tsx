@@ -89,6 +89,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const [pendingCounts, setPendingCounts] = useState<{ mintCount: number; headRerollCount: number } | null>(null)
   const [pendingRerollTokenIds, setPendingRerollTokenIds] = useState<number[] | null>(null)
   const [scanning, setScanning] = useState(false)
+  const [rescueAndRerollTokenId, setRescueAndRerollTokenId] = useState("")
 
   // VRF request confirmations panel
   const [showVrfConfirmations, setShowVrfConfirmations] = useState(false)
@@ -96,10 +97,10 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
 
   // VRF gas limits panel
   const [showVrfGasLimits, setShowVrfGasLimits] = useState(false)
-  const [vrfMintGas, setVrfMintGas] = useState("350000")
-  const [vrfClaimItemGas, setVrfClaimItemGas] = useState("300000")
-  const [vrfHeadRerollGas, setVrfHeadRerollGas] = useState("100000")
-  const [vrfSpinGas, setVrfSpinGas] = useState("150000")
+  const [vrfMintGas, setVrfMintGas] = useState("700000")
+  const [vrfClaimItemGas, setVrfClaimItemGas] = useState("500000")
+  const [vrfHeadRerollGas, setVrfHeadRerollGas] = useState("350000")
+  const [vrfSpinGas, setVrfSpinGas] = useState("450000")
 
   // Liquidity panel
   const [showLiquidity, setShowLiquidity] = useState(false)
@@ -832,6 +833,33 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
       setRescueTokenIds("")
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to rescue pending head reroll")
+      setTxStatus('error')
+    }
+  }
+
+  const handleRescueAndReroll = async () => {
+    if (!contracts) return
+    const tokenId = Number(rescueAndRerollTokenId.trim())
+    if (isNaN(tokenId)) {
+      setErrorMessage("Enter a valid token ID")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Rescuing token #${tokenId} — minting a new Head Reroll item to the owner...`)
+    try {
+      const contract = await contracts.items.write()
+      const tx = await contract.rescueHeadReroll(tokenId)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Rescued token #${tokenId}! A new Head Reroll item was minted to the owner.`)
+      setRescueAndRerollTokenId("")
+      setPendingRerollTokenIds(null)
+      setPendingCounts(null)
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to rescue")
       setTxStatus('error')
     }
   }
@@ -1704,6 +1732,30 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
             >
               Clear Pending Reroll
             </Button>
+
+            {/* Rescue & Re-roll */}
+            <div className="border-t border-white/20 pt-4 space-y-3">
+              <p className="font-righteous text-white/60 text-sm">
+                <span className="text-orange-400 font-bold">Rescue & Re-roll</span> — clears the stuck flag and mints a new Head Reroll item to the freg owner so they can re-roll themselves. No VRF fee required.
+              </p>
+              <div className="flex items-center gap-3">
+                <label className="font-righteous text-white/70 shrink-0">Token ID:</label>
+                <input
+                  type="number"
+                  value={rescueAndRerollTokenId}
+                  onChange={(e) => setRescueAndRerollTokenId(e.target.value)}
+                  className="w-32 bg-black/50 border-2 border-orange-400/50 text-white font-mono p-2 rounded-md"
+                  placeholder="42"
+                />
+                <Button
+                  onClick={handleRescueAndReroll}
+                  disabled={rescueAndRerollTokenId.trim() === ""}
+                  className="bg-yellow-500 hover:bg-yellow-400 text-black font-bangers text-lg px-6 disabled:opacity-50"
+                >
+                  Rescue & Re-roll
+                </Button>
+              </div>
+            </div>
           </CardContent>
         )}
       </Card>
