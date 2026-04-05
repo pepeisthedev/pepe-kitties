@@ -83,6 +83,13 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   })
 
 
+  // Rescue pending head reroll panel
+  const [showRescueHeadReroll, setShowRescueHeadReroll] = useState(false)
+  const [rescueTokenIds, setRescueTokenIds] = useState("")
+  const [pendingCounts, setPendingCounts] = useState<{ mintCount: number; headRerollCount: number } | null>(null)
+  const [pendingRerollTokenIds, setPendingRerollTokenIds] = useState<number[] | null>(null)
+  const [scanning, setScanning] = useState(false)
+
   // VRF request confirmations panel
   const [showVrfConfirmations, setShowVrfConfirmations] = useState(false)
   const [vrfConfirmations, setVrfConfirmations] = useState("3")
@@ -761,6 +768,73 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     }
   }
 
+
+  const handleScanPending = async () => {
+    if (!contracts || !contractData) return
+    setScanning(true)
+    setPendingRerollTokenIds(null)
+    setPendingCounts(null)
+    try {
+      const fregs = contracts.fregs.read
+      const [mintCount, headRerollCount] = await Promise.all([
+        fregs.pendingMintCount(),
+        fregs.pendingHeadRerollCount(),
+      ])
+      setPendingCounts({ mintCount: Number(mintCount), headRerollCount: Number(headRerollCount) })
+
+      if (Number(headRerollCount) > 0) {
+        const stuck: number[] = []
+        const total = contractData.totalMinted
+        for (let tokenId = 0; tokenId < total; tokenId++) {
+          const isPending = await fregs.pendingHeadReroll(tokenId)
+          if (isPending) {
+            stuck.push(tokenId)
+            if (stuck.length >= Number(headRerollCount)) break
+          }
+        }
+        setPendingRerollTokenIds(stuck)
+        setRescueTokenIds(stuck.join('\n'))
+      } else {
+        setPendingRerollTokenIds([])
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to scan pending state")
+      setTxStatus('error')
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const handleRescueHeadReroll = async () => {
+    if (!contracts) return
+    const tokenIds = rescueTokenIds
+      .split(/[\n,\s]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+      .map(Number)
+      .filter(n => !isNaN(n))
+
+    if (tokenIds.length === 0) {
+      setErrorMessage("No valid token IDs provided")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Clearing pending head reroll for token${tokenIds.length > 1 ? 's' : ''} ${tokenIds.join(', ')}...`)
+    try {
+      const contract = await contracts.fregs.write()
+      const tx = await contract.rescuePendingHeadRerollTokens(tokenIds)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Cleared pending head reroll for ${tokenIds.length} token${tokenIds.length > 1 ? 's' : ''}!`)
+      setRescueTokenIds("")
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to rescue pending head reroll")
+      setTxStatus('error')
+    }
+  }
 
   const closeModal = () => {
     setTxStatus('idle')
@@ -1556,6 +1630,83 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
           )}
         </Card>
       )}
+
+      {/* Rescue Pending Head Reroll */}
+      <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+        <button
+          onClick={() => setShowRescueHeadReroll(!showRescueHeadReroll)}
+          className="w-full p-4 flex items-center justify-between text-left"
+        >
+          <div className="flex items-center gap-3">
+            <XCircle className="w-6 h-6 text-orange-400" />
+            <span className="font-bangers text-2xl text-orange-400">Rescue Pending Head Reroll</span>
+          </div>
+          {showRescueHeadReroll ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+        </button>
+
+        {showRescueHeadReroll && (
+          <CardContent className="p-6 pt-0 space-y-4">
+            <p className="font-righteous text-white/60 text-sm">
+              Clears the stuck <span className="font-mono text-orange-400">pendingHeadReroll</span> flag on specific tokens so they can be transferred. Use when a VRF head reroll request was never fulfilled.
+            </p>
+
+            {/* Scan button + counters */}
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleScanPending}
+                disabled={scanning}
+                className="bg-white/10 hover:bg-white/20 text-white font-bangers text-lg px-6 py-2 border border-white/20 rounded-xl"
+              >
+                {scanning ? "Scanning..." : "Scan Contract"}
+              </Button>
+              {pendingCounts && (
+                <div className="flex gap-4 font-righteous text-sm">
+                  <span className={pendingCounts.mintCount > 0 ? "text-yellow-400" : "text-white/50"}>
+                    Pending mints: <span className="font-mono">{pendingCounts.mintCount}</span>
+                  </span>
+                  <span className={pendingCounts.headRerollCount > 0 ? "text-red-400" : "text-white/50"}>
+                    Pending rerolls: <span className="font-mono">{pendingCounts.headRerollCount}</span>
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Scan results */}
+            {pendingRerollTokenIds !== null && (
+              <div className="bg-black/30 rounded-lg p-3">
+                {pendingRerollTokenIds.length === 0 ? (
+                  <p className="font-righteous text-green-400 text-sm">No tokens with pending head reroll found.</p>
+                ) : (
+                  <>
+                    <p className="font-righteous text-red-400 text-sm mb-2">
+                      Stuck tokens ({pendingRerollTokenIds.length}): <span className="font-mono text-white">{pendingRerollTokenIds.join(', ')}</span>
+                    </p>
+                    <p className="font-righteous text-white/50 text-xs">Token IDs pre-filled below.</p>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label className="font-righteous text-white/70 block mb-2">
+                Token IDs to clear (comma or newline separated):
+              </label>
+              <textarea
+                value={rescueTokenIds}
+                onChange={(e) => setRescueTokenIds(e.target.value)}
+                className="w-full h-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono p-3 rounded-md resize-none"
+                placeholder="42&#10;77&#10;103"
+              />
+            </div>
+            <Button
+              onClick={handleRescueHeadReroll}
+              className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4"
+            >
+              Clear Pending Reroll
+            </Button>
+          </CardContent>
+        )}
+      </Card>
 
       {/* VRF Request Confirmations */}
       {contracts?.fregsRandomizer && (

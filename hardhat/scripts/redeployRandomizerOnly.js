@@ -20,9 +20,9 @@ function getVrfWrapperAddress() {
     return process.env.VRF_WRAPPER_ADDRESS || "";
 }
 
-async function sendTx(txPromise, confirmations = 1) {
+async function sendTx(txFn, confirmations = 1) {
     return retryWithBackoff(async () => {
-        const tx = await txPromise;
+        const tx = await txFn();
         const receipt = await tx.wait(confirmations);
         if (network.name !== "localhost" && network.name !== "hardhat") {
             await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -93,7 +93,10 @@ async function main() {
     const randomizerAddress = await randomizer.getAddress();
 
     console.log("Configuring FregsRandomizer...");
-    await sendTx(() => randomizer.setContracts(await fregs.getAddress(), await items.getAddress(), await spin.getAddress()));
+    const fregsAddress = await fregs.getAddress();
+    const itemsAddress = await items.getAddress();
+    const spinAddress = await spin.getAddress();
+    await sendTx(() => randomizer.setContracts(fregsAddress, itemsAddress, spinAddress));
     await sendTx(() => 
         randomizer.setCallbackGasLimits(
             mintCallbackGasLimit,

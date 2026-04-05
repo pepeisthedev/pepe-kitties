@@ -26,9 +26,9 @@ const PROGRESS_DIR = path.join(__dirname, "..", "airdrop-history");
 // ============ CLI args ============
 
 const args = process.argv.slice(2);
-const isDryRun = args.includes("--dry-run");
+const isDryRun = args.includes("--dry-run") || process.env.DRY_RUN === "true";
 const resumeIdx = args.indexOf("--resume");
-const resumeFile = resumeIdx !== -1 ? args[resumeIdx + 1] : null;
+const resumeFile = resumeIdx !== -1 ? args[resumeIdx + 1] : (process.env.RESUME_FILE || null);
 
 // ============ Helpers ============
 

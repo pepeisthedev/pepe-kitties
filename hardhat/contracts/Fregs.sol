@@ -515,6 +515,15 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         pendingHeadRerollCount -= amount;
     }
 
+    function rescuePendingHeadRerollTokens(uint256[] calldata tokenIds) external onlyOwner {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (pendingHeadReroll[tokenIds[i]]) {
+                pendingHeadReroll[tokenIds[i]] = false;
+                pendingHeadRerollCount -= 1;
+            }
+        }
+    }
+
     function withdraw(uint256 _amount) external onlyOwner {
         payable(owner()).transfer(_amount);
     }
