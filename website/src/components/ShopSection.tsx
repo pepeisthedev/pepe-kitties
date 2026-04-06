@@ -15,7 +15,7 @@ import {
 import { useContracts, useShopItems, useFregCoinBalance } from "../hooks"
 import { ITEMS } from "../config/contracts"
 import LoadingSpinner from "./LoadingSpinner"
-import { ShoppingCart, CheckCircle, Info, XCircle } from "lucide-react"
+import { ShoppingCart, CheckCircle, Info, XCircle, CircleHelp } from "lucide-react"
 
 type BuyStatus = "idle" | "pending" | "confirming" | "success" | "error"
 
@@ -37,6 +37,7 @@ export default function ShopSection(): React.JSX.Element {
     const [buyingItemId, setBuyingItemId] = useState<number | null>(null)
     const [buyStatus, setBuyStatus] = useState<BuyStatus>("idle")
     const [statusMessage, setStatusMessage] = useState("")
+    const [isInfoOpen, setIsInfoOpen] = useState(false)
     const [confirmItem, setConfirmItem] = useState<ConfirmItem | null>(null)
     const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set())
 
@@ -173,6 +174,16 @@ export default function ShopSection(): React.JSX.Element {
 
     return (
         <Section id="shop">
+            <div className="mb-4 flex justify-end">
+                <button
+                    type="button"
+                    onClick={() => setIsInfoOpen(true)}
+                    className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-2 border-[#3d1a00]/60 bg-[#2b1237] shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.4)] transition-colors hover:bg-[#3a1849] md:h-13 md:w-13"
+                    aria-label="Shop info"
+                >
+                    <CircleHelp className="h-5 w-5 text-yellow-200 md:h-6 md:w-6" />
+                </button>
+            </div>
 
             {isConnected && (
                 <div className="flex justify-center mb-8">
@@ -259,13 +270,14 @@ export default function ShopSection(): React.JSX.Element {
                                                     </div>
                                                 )}
                                                 <div className="mb-4 w-full max-w-[240px] rounded-xl px-4 py-3">
-                                                    <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
+                                                    <div className="grid grid-cols-[auto_minmax(84px,1fr)] items-center gap-x-3 gap-y-2">
                                                         {categoryLabel && (
                                                             <>
                                                                 <span className="justify-self-start text-left font-righteous text-[11px] uppercase tracking-[0.18em] text-theme-subtle">
-                                                                    Trait Type
+                                                                    <span className="sm:hidden">Trait</span>
+                                                                    <span className="hidden sm:inline">Trait</span>
                                                                 </span>
-                                                                <span className="justify-self-end text-right font-bangers text-lg leading-none text-theme-primary">
+                                                                <span className="w-full justify-self-end pr-3 text-right font-bangers text-lg leading-none text-theme-primary sm:pr-2">
                                                                     {frontCategoryLabel}
                                                                 </span>
                                                             </>
@@ -273,7 +285,7 @@ export default function ShopSection(): React.JSX.Element {
                                                         <span className="justify-self-start text-left font-righteous text-[11px] uppercase tracking-[0.18em] text-theme-subtle">
                                                             Price
                                                         </span>
-                                                        <div className="inline-flex items-center justify-self-end gap-2">
+                                                        <div className="inline-flex w-full items-center justify-end gap-2 pr-3 sm:pr-2">
                                                             <img src="/coin.svg" alt="$FREG" className="h-6 w-6" />
                                                             <span className="font-bangers text-xl leading-none text-theme-primary">
                                                                 {formatPrice(item.price)}
@@ -380,6 +392,59 @@ export default function ShopSection(): React.JSX.Element {
                     })}
                 </div>
             )}
+
+            <Dialog open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+                <DialogContent className="bg-theme-card border-2 border-amber-400/60 text-theme-primary sm:max-w-xl">
+                    <DialogHeader className="text-left">
+                        <DialogTitle className="font-bangers text-4xl text-amber-300">
+                            Shop Info
+                        </DialogTitle>
+                        <DialogDescription className="font-righteous text-base leading-relaxed text-theme-muted">
+                            The shop sells trait items for $FREG.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="rounded-2xl border border-amber-700/30 bg-amber-950/15 p-4">
+                            <p className="font-righteous text-xs uppercase tracking-[0.24em] text-amber-300/80">
+                                Cost
+                            </p>
+                            <p className="mt-2 font-righteous text-sm leading-relaxed text-theme-muted">
+                                Every item in the shop costs $FREG coins. The price is shown on each item card.
+                            </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-amber-700/30 bg-amber-950/15 p-4">
+                            <p className="font-righteous text-xs uppercase tracking-[0.24em] text-amber-300/80">
+                                How Buying Works
+                            </p>
+                            <div className="mt-2 space-y-3">
+                                <p className="font-righteous text-sm leading-relaxed text-theme-muted">
+                                    1. First, your wallet asks you to sign an approval so the shop contract can spend the exact amount of $FREG needed for that purchase.
+                                </p>
+                                <p className="font-righteous text-sm leading-relaxed text-theme-muted">
+                                    2. Then you confirm the actual buy transaction. The shop uses that approval to take the $FREG and deliver the item to your wallet.
+                                </p>
+                                <p className="font-righteous text-sm leading-relaxed text-theme-muted">
+                                    It works like an ERC20 approval plus purchase flow, just presented as a smooth two-step wallet experience.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-amber-700/30 bg-amber-950/15 p-4">
+                            <p className="font-righteous text-xs uppercase tracking-[0.24em] text-amber-300/80">
+                                What You Receive
+                            </p>
+                            <p className="mt-2 font-righteous text-sm leading-relaxed text-theme-muted">
+                                What you get is an item NFT (ERC721). You can use it on any Freg you own to change the matching trait.
+                            </p>
+                            <p className="mt-2 font-righteous text-sm leading-relaxed text-theme-muted">
+                                For example, a Stomach Trait item changes the stomach trait, a Mouth Trait item changes the mouth trait, a Head Trait item changes the head trait, and so on.
+                            </p>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={confirmItem !== null} onOpenChange={(open) => { if (!open) setConfirmItem(null) }}>
                 <DialogContent className="bg-theme-card border-theme-border sm:max-w-md">
