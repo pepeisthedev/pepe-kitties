@@ -39,9 +39,9 @@ const CATEGORY_CONFIG = {
     },
 };
 
-async function sendTx(txPromise, confirmations = 1) {
+async function sendTx(txFn, confirmations = 1) {
     return await retryWithBackoff(async () => {
-        const tx = await txPromise;
+        const tx = await (typeof txFn === "function" ? txFn() : txFn);
         const receipt = await tx.wait(confirmations);
         if (network.name !== "localhost" && network.name !== "hardhat") {
             await new Promise((resolve) => setTimeout(resolve, 2000));
