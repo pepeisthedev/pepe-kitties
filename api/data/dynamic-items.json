@@ -7,7 +7,68 @@
       "items": []
     },
     "84532": {
-      "items": []
+      "items": [
+        {
+          "id": 101,
+          "name": "Smile",
+          "description": "A big toothy grin for your Freg!",
+          "category": "mouth",
+          "svgFile": "smile.svg",
+          "targetTraitType": 3,
+          "traitFileName": "2.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true
+        },
+        {
+          "id": 102,
+          "name": "Crown",
+          "description": "A golden crown for your royal Freg!",
+          "category": "head",
+          "svgFile": "crown.svg",
+          "targetTraitType": 2,
+          "traitFileName": "4.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true
+        },
+        {
+          "id": 103,
+          "name": "Stars",
+          "description": "A starry night sky behind your Freg!",
+          "category": "background",
+          "svgFile": "stars.svg",
+          "targetTraitType": 0,
+          "traitFileName": "2.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true
+        },
+        {
+          "id": 104,
+          "name": "Stripe",
+          "description": "Tiger-like stripes on your Freg's body!",
+          "category": "skin",
+          "svgFile": "stripe.svg",
+          "targetTraitType": 1,
+          "traitFileName": "5.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true
+        },
+        {
+          "id": 105,
+          "name": "Sun",
+          "description": "A blazing sun on your Freg's belly!",
+          "category": "stomach",
+          "svgFile": "sun.svg",
+          "targetTraitType": 4,
+          "traitFileName": "1.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true
+        }
+      ]
     }
   }
 }

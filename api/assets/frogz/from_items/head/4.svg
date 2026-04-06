@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 617.49 644.18">
+  <defs><style>.crown-base{fill:#ffd700;}.crown-gem{fill:#e63946;}.crown-outline{fill:none;stroke:#b8860b;stroke-width:3;}</style></defs>
+  <g transform="translate(175, 55)">
+    <polygon class="crown-base" points="0,100 30,30 70,70 135,10 200,70 240,30 270,100"/>
+    <polygon class="crown-outline" points="0,100 30,30 70,70 135,10 200,70 240,30 270,100"/>
+    <rect class="crown-base" x="0" y="95" width="270" height="20" rx="3"/>
+    <circle class="crown-gem" cx="135" cy="60" r="10"/>
+    <circle class="crown-gem" cx="50" cy="70" r="7"/>
+    <circle class="crown-gem" cx="220" cy="70" r="7"/>
+  </g>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 617.49 644.18">
+  <defs><style>.stars-bg{fill:#1a1a4e;}.stars-star{fill:#ffd700;}</style></defs>
+  <rect class="stars-bg" width="617.49" height="644.18" rx="30"/>
+  <polygon class="stars-star" points="100,80 105,95 120,95 108,105 112,120 100,110 88,120 92,105 80,95 95,95"/>
+  <polygon class="stars-star" points="500,120 505,135 520,135 508,145 512,160 500,150 488,160 492,145 480,135 495,135"/>
+  <polygon class="stars-star" points="300,50 305,65 320,65 308,75 312,90 300,80 288,90 292,75 280,65 295,65"/>
+  <polygon class="stars-star" points="150,500 155,515 170,515 158,525 162,540 150,530 138,540 142,525 130,515 145,515"/>
+  <polygon class="stars-star" points="450,550 455,565 470,565 458,575 462,590 450,580 438,590 442,575 430,565 445,565"/>
+  <polygon class="stars-star" points="550,300 555,315 570,315 558,325 562,340 550,330 538,340 542,325 530,315 545,315"/>
+  <polygon class="stars-star" points="60,350 65,365 80,365 68,375 72,390 60,380 48,390 52,375 40,365 55,365"/>
+</svg>
