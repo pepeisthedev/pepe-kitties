@@ -215,7 +215,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         attrs = string(abi.encodePacked(
             attrs,
             ',{"trait_type": "Mouth","value": "',
-            mouth[tokenId] == NONE_TRAIT ? "None" : svgRenderer.meta(TRAIT_MOUTH, mouth[tokenId]),
+            mouth[tokenId] == NONE_TRAIT ? "Normal" : svgRenderer.meta(TRAIT_MOUTH, mouth[tokenId]),
             '"}'
         ));
 
@@ -224,7 +224,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             attrs = string(abi.encodePacked(
                 attrs,
                 ',{"trait_type": "Belly","value": "',
-                belly[tokenId] == NONE_TRAIT ? "None" : svgRenderer.meta(TRAIT_BELLY, belly[tokenId]),
+                belly[tokenId] == NONE_TRAIT ? "Normal" : svgRenderer.meta(TRAIT_BELLY, belly[tokenId]),
                 '"}'
             ));
         }
