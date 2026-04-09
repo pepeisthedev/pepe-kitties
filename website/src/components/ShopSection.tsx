@@ -15,7 +15,7 @@ import {
 import { useContracts, useShopItems, useFregCoinBalance } from "../hooks"
 import { ITEMS } from "../config/contracts"
 import LoadingSpinner from "./LoadingSpinner"
-import { ShoppingCart, CheckCircle, Info, XCircle } from "lucide-react"
+import { ShoppingCart, CheckCircle, Info, XCircle, CircleHelp } from "lucide-react"
 
 type BuyStatus = "idle" | "pending" | "confirming" | "success" | "error"
 
@@ -25,6 +25,7 @@ interface ConfirmItem {
     price: bigint
     svgFile: string | null
     categoryLabel: string
+    note: string
 }
 
 export default function ShopSection(): React.JSX.Element {
@@ -36,6 +37,7 @@ export default function ShopSection(): React.JSX.Element {
     const [buyingItemId, setBuyingItemId] = useState<number | null>(null)
     const [buyStatus, setBuyStatus] = useState<BuyStatus>("idle")
     const [statusMessage, setStatusMessage] = useState("")
+    const [isInfoOpen, setIsInfoOpen] = useState(false)
     const [confirmItem, setConfirmItem] = useState<ConfirmItem | null>(null)
     const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set())
 
@@ -144,7 +146,15 @@ export default function ShopSection(): React.JSX.Element {
         const itemConfig = getItemConfig(itemTypeId)
         if (!itemConfig?.category) return ""
         const cat = itemConfig.category
-        return cat.charAt(0).toUpperCase() + cat.slice(1) + " trait"
+        return cat.charAt(0).toUpperCase() + cat.slice(1) + " Trait"
+    }
+
+    const getItemNote = (itemTypeId: number): string => {
+        const itemConfig = getItemConfig(itemTypeId)
+        if (itemConfig?.category === "stomach") {
+            return "Stomach traits cannot be applied to a Freg wearing a special skin (Like Robot or Gold)."
+        }
+        return ""
     }
 
     const formatPrice = (price: bigint): string => {
@@ -164,6 +174,16 @@ export default function ShopSection(): React.JSX.Element {
 
     return (
         <Section id="shop">
+            <div className="mb-4 flex justify-end">
+                <button
+                    type="button"
+                    onClick={() => setIsInfoOpen(true)}
+                    className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-2 border-[#3d1a00]/60 bg-[#2b1237] shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.4)] transition-colors hover:bg-[#3a1849] md:h-13 md:w-13"
+                    aria-label="Shop info"
+                >
+                    <CircleHelp className="h-5 w-5 text-yellow-200 md:h-6 md:w-6" />
+                </button>
+            </div>
 
             {isConnected && (
                 <div className="flex justify-center mb-8">
@@ -207,6 +227,8 @@ export default function ShopSection(): React.JSX.Element {
                         const itemConfig = getItemConfig(item.itemTypeId)
                         const svgFile = itemConfig?.svgFile ?? null
                         const categoryLabel = getCategoryLabel(item.itemTypeId)
+                        const itemNote = getItemNote(item.itemTypeId)
+                        const frontCategoryLabel = categoryLabel.replace(/\s+trait$/i, "")
                         const isBuying = buyingItemId === item.itemTypeId
                         const canAfford = fregBalance >= item.price
                         const soldOut = item.maxSupply > 0 && item.mintCount >= item.maxSupply
@@ -227,17 +249,19 @@ export default function ShopSection(): React.JSX.Element {
                                                 className="relative w-full cursor-pointer"
                                                 onClick={() => toggleFlip(item.itemTypeId)}
                                             >
-                                                <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center border-b border-amber-700/40 pb-2">
+                                                <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center border-b border-amber-700/40 pb-3">
                                                     <div className="h-5 w-5 justify-self-start opacity-0" aria-hidden="true" />
-                                                    <h3 className="font-bangers text-xl md:text-2xl text-theme-primary text-center">
-                                                        {item.name}
-                                                    </h3>
+                                                    <div className="flex flex-col items-center gap-1 text-center">
+                                                        <h3 className="font-bangers text-xl leading-none text-theme-primary md:text-2xl">
+                                                            {item.name}
+                                                        </h3>
+                                                    </div>
                                                     <div className="inline-flex items-center justify-center justify-self-end p-2 text-amber-300">
                                                         <Info className="h-5 w-5" />
                                                     </div>
                                                 </div>
                                                 {svgFile && (
-                                                    <div className="flex justify-center my-4 md:my-6">
+                                                    <div className="flex justify-center my-4 md:my-5">
                                                         <img
                                                             src={`/items/${svgFile}`}
                                                             alt={item.name}
@@ -245,11 +269,29 @@ export default function ShopSection(): React.JSX.Element {
                                                         />
                                                     </div>
                                                 )}
-                                                <div className="flex items-center justify-center gap-2 mb-3">
-                                                    <img src="/coin.svg" alt="$FREG" className="w-6 h-6" />
-                                                    <span className="font-bangers text-xl text-theme-primary">
-                                                        {formatPrice(item.price)}
-                                                    </span>
+                                                <div className="mb-4 w-full max-w-[240px] rounded-xl px-4 py-3">
+                                                    <div className="grid grid-cols-[auto_minmax(84px,1fr)] items-center gap-x-3 gap-y-2">
+                                                        {categoryLabel && (
+                                                            <>
+                                                                <span className="justify-self-start text-left font-righteous text-[11px] uppercase tracking-[0.18em] text-theme-subtle">
+                                                                    <span className="sm:hidden">Trait</span>
+                                                                    <span className="hidden sm:inline">Trait</span>
+                                                                </span>
+                                                                <span className="w-full justify-self-end pr-3 text-right font-bangers text-lg leading-none text-theme-primary sm:pr-2">
+                                                                    {frontCategoryLabel}
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                        <span className="justify-self-start text-left font-righteous text-[11px] uppercase tracking-[0.18em] text-theme-subtle">
+                                                            Price
+                                                        </span>
+                                                        <div className="inline-flex w-full items-center justify-end gap-2 pr-3 sm:pr-2">
+                                                            <img src="/coin.svg" alt="$FREG" className="h-6 w-6" />
+                                                            <span className="font-bangers text-xl leading-none text-theme-primary">
+                                                                {formatPrice(item.price)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -276,7 +318,7 @@ export default function ShopSection(): React.JSX.Element {
                                                 <Button
                                                     onClick={(e) => {
                                                         e.stopPropagation()
-                                                        setConfirmItem({ itemTypeId: item.itemTypeId, name: item.name, price: item.price, svgFile, categoryLabel })
+                                                        setConfirmItem({ itemTypeId: item.itemTypeId, name: item.name, price: item.price, svgFile, categoryLabel, note: itemNote })
                                                     }}
                                                     disabled={!canAfford || soldOut || buyStatus !== "idle"}
                                                     className="w-full font-bangers text-lg rounded-lg bg-amber-600 hover:bg-amber-500 text-white"
@@ -312,6 +354,16 @@ export default function ShopSection(): React.JSX.Element {
                                                     </span>
                                                 </div>
                                             )}
+                                            {itemNote && (
+                                                <div className="w-full rounded-lg border border-amber-700/30 bg-amber-950/20 px-3 py-2 text-left">
+                                                    <p className="font-righteous text-[11px] uppercase tracking-[0.18em] text-amber-300">
+                                                        Note
+                                                    </p>
+                                                    <p className="mt-1 font-righteous text-xs leading-relaxed text-theme-muted">
+                                                        {itemNote}
+                                                    </p>
+                                                </div>
+                                            )}
                                             {item.maxSupply > 0 && (
                                                 <div className="text-center">
                                                     <p className="font-righteous text-xs text-theme-subtle">Supply</p>
@@ -340,6 +392,59 @@ export default function ShopSection(): React.JSX.Element {
                     })}
                 </div>
             )}
+
+            <Dialog open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+                <DialogContent className="bg-theme-card border-2 border-amber-400/60 text-theme-primary sm:max-w-xl">
+                    <DialogHeader className="text-left">
+                        <DialogTitle className="font-bangers text-4xl text-amber-300">
+                            Shop Info
+                        </DialogTitle>
+                        <DialogDescription className="font-righteous text-base leading-relaxed text-theme-muted">
+                            The shop sells trait items for $FREG.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="rounded-2xl border border-amber-700/30 bg-amber-950/15 p-4">
+                            <p className="font-righteous text-xs uppercase tracking-[0.24em] text-amber-300/80">
+                                Cost
+                            </p>
+                            <p className="mt-2 font-righteous text-sm leading-relaxed text-theme-muted">
+                                Every item in the shop costs $FREG coins. The price is shown on each item card.
+                            </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-amber-700/30 bg-amber-950/15 p-4">
+                            <p className="font-righteous text-xs uppercase tracking-[0.24em] text-amber-300/80">
+                                How Buying Works
+                            </p>
+                            <div className="mt-2 space-y-3">
+                                <p className="font-righteous text-sm leading-relaxed text-theme-muted">
+                                    1. First, your wallet asks you to sign an approval so the shop contract can spend the exact amount of $FREG needed for that purchase.
+                                </p>
+                                <p className="font-righteous text-sm leading-relaxed text-theme-muted">
+                                    2. Then you confirm the actual buy transaction. The shop uses that approval to take the $FREG and deliver the item to your wallet.
+                                </p>
+                                <p className="font-righteous text-sm leading-relaxed text-theme-muted">
+                                    It works like an ERC20 approval plus purchase flow, just presented as a smooth two-step wallet experience.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-amber-700/30 bg-amber-950/15 p-4">
+                            <p className="font-righteous text-xs uppercase tracking-[0.24em] text-amber-300/80">
+                                What You Receive
+                            </p>
+                            <p className="mt-2 font-righteous text-sm leading-relaxed text-theme-muted">
+                                What you get is an item NFT (ERC721). You can use it on any Freg you own to change the matching trait.
+                            </p>
+                            <p className="mt-2 font-righteous text-sm leading-relaxed text-theme-muted">
+                                For example, a Stomach Trait item changes the stomach trait, a Mouth Trait item changes the mouth trait, a Head Trait item changes the head trait, and so on.
+                            </p>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={confirmItem !== null} onOpenChange={(open) => { if (!open) setConfirmItem(null) }}>
                 <DialogContent className="bg-theme-card border-theme-border sm:max-w-md">
@@ -370,6 +475,16 @@ export default function ShopSection(): React.JSX.Element {
                             {confirmItem ? formatPrice(confirmItem.price) : ""} $FREG
                         </span>?
                     </DialogDescription>
+                    {confirmItem?.note && (
+                        <div className="rounded-xl border border-amber-700/30 bg-amber-950/20 px-4 py-3 text-left">
+                            <p className="font-righteous text-[11px] uppercase tracking-[0.18em] text-amber-300">
+                                Note
+                            </p>
+                            <p className="mt-1 font-righteous text-sm leading-relaxed text-theme-muted">
+                                {confirmItem.note}
+                            </p>
+                        </div>
+                    )}
                     <DialogFooter className="grid grid-cols-2 gap-3 sm:gap-3">
                         <Button
                             onClick={() => setConfirmItem(null)}

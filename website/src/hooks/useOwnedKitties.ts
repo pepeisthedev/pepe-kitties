@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react"
 import { BrowserProvider, Contract } from "ethers"
 import { FREGS_ADDRESS, FregsABI } from "../config/contracts"
@@ -24,10 +24,15 @@ export function useOwnedKitties() {
   const [kitties, setKitties] = useState<Kitty[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
 
   const fetchKitties = useCallback(async () => {
+    const requestId = ++requestIdRef.current
+
     if (!walletProvider || !address) {
       setKitties([])
+      setError(null)
+      setIsLoading(false)
       return
     }
 
@@ -59,22 +64,43 @@ export function useOwnedKitties() {
         stomach: toTraitNumber(stomachs[i]),
       }))
 
-      setKitties(kittyList)
+      if (requestId === requestIdRef.current) {
+        setKitties(kittyList)
+      }
     } catch (err) {
       console.error("Error fetching owned fregs:", err)
-      setError(err instanceof Error ? err.message : "Failed to fetch owned fregs")
+      if (requestId === requestIdRef.current) {
+        setError(err instanceof Error ? err.message : "Failed to fetch owned fregs")
+      }
     } finally {
-      setIsLoading(false)
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false)
+      }
     }
   }, [walletProvider, address])
 
+  const updateKitty = useCallback((nextKitty: Kitty) => {
+    setKitties(prev => {
+      let didUpdate = false
+      const next = prev.map(kitty => {
+        if (kitty.tokenId !== nextKitty.tokenId) return kitty
+        didUpdate = true
+        return nextKitty
+      })
+      return didUpdate ? next : prev
+    })
+  }, [])
+
   useEffect(() => {
     if (isConnected && walletProvider && address) {
-      fetchKitties()
+      void fetchKitties()
     } else {
+      requestIdRef.current += 1
       setKitties([])
+      setError(null)
+      setIsLoading(false)
     }
   }, [fetchKitties, isConnected, walletProvider, address])
 
-  return { kitties, isLoading, error, refetch: fetchKitties }
+  return { kitties, isLoading, error, refetch: fetchKitties, updateKitty }
 }
