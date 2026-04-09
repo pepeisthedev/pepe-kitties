@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react"
 import { BrowserProvider, Contract } from "ethers"
 import {
@@ -22,10 +22,15 @@ export function useOwnedItems() {
   const [items, setItems] = useState<Item[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
 
   const fetchItems = useCallback(async () => {
+    const requestId = ++requestIdRef.current
+
     if (!walletProvider || !address) {
       setItems([])
+      setError(null)
+      setIsLoading(false)
       return
     }
 
@@ -72,20 +77,29 @@ export function useOwnedItems() {
         })
       )
 
-      setItems(itemList)
+      if (requestId === requestIdRef.current) {
+        setItems(itemList)
+      }
     } catch (err) {
       console.error("Error fetching owned items:", err)
-      setError(err instanceof Error ? err.message : "Failed to fetch owned items")
+      if (requestId === requestIdRef.current) {
+        setError(err instanceof Error ? err.message : "Failed to fetch owned items")
+      }
     } finally {
-      setIsLoading(false)
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false)
+      }
     }
   }, [walletProvider, address])
 
   useEffect(() => {
     if (isConnected && walletProvider && address) {
-      fetchItems()
+      void fetchItems()
     } else {
+      requestIdRef.current += 1
       setItems([])
+      setError(null)
+      setIsLoading(false)
     }
   }, [fetchItems, isConnected, walletProvider, address])
 

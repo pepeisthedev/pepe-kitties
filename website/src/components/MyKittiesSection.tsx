@@ -299,7 +299,7 @@ function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, tra
 export default function MyKittiesSection(): React.JSX.Element {
     const { address, isConnected } = useAppKitAccount()
     const contracts = useContracts()
-    const { kitties, isLoading, error, refetch: refetchKitties } = useOwnedKitties()
+    const { kitties, isLoading, error, refetch: refetchKitties, updateKitty } = useOwnedKitties()
     const { unclaimedIds, refetch: refetchUnclaimed } = useUnclaimedKitties()
     const { items, isLoading: itemsLoading, refetch: refetchItems } = useOwnedItems()
 
@@ -648,21 +648,28 @@ export default function MyKittiesSection(): React.JSX.Element {
                     else if (traitResult.traitType === TRAIT_TYPES.HEAD) updatedKitty.head = traitResult.traitValue
                     else if (traitResult.traitType === TRAIT_TYPES.MOUTH) updatedKitty.mouth = traitResult.traitValue
                     else if (traitResult.traitType === TRAIT_TYPES.STOMACH) updatedKitty.stomach = traitResult.traitValue
+                } else {
+                    const previewProps = getPreviewProps(selectedKitty, selectedItem)
+                    if (previewProps) {
+                        updatedKitty = { ...updatedKitty, ...previewProps }
+                    }
                 }
             }
 
+            updateKitty(updatedKitty)
             setResultKitty(updatedKitty)
             setItemModalData({ success: true, message: `${selectedItem.name} applied to Freg #${selectedKitty.tokenId}!` })
             setSelectedItem(null)
 
             await Promise.all([refetchKitties(), refetchItems()])
+            updateKitty(updatedKitty)
         } catch (err: any) {
             setResultKitty(null)
             setItemModalData({ success: false, message: err.message || "Failed to apply item" })
         } finally {
             setIsApplying(false)
         }
-    }, [contracts, selectedKitty, selectedItem, newColor, refetchKitties, refetchItems])
+    }, [contracts, selectedKitty, selectedItem, newColor, refetchKitties, refetchItems, updateKitty])
 
     const incompatibility = useMemo(() => {
         if (!selectedKitty || !selectedItem) return { incompatible: false, reason: "" }
