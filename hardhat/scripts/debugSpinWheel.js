@@ -30,6 +30,37 @@ async function main() {
     let loseCount = 0;
     const MAX_SPINS = 500;
 
+    // Ensure spin is active
+    const wasActive = await spinTheWheel.active();
+    if (!wasActive) {
+        console.log("Spin not active — enabling...");
+        await (await spinTheWheel.setActive(true)).wait();
+    }
+
+    // Mirror the website's gas-aware buffered VRF fee logic
+    const VRF_FEE_BUFFER_BPS = 1500n;
+    const BPS_DENOMINATOR = 10000n;
+    const MIN_VRF_FEE_BUFFER_WEI = 1_000_000_000_000n;
+
+    let vrfFee = 0n;
+    try {
+        const provider = deployer.provider;
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.maxFeePerGas ?? feeData.gasPrice ?? 1n;
+        const callResult = await provider.call({
+            to: await spinTheWheel.getAddress(),
+            data: spinTheWheel.interface.encodeFunctionData("quoteSpinFee", []),
+            gasPrice,
+        });
+        [vrfFee] = spinTheWheel.interface.decodeFunctionResult("quoteSpinFee", callResult);
+        const proportionalBuffer = (vrfFee * VRF_FEE_BUFFER_BPS + (BPS_DENOMINATOR - 1n)) / BPS_DENOMINATOR;
+        const appliedBuffer = proportionalBuffer > MIN_VRF_FEE_BUFFER_WEI ? proportionalBuffer : MIN_VRF_FEE_BUFFER_WEI;
+        vrfFee = vrfFee + appliedBuffer;
+    } catch (e) {
+        console.log(`quoteSpinFee() failed (${e.shortMessage || e.message}), assuming 0`);
+    }
+    console.log(`VRF fee per spin (buffered): ${vrfFee}`);
+
     console.log("\n=== Spinning ===");
 
     while (collected.size < targetItemTypes.size && spinCount < MAX_SPINS) {
@@ -39,9 +70,15 @@ async function main() {
             await (await spinTheWheel.ownerMint(deployer.address, 100)).wait();
         }
 
-        const vrfFee = await spinTheWheel.quoteSpinFee();
-        const tx = await spinTheWheel.spin({ value: vrfFee });
-        const receipt = await tx.wait();
+        let receipt;
+        try {
+            const tx = await spinTheWheel.spin({ value: vrfFee, gasLimit: 500000n });
+            receipt = await tx.wait();
+        } catch (e) {
+            console.log(`  Spin ${spinCount + 1} FAILED: ${e.shortMessage || e.message}`);
+            spinCount++;
+            continue;
+        }
         spinCount++;
 
         const spinResultEvent = receipt.logs
@@ -85,6 +122,12 @@ async function main() {
         console.log(`Missing: [${missing.join(", ")}]`);
     } else {
         console.log("Got one of each item!");
+    }
+
+    // Restore active state
+    if (!wasActive) {
+        console.log("\nRestoring spin active=false...");
+        await (await spinTheWheel.setActive(false)).wait();
     }
 }
 
