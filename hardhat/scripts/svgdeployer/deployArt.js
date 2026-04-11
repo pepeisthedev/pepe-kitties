@@ -349,13 +349,13 @@ async function deployBody(svgPartWriter) {
     }
     svgData = svgData.trim();
 
-    // Find the color in .cls-6{fill:#65b449;} and split there
-    // The color appears after ".cls-6{fill:" and before ";"
-    const colorPattern = /\.cls-6\{fill:/;
+    // Find the color in .cls-9{fill:#469935;} and split there
+    // The color appears after ".cls-9{fill:" and before ";"
+    const colorPattern = /\.cls-9\{fill:/;
     const match = svgData.match(colorPattern);
 
     if (!match) {
-        throw new Error("Could not find .cls-6{fill: pattern in body SVG");
+        throw new Error("Could not find .cls-9{fill: pattern in body SVG");
     }
 
     const splitIndex = svgData.indexOf(match[0]) + match[0].length;

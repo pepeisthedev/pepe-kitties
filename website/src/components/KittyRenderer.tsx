@@ -71,7 +71,7 @@ export default function KittyRenderer({
         }
 
         // Replace the default green color with the kitty's body color
-        const coloredSvg = svgCache.body.replace(/#65b449/gi, bodyColor)
+        const coloredSvg = svgCache.body.replace(/#469935/gi, bodyColor)
 
         // Create a blob URL for the modified SVG
         const blob = new Blob([coloredSvg], { type: "image/svg+xml" })
@@ -101,7 +101,7 @@ export default function KittyRenderer({
         }
 
         // Replace the default green color with the kitty's body color
-        const coloredSvg = svgCache.background.replace(/#65b449/gi, bodyColor)
+        const coloredSvg = svgCache.background.replace(/#916034/gi, bodyColor)
 
         // Create a blob URL for the modified SVG
         const blob = new Blob([coloredSvg], { type: "image/svg+xml" })

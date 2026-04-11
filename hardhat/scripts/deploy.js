@@ -225,14 +225,14 @@ async function deployBody(svgPartWriter, traitsConfig) {
     console.log("  Deploying UnifiedBodyRenderer (color + special skins)...");
     const svgData = processSvgFile(bodyPath, 'body');
 
-    // Find the main body color (typically #65b449 green, used in .body-cls-6{fill:#65b449;})
-    // After prefixing, we look for .body-cls-X{fill:#XXXXXX pattern
-    const colorPattern = /\.body-cls-\d+\{fill:(#[0-9a-fA-F]{6});/;
+    // Find the main body color - it is the green fill (#469935) applied to the main body path.
+    // The SVG has multiple fill rules; we specifically target the green color class.
+    const colorPattern = /\.body-cls-\d+\{fill:(#469935);/i;
     const match = svgData.match(colorPattern);
 
     if (!match) {
-        console.log("  ⚠️  Could not find color pattern in body SVG");
-        console.log("     Expected pattern like: .body-cls-X{fill:#XXXXXX;}");
+        console.log("  ⚠️  Could not find body green color (#469935) in body SVG");
+        console.log("     Expected pattern like: .body-cls-X{fill:#469935;}");
         console.log("     Deploying as static SVG...");
 
         // Deploy as a simple SVG renderer without color support
@@ -264,7 +264,8 @@ async function deployBody(svgPartWriter, traitsConfig) {
     const part2 = svgData.substring(afterColor);
 
     console.log(`    Found body color: ${match[1]}`);
-
+    console.log(`    Part 1 tail (last 40 chars): ...${part1.slice(-40)}`);
+    console.log(`    Part 2 head (first 40 chars): ${part2.slice(0, 40)}...`);
     console.log(`    Color body Part 1: ${part1.length} chars, Part 2: ${part2.length} chars`);
 
     const part1Address = await storeSvgData(svgPartWriter, part1);

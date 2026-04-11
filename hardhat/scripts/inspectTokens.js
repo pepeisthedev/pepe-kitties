@@ -1,6 +1,7 @@
 const { ethers, network } = require("hardhat");
 const fs = require("fs");
 const path = require("path");
+const { loadDeploymentStatus } = require("./deploymentStatus");
 
 // Output folder for SVGs
 const OUTPUT_PATH = path.join(__dirname, "../../tmp/tokenSvgs");
@@ -11,12 +12,11 @@ async function main() {
     console.log("=".repeat(60));
     console.log("Network:", network.name);
 
-    // Get deployed Fregs contract address from env or hardcoded
-    const fregsAddress = process.env.VITE_FREGS_ADDRESS;
+    const status = loadDeploymentStatus(network.name);
+    const fregsAddress = process.env.VITE_FREGS_ADDRESS || status.contracts.fregs;
 
     if (!fregsAddress) {
-        console.error("\nError: VITE_FREGS_ADDRESS not set");
-        console.error("Set it in your .env file or run: VITE_FREGS_ADDRESS=0x... npx hardhat run scripts/inspectTokens.js");
+        console.error("\nError: Could not determine Fregs address from deployment status or VITE_FREGS_ADDRESS");
         process.exit(1);
     }
 
@@ -137,7 +137,7 @@ async function main() {
         h1 { text-align: center; }
         .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
         .token { background: #16213e; border-radius: 10px; padding: 15px; }
-        .token img { width: 100%; height: auto; border-radius: 5px; }
+        .token img { width: 100%; height: auto; border-radius: 5px; background: white; }
         .token h3 { margin: 10px 0 5px; }
         .token .attrs { font-size: 12px; color: #888; }
     </style>

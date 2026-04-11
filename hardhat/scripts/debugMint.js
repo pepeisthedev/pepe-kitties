@@ -34,6 +34,10 @@ function parseEvent(receipt, contract, eventName) {
     return null;
 }
 
+function randomHexColor() {
+    return `#${Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0').toUpperCase()}`;
+}
+
 function formatTrait(value) {
     return value === NONE ? "NONE" : value;
 }
@@ -171,7 +175,7 @@ async function main() {
             const vrfFee = await readGasAwareQuote(fregs, "quoteMintFee", gasPrice);
             const totalValue = mintPrice + vrfFee;
             const { tx, receipt } = await sendTx(
-                (txOptions) => fregs.mint("#ff5733", txOptions),
+                (txOptions) => fregs.mint(randomHexColor(), txOptions),
                 {
                     value: totalValue,
                     gasLimit: MINT_GAS_LIMIT,

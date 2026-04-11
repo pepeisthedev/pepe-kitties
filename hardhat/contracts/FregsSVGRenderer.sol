@@ -125,13 +125,11 @@ contract FregsSVGRenderer is Ownable {
     // ============ Internal Render Helpers ============
 
     function _renderColorBackground(string memory _color) internal pure returns (string memory) {
-        return string(
-            abi.encodePacked(
-                "<rect width='100%' height='100%' fill='",
-                _color,
-                "' opacity='0.3'/>"
-            )
-        );
+        return string(abi.encodePacked(
+            "<defs><style>.bg-cls-1{isolation:isolate;}.bg-cls-2{fill:#cdcccc;mix-blend-mode:multiply;opacity:.54;}.bg-cls-3{fill:",
+            _color,
+            ";opacity:.3;}</style></defs><g class='bg-cls-1'><g><g><rect class='bg-cls-3' width='617.49' height='644.18'/><ellipse class='bg-cls-2' cx='310.21' cy='565.65' rx='228.16' ry='22.98'/></g></g></g>"
+        ));
     }
 
     // ============ Owner Functions ============

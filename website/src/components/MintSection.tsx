@@ -91,9 +91,14 @@ export default function MintSection(): React.JSX.Element {
     const { kitties, refetch: refetchKitties } = useOwnedKitties()
     const { refetch: refetchUnclaimed } = useUnclaimedKitties()
 
-    const [skinColor, setSkinColor] = useState<string>("#7CB342")
-    const [hue, setHue] = useState<number>(120)
-    const [greyscale, setGreyscale] = useState<number>(50)
+    const [{ hue, greyscale, skinColor }, setColor] = useState(() => {
+        const h = Math.floor(Math.random() * 361)
+        const g = Math.floor(Math.random() * 101)
+        return { hue: h, greyscale: g, skinColor: hslToHex(h, 80, g) }
+    })
+    const setHue = (h: number) => setColor(prev => ({ ...prev, hue: h }))
+    const setGreyscale = (g: number) => setColor(prev => ({ ...prev, greyscale: g }))
+    const setSkinColor = (c: string) => setColor(prev => ({ ...prev, skinColor: c }))
     const [mintStatus, setMintStatus] = useState<MintStatus>('idle')
     const [errorMessage, setErrorMessage] = useState("")
     const [mintedKitty, setMintedKitty] = useState<{
