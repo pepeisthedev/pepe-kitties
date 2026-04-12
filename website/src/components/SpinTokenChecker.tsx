@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 
-type CheckState = "idle" | "loading" | "found" | "not-found" | "error"
+type CheckState = "idle" | "loading" | "found-sheet1" | "found-sheet2" | "not-found" | "error"
 
 export default function SpinTokenChecker() {
     const [open, setOpen] = useState(false)
@@ -27,7 +27,11 @@ export default function SpinTokenChecker() {
         try {
             const res = await fetch(`/api/check-wl?address=${encodeURIComponent(trimmed)}`)
             const data = await res.json()
-            setCheckState(data.found ? "found" : "not-found")
+            if (data.found) {
+                setCheckState(data.sheet === 2 ? "found-sheet2" : "found-sheet1")
+            } else {
+                setCheckState("not-found")
+            }
         } catch {
             setCheckState("error")
         }
@@ -71,7 +75,7 @@ export default function SpinTokenChecker() {
                         </div>
                     ) : (
                         <div className="flex flex-col gap-4">
-                            {checkState === "found" ? (
+                            {checkState === "found-sheet1" || checkState === "found-sheet2" ? (
                                 <div
                                     className="rounded-lg px-4 py-5 text-center"
                                     style={{
@@ -81,7 +85,9 @@ export default function SpinTokenChecker() {
                                     }}
                                 >
                                     <p className="text-green-300 font-bangers text-2xl tracking-wide drop-shadow-[0_0_12px_rgba(74,222,128,0.8)]">
-                                        You made the list!<br />Spin Tokens will be airdropped at launch.
+                                        {checkState === "found-sheet1"
+                                            ? <>You made the list!<br />Spin Tokens will be airdropped at launch.</>
+                                            : <>You made the list!</>}
                                     </p>
                                 </div>
                             ) : (
