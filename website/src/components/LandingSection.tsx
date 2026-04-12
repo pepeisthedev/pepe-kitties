@@ -240,22 +240,7 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
             >
                 <div className="max-w-6xl mx-auto">
                     {/* Roadmap video block */}
-                    <div className="mb-10 md:mb-14">
-                        <h2 className="text-white text-5xl md:text-8xl font-bold tracking-tight mb-4 md:mb-6">
-                            Roadmap
-                        </h2>
-                        <div className="rounded-3xl overflow-hidden border border-white/10 bg-black/30">
-                            <video
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                className="w-full h-auto object-contain bg-black"
-                            >
-                                <source src={`${VIDEO_BASE_URL}/roadmap_hd.MP4`} type="video/mp4" />
-                            </video>
-                        </div>
-                    </div>
+                   
           <h2 className="text-white text-5xl md:text-8xl font-bold tracking-tight mb-4 md:mb-6">
                             Socials
                         </h2>

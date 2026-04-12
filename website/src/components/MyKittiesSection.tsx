@@ -390,6 +390,8 @@ export default function MyKittiesSection(): React.JSX.Element {
     }
 
     const [isModalLoading, setIsModalLoading] = useState(false)
+    const [claimTxSubmitted, setClaimTxSubmitted] = useState(false)
+    const claimSessionRef = React.useRef(0)
     const [claimMessageIndex, setClaimMessageIndex] = useState(0)
     const [rerollMessageIndex, setRerollMessageIndex] = useState(0)
 
@@ -419,10 +421,14 @@ export default function MyKittiesSection(): React.JSX.Element {
         if (!contracts || !address || claimModalKittyId === null) return
 
         const tokenId = claimModalKittyId
+        const session = ++claimSessionRef.current
+        const isCurrent = () => claimSessionRef.current === session
+
         flushSync(() => {
             setIsClaiming(true)
             setClaimingTokenIds(prev => new Set(prev).add(tokenId))
             setIsModalLoading(true)
+            setClaimTxSubmitted(false)
             setModalData({ success: false, message: "" })
             setClaimModalKittyId(null)
             setShowModal(true)
@@ -436,14 +442,15 @@ export default function MyKittiesSection(): React.JSX.Element {
                 "quoteClaimItemFee"
             )
             // Manually specify gas to avoid MetaMask gas estimation issues on localhost
-            const tx = await contract.claimItem(claimModalKittyId, { value: bufferedVrfFee, gasLimit: 1000000n })
+            const tx = await contract.claimItem(tokenId, { value: bufferedVrfFee, gasLimit: 1000000n })
+            if (isCurrent()) setClaimTxSubmitted(true)
             const receipt = await tx.wait()
 
             let claimedItem = parseItemClaimedEvent(receipt)
             if (!claimedItem) {
                 const claimEvent = await waitForEvent({
                     contract: contracts.items.read,
-                    filter: contracts.items.read.filters.ItemClaimed(claimModalKittyId, null, address),
+                    filter: contracts.items.read.filters.ItemClaimed(tokenId, null, address),
                     fromBlock: receipt.blockNumber,
                 })
 
@@ -456,12 +463,14 @@ export default function MyKittiesSection(): React.JSX.Element {
 
             const itemName = claimedItem ? (ITEM_TYPE_NAMES[claimedItem.itemType] || "Item") : "Item"
 
-            setModalData({
-                success: true,
-                message: `You got a ${itemName}!`,
-                itemType: claimedItem?.itemType,
-                itemTokenId: claimedItem?.itemTokenId
-            })
+            if (isCurrent()) {
+                setModalData({
+                    success: true,
+                    message: `You got a ${itemName}!`,
+                    itemType: claimedItem?.itemType,
+                    itemTokenId: claimedItem?.itemTokenId
+                })
+            }
 
             // Refresh all relevant data - await to ensure completion
             await Promise.all([
@@ -470,11 +479,13 @@ export default function MyKittiesSection(): React.JSX.Element {
                 refetchItems()
             ])
         } catch (err: any) {
-            setModalData({ success: false, message: err.message || "Claim failed" })
+            if (isCurrent()) setModalData({ success: false, message: err.message || "Claim failed" })
         } finally {
-            setIsClaiming(false)
             setClaimingTokenIds(prev => { const next = new Set(prev); next.delete(tokenId); return next })
-            setIsModalLoading(false)
+            if (isCurrent()) {
+                setIsClaiming(false)
+                setIsModalLoading(false)
+            }
         }
     }, [address, contracts, claimModalKittyId, refetchKitties, refetchUnclaimed, refetchItems])
 
@@ -1269,6 +1280,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                 description={isModalLoading ? (modalData.isBurn ? "Please wait while your Freg is being burned" : CLAIM_MESSAGES[claimMessageIndex]) : modalData.message}
                 success={modalData.success}
                 loading={isModalLoading}
+                canSkip={claimTxSubmitted && !modalData.isBurn}
             >
                 {!isModalLoading && modalData.success && modalData.itemType !== undefined && modalData.itemTokenId !== undefined && (
                     <div className="flex flex-col items-center gap-2">

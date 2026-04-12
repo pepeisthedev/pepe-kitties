@@ -21,6 +21,7 @@ interface ResultModalProps {
   description?: string
   success: boolean
   loading?: boolean
+  canSkip?: boolean
   children?: React.ReactNode
   reveal?: boolean
   revealColor?: string
@@ -33,6 +34,7 @@ export default function ResultModal({
   description,
   success,
   loading = false,
+  canSkip = true,
   children,
   reveal = false,
   revealColor = "#a3e635",
@@ -195,13 +197,13 @@ export default function ResultModal({
           </div>
         )}
 
-        {loading && (
+        {loading && canSkip && (
           <DialogFooter className="sm:justify-center">
             <Button
               onClick={onClose}
               className="font-bangers text-xl px-8 py-3 rounded-xl bg-theme-card border border-theme-muted/30 text-theme-muted hover:text-theme-primary"
             >
-              Close
+              Skip reveal
             </Button>
           </DialogFooter>
         )}

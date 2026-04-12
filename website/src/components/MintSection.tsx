@@ -100,6 +100,9 @@ export default function MintSection(): React.JSX.Element {
     const setGreyscale = (g: number) => setColor(prev => ({ ...prev, greyscale: g }))
     const setSkinColor = (c: string) => setColor(prev => ({ ...prev, skinColor: c }))
     const [mintStatus, setMintStatus] = useState<MintStatus>('idle')
+    const [dismissedMint, setDismissedMint] = useState(false)
+    const dismissedMintRef = React.useRef(false)
+    const mintSessionRef = React.useRef(0)
     const [errorMessage, setErrorMessage] = useState("")
     const [mintedKitty, setMintedKitty] = useState<{
         tokenId: number
@@ -197,6 +200,9 @@ export default function MintSection(): React.JSX.Element {
         if (!isConnected || !address) { open(); return }
         if (!contracts || !contractData) return
 
+        dismissedMintRef.current = false
+        setDismissedMint(false)
+        const session = ++mintSessionRef.current
         setMintStatus('pending')
         setMintedKitty(null)
         setErrorMessage("")
@@ -217,12 +223,13 @@ export default function MintSection(): React.JSX.Element {
                 gasLimit: 500000n,
             })
 
-            setMintStatus('confirming')
+            const isCurrent = () => !dismissedMintRef.current && mintSessionRef.current === session
+            if (isCurrent()) setMintStatus('confirming')
             const receipt = await tx.wait()
             let kitty = parseFregMintedEvent(receipt)
 
             if (!kitty) {
-                setMintStatus('awaitingRandomness')
+                if (isCurrent()) setMintStatus('awaitingRandomness')
                 const mintEvent = await waitForEvent({
                     contract: contracts.fregs.read,
                     filter: contracts.fregs.read.filters.FregMinted(null, address),
@@ -239,8 +246,10 @@ export default function MintSection(): React.JSX.Element {
                 }
             }
 
-            setMintedKitty(kitty)
-            setMintStatus('success')
+            if (isCurrent()) {
+                setMintedKitty(kitty)
+                setMintStatus('success')
+            }
             // Refresh all relevant data - await to ensure completion
             await Promise.all([
                 refetch(),
@@ -248,12 +257,16 @@ export default function MintSection(): React.JSX.Element {
                 refetchUnclaimed()
             ])
         } catch (err: any) {
-            setErrorMessage(err.message || "Minting failed")
-            setMintStatus('error')
+            if (isCurrent()) {
+                setErrorMessage(err.message || "Minting failed")
+                setMintStatus('error')
+            }
         }
     }
 
     const closeModal = () => {
+        dismissedMintRef.current = true
+        setDismissedMint(true)
         setMintStatus('idle')
         setMintedKitty(null)
         setRevealPhase('hidden')
@@ -537,7 +550,7 @@ export default function MintSection(): React.JSX.Element {
             </div>
 
             {/* Mint Modal */}
-            <Dialog open={mintStatus !== 'idle'} onOpenChange={(open) => !open && closeModal()}>
+            <Dialog open={mintStatus !== 'idle' && !dismissedMint} onOpenChange={(open) => !open && closeModal()}>
                 <DialogContent className="bg-theme-mint-modal border-2 border-theme rounded-2xl max-w-md">
                     <DialogHeader className="text-center">
                         {/* Pending State - Waiting for wallet */}
@@ -711,19 +724,6 @@ export default function MintSection(): React.JSX.Element {
                                 )}
                             </div>
                         </div>
-                    )}
-
-                    {/* Mint another button while waiting for randomness or confirming */}
-                    {(mintStatus === 'awaitingRandomness' || mintStatus === 'confirming') && (
-                        <DialogFooter className="sm:justify-center">
-                            <Button
-                                onClick={closeModal}
-                                className="font-bangers text-xl px-8 py-3 rounded-xl btn-theme-primary"
-                            >
-                                <Sparkles className="w-5 h-5 mr-2" />
-                                Mint Another
-                            </Button>
-                        </DialogFooter>
                     )}
 
                     {/* Footer buttons only for revealed success/error states */}
