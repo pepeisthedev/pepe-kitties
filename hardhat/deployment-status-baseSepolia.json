@@ -1,28 +1,28 @@
 {
   "network": "baseSepolia",
-  "lastUpdated": "2026-03-29T09:21:48.662Z",
+  "lastUpdated": "2026-04-11T18:13:14.305Z",
   "contracts": {
-    "fregs": "0x673F91e4D811912bFC1205cC01E0fB8Ca58fE650",
-    "fregsItems": "0x779E8B83dC491143eb76405ed74b35Ca74308CE0",
-    "fregsMintPass": "0xA44bD39c7F054b7BeB4A634EE281750Bd22dfa37",
-    "fregsRandomizer": "0x7F282A17eF484E78B67d2AF0E5F32AA07f2c0945",
-    "fregCoin": "0xaD25fA6ebB7559FEfC0A20F50Be24a0Fb8813B07",
-    "spinTheWheel": "0x0c133Ff93c750f1dA3DB10b93Cf6B9Df647F236A",
-    "fregsLiquidity": "0x4466bDc5E24Eb47aE9fa6828dD41F7565926C6F7",
-    "fregShop": "0x1Dbca67A0E177A2b2DA164Be0fb665fa0855b243",
-    "fregsAirdrop": "0xB5171df208Ae5CD8daA2db9Cd1717822619FB066",
+    "fregs": "0x31e1B63A0ae2B59C44905f104d78c2f8FE5aFdF0",
+    "fregsItems": "0x138f4E7B6311152e84c253aCA03614D6A41F5de1",
+    "fregsMintPass": "0xb5D51e40bF431ba17fBC839AA864282780331127",
+    "fregsRandomizer": "0x1436f4C345db34cD8e5225410504d06F23038567",
+    "fregCoin": "0xea9AC523d3ABfA0182ABAcc0b0B0ce06b416bA7E",
+    "spinTheWheel": "0xAE35969e1Df2E3E738C3c1514a692b23a7096654",
+    "fregsLiquidity": "0xBcA779CB900103dB8f47A694CF7915a55EE87661",
+    "fregShop": "0x7F8CeAcbfCF092a531a28D8bA7f72712dD50B3FF",
+    "fregsAirdrop": "0x6E78Cef171990BA34AD2Dc037fb301BdD29Df0Dd",
     "vrfWrapper": "0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed",
-    "svgPartWriter": "0xc4980e87A602aaAF10AE2B16cAB88Afdcc69DA3E",
-    "svgRenderer": "0x13c50924443bb6E5757f9d035D0FD6f72a45372a"
+    "svgPartWriter": "0x546B5083d479B81FBAF6180F673321c55C35D182",
+    "svgRenderer": "0xeaa93014cC07388eD1072c6b41E51D98E8F41121"
   },
   "routers": {
-    "body": "0xd59f0c5d17F1CC14Edfb73ee40c8EE2ACDC06513",
-    "background": "0xc5B616aBfbF9dd6F4e9C278ecd7F249A86D7aec9",
-    "head": "0x5f08A2b395319Ba5eaD7EE324786Dc0ca1eBfEF1",
-    "mouth": "0xbb92cE2715Ff42B8969e11CE097B1edfD3f605d5",
-    "stomach": "0x38D7002954F021FE8C69C88e9d76196CF92eBCF3",
-    "skin": "0x0d0F76c237A5a2be3d258767b586AA618c5c8179",
-    "items": "0xf0074181C519D222Afd9A0e47Fe6E3e1536E8Bda"
+    "body": "0x425D746d9AdDE39B83D9f4BB047570846142ed76",
+    "background": "0xB0d0B5c7B658C547087f6897C643A221b5aFf0aA",
+    "head": "0xaD49E05164984109A716A2A02345353fC14e22E7",
+    "mouth": "0x20acA58fa1FF6B100d1b87B6A7C4171D367f6E57",
+    "stomach": "0xCbB091C11105f5A79b34F1Ae9e07ffD623359F2d",
+    "skin": "0xeb5D810863234126bCF35311715193f8bFe4806C",
+    "items": "0x0b13b420FBe1C43c22f249Cd55e2233370053d2E"
   },
   "defaultTraits": {
     "background": {
@@ -30,7 +30,7 @@
         "routerId": 1,
         "name": "Default",
         "source": "default",
-        "rendererAddress": "0x4000b85A26099A4c38D424c62b5E52Fab13F3A1a"
+        "rendererAddress": "0x0Ce8DbC32E8807324E69F9da7469D0B991344E71"
       }
     },
     "head": {
@@ -38,133 +38,133 @@
         "routerId": 1,
         "name": "Normal Eyes",
         "source": "default",
-        "rendererAddress": "0x0FB39f2d3C453D2a9D5FD1FfcF9D9E69Ae030570"
+        "rendererAddress": "0x7891ECefdb299E7957f00A6A389f428bF2e430C4"
       },
       "2.svg": {
         "routerId": 24,
         "name": "Hoodie",
         "source": "from_items",
-        "rendererAddress": "0x3acC60392e29e71C345cCB6cBd7eD0630b838EEB"
+        "rendererAddress": "0x607178300C70D82901d7D28D63048EAeFCEA0419"
       },
       "3.svg": {
         "routerId": 25,
         "name": "Frogsuit",
         "source": "from_items",
-        "rendererAddress": "0xcac2E039f9919166d559B8aE0BAAFB38Dd085bc4"
+        "rendererAddress": "0x28F92C68963376B926C4F3e0fd4e5490eED3F54D"
       },
       "4.svg": {
         "routerId": 4,
         "name": "Captain",
         "source": "default",
-        "rendererAddress": "0x971f0eba5362b26ceFdcAAda81b658BBA5668C77"
+        "rendererAddress": "0xDf9f3EE12b51168aA87058061305d72D523a33bD"
       },
       "5.svg": {
         "routerId": 5,
         "name": "Commie",
         "source": "default",
-        "rendererAddress": "0x0E904E0FA293aA0DF78Ee0875d6ffb62bB025374"
+        "rendererAddress": "0xe1061e4236FF9318EDfD488D0121645767FeC4C1"
       },
       "6.svg": {
         "routerId": 6,
         "name": "Cowboy",
         "source": "default",
-        "rendererAddress": "0x406C980a9FA27cB5Cb588D793a503FD3DB85833E"
+        "rendererAddress": "0xD0A7bAfa10e6AB3A89A29b481003DC30C8Eca4D1"
       },
       "7.svg": {
         "routerId": 7,
         "name": "Crown",
         "source": "default",
-        "rendererAddress": "0xFd8BF4b1E6b667A34B0ddEb596FA5513F6F03508"
+        "rendererAddress": "0xC433EA0429f1b6Bc5f640c55578160f0ea8e5170"
       },
       "8.svg": {
         "routerId": 8,
         "name": "Cap",
         "source": "default",
-        "rendererAddress": "0x254f3bBf7e567F59a6f532677F48d8F14230b215"
+        "rendererAddress": "0xc1F5ae16e7Ce6B738587b501a20FA19C603c35AE"
       },
       "9.svg": {
         "routerId": 9,
         "name": "Halo",
         "source": "default",
-        "rendererAddress": "0xD61bB482FA2B8926EE20Ed27b3DDbBc34188B431"
+        "rendererAddress": "0x27F2025dBbA254C9f3619d0435F8Fd44275e4542"
       },
       "10.svg": {
         "routerId": 10,
         "name": "3D Glasses",
         "source": "default",
-        "rendererAddress": "0x09D1416c046e0D22C02B610FD3b39520A6a92115"
+        "rendererAddress": "0x3F14B1AA125d4cBEd6A75AF958ed7c29a89251aC"
       },
       "11.svg": {
         "routerId": 11,
         "name": "Based Eyes",
         "source": "default",
-        "rendererAddress": "0x53C694E3B360324b4C4D2eb0F4329950cd1b0AAe"
+        "rendererAddress": "0x9bA8b0736f59f0f858abb79E631E04Aa7E02F89e"
       },
       "12.svg": {
         "routerId": 12,
         "name": "WW1",
         "source": "default",
-        "rendererAddress": "0xa83676DDcd882fAFEF4F6Cd75A0d7902cD3B2741"
+        "rendererAddress": "0x3A5e3eFD4c58193ab09D9Ad7334Efe05A092a717"
       },
       "13.svg": {
         "routerId": 13,
         "name": "Hoodie",
         "source": "default",
-        "rendererAddress": "0xED66B86a50385F1c38b7748e784420A089a1b99A"
+        "rendererAddress": "0x559a930Ee7441821e51f870c7259856Cb47AB75f"
       },
       "14.svg": {
         "routerId": 14,
         "name": "Karate Kid",
         "source": "default",
-        "rendererAddress": "0x9F05E81b298F806422135229Faf725aB36A601c0"
+        "rendererAddress": "0xC25Ac86Ca506E02faFF80Cbff4eEd6a69E6da90e"
       },
       "15.svg": {
         "routerId": 15,
         "name": "Mickey D",
         "source": "default",
-        "rendererAddress": "0x424D22FEb2e98A433349e9e599d404aA76be31E0"
+        "rendererAddress": "0x3D0CAe711e6FF5B525F9F1050Cf6172b05EdF2E8"
       },
       "16.svg": {
         "routerId": 16,
         "name": "Noggles",
         "source": "default",
-        "rendererAddress": "0xEa4689aE0a61785c2A4429776769d59F8BfEA58E"
+        "rendererAddress": "0x4e9F7603D0601A30Bf61ccC6c0aB76299975Ee70"
       },
       "17.svg": {
         "routerId": 17,
         "name": "Eye Patch",
         "source": "default",
-        "rendererAddress": "0x5061211e64FA923e6f26DEB693A34638067492E4"
+        "rendererAddress": "0xd9c27571c3c1C722fB2dE50B983A93bd5ce0601d"
       },
       "18.svg": {
         "routerId": 18,
         "name": "Pixel Glasses",
         "source": "default",
-        "rendererAddress": "0xD5C29119cCD2849Af4B8c4c20B8f1479C6d22Ba5"
+        "rendererAddress": "0x3cFdb961c3bC0756834A3451A61452f885CD76D8"
       },
       "19.svg": {
         "routerId": 19,
         "name": "Frog Suit",
         "source": "default",
-        "rendererAddress": "0x65d05867940ea447BB814FA755AE24c55a9B4342"
+        "rendererAddress": "0x31583bFfd52c3e4df849c62FCcD85aE84C022A78"
       },
       "20.svg": {
         "routerId": 20,
         "name": "Top Hat",
         "source": "default",
-        "rendererAddress": "0x294CFFedF1BcA575588C2C59E1ED95e79095f4f7"
+        "rendererAddress": "0xEa9aF54f410910189d8278668a7Ed61d7a608cB9"
       },
       "21.svg": {
         "routerId": 21,
         "name": "Weedy",
         "source": "default",
-        "rendererAddress": "0xc628cC5Dafd7CB627f9F6D5e3Fc716F3d6677463"
+        "rendererAddress": "0x50153a1Fb49A3ab1e145a698379D94B418C0Ec2a"
       },
       "22.svg": {
         "routerId": 22,
         "name": "Based Glasses",
         "source": "default",
-        "rendererAddress": "0x2f65681C32DDB46492B2A35C4b0D3c46effAC74A"
+        "rendererAddress": "0x6cAb41CCe8A7e215DbF2457B7Dead5D6B522d4d3"
       }
     },
     "mouth": {
@@ -172,37 +172,37 @@
         "routerId": 1,
         "name": "Cruella",
         "source": "default",
-        "rendererAddress": "0xbfF61B7A5be265647DF7953Fa4384b2ccf58ea17"
+        "rendererAddress": "0x16De3914603b1dD7ae3b916a660d3C5b2fDe5378"
       },
       "2.svg": {
         "routerId": 2,
         "name": "Cigarette",
         "source": "default",
-        "rendererAddress": "0x1F458f715FCADf17A7341E722DCE2b729420081a"
+        "rendererAddress": "0x04B0A912dC039e7F97a501E93620472B1856E174"
       },
       "3.svg": {
         "routerId": 3,
         "name": "Pipe",
         "source": "default",
-        "rendererAddress": "0x155b4Dc6D63828927f70599dCB084F4CBBd57f3A"
+        "rendererAddress": "0x6bef899C89eDb2e64DaC98d0fEDF0Fb3B766A8C1"
       },
       "4.svg": {
         "routerId": 4,
         "name": "Puke",
         "source": "default",
-        "rendererAddress": "0xF93d6EC536e44dc43126CD00A38D650ef69AaA58"
+        "rendererAddress": "0x9eB0C60AbFb420389a844Dfc2166d7062c5d7890"
       },
       "5.svg": {
         "routerId": 5,
         "name": "Tooth Pick",
         "source": "default",
-        "rendererAddress": "0x3bC5780c24E958D38E2Fae265D608884C0110eD8"
+        "rendererAddress": "0x7fab81a7Fd185987Cd043af2995c29140eA0DCD0"
       },
       "6.svg": {
         "routerId": 6,
         "name": "Tounge",
         "source": "default",
-        "rendererAddress": "0x9571378D6951cC237dE36e795982dD8dA4C9F41C"
+        "rendererAddress": "0xba4526B958F52bfbB884Df050Dd9799774AADdbc"
       }
     },
     "stomach": {
@@ -210,25 +210,25 @@
         "routerId": 1,
         "name": "Base",
         "source": "default",
-        "rendererAddress": "0xBc1708244681A50Ed5426aEdE08aE17D91e46331"
+        "rendererAddress": "0x3B0C3bFF087Eea8Be7512a3bDF494c3f91d46D0f"
       },
       "2.svg": {
         "routerId": 2,
         "name": "ETH",
         "source": "default",
-        "rendererAddress": "0xBD0c1e4C318919a9ADd537317Bca29376c4b4503"
+        "rendererAddress": "0x9C58fbADD90aabe465F705916e3D9B993629bDeC"
       },
       "3.svg": {
         "routerId": 3,
         "name": "Thug Life",
         "source": "default",
-        "rendererAddress": "0x0cE9c3619aEca9fc4F5CF62A5c015E9f878588dC"
+        "rendererAddress": "0x501EA9FFbB02c3e46C68f08b8f1cc3536a9ACB50"
       },
       "4.svg": {
         "routerId": 4,
         "name": "Zipper",
         "source": "default",
-        "rendererAddress": "0x163c04964EeAf4ab586883aBe24C2383bDDda6A8"
+        "rendererAddress": "0xbDe4Ce88E7665B36285A2049E01191CB6fBa6Df1"
       }
     },
     "skin": {
@@ -236,25 +236,25 @@
         "routerId": 1,
         "name": "Gold",
         "source": "from_items",
-        "rendererAddress": "0xb36F3D0D6D8826bd5e448F968A41533FaAF0BC84"
+        "rendererAddress": "0x2AC620C74479ec2f02EdEDCF93952426E9cfa7A0"
       },
       "2.svg": {
         "routerId": 2,
         "name": "Diamond",
         "source": "from_items",
-        "rendererAddress": "0x7f6ADa3724B30BB1366f8b99c2aB8C1b178AB08B"
+        "rendererAddress": "0xB5e2Ea2A1F963973121647c39a4B6810134F27DE"
       },
       "3.svg": {
         "routerId": 3,
         "name": "Robot",
         "source": "from_items",
-        "rendererAddress": "0x082C724ebbe97AE2Dff6BECFb67D95CD4093ce01"
+        "rendererAddress": "0xf2ADC868b5Ce8D3119853E48B0EeB087719E7301"
       },
       "4.svg": {
         "routerId": 4,
         "name": "Skeleton",
         "source": "from_items",
-        "rendererAddress": "0x6a7057Cc699D67c4E638312aa763c7f22A3E756D"
+        "rendererAddress": "0xC111EfF535EF52B997875d1541C032C4F7f1057f"
       }
     }
   },
