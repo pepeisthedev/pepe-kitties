@@ -88,10 +88,8 @@ export default function ResultModal({
   const successColor = theme === 'dark' ? 'text-lime-400' : 'text-orange-700'
   const descColor = theme === 'dark' ? 'text-white/70' : 'text-orange-900/70'
 
-  const canClose = !loading && (!isRevealing || revealPhase === 'revealed')
-
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && canClose && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className={`${bgClass} border-2 ${borderClass} rounded-2xl max-w-md`}>
         <DialogHeader className="text-center">
           {/* Header icon - hide during reveal card/explosion phases */}
@@ -197,7 +195,18 @@ export default function ResultModal({
           </div>
         )}
 
-        {canClose && !loading && (
+        {loading && (
+          <DialogFooter className="sm:justify-center">
+            <Button
+              onClick={onClose}
+              className="font-bangers text-xl px-8 py-3 rounded-xl bg-theme-card border border-theme-muted/30 text-theme-muted hover:text-theme-primary"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        )}
+
+        {!loading && (
           <DialogFooter className="sm:justify-center">
             <Button
               onClick={onClose}

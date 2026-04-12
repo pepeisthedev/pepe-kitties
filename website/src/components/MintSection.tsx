@@ -255,6 +255,9 @@ export default function MintSection(): React.JSX.Element {
 
     const closeModal = () => {
         setMintStatus('idle')
+        setMintedKitty(null)
+        setRevealPhase('hidden')
+        setParticles([])
     }
 
     const handleColorInput = (value: string) => {
@@ -534,7 +537,7 @@ export default function MintSection(): React.JSX.Element {
             </div>
 
             {/* Mint Modal */}
-            <Dialog open={mintStatus !== 'idle'} onOpenChange={(open) => !open && ((mintStatus === 'success' && revealPhase === 'revealed') || mintStatus === 'error') && closeModal()}>
+            <Dialog open={mintStatus !== 'idle'} onOpenChange={(open) => !open && closeModal()}>
                 <DialogContent className="bg-theme-mint-modal border-2 border-theme rounded-2xl max-w-md">
                     <DialogHeader className="text-center">
                         {/* Pending State - Waiting for wallet */}
@@ -573,9 +576,11 @@ export default function MintSection(): React.JSX.Element {
                                     <LoadingSpinner size="lg" />
                                 </div>
                                 <DialogTitle className="font-bangers text-3xl text-theme-primary">
-                                    {AWAITING_RANDOMNESS_MESSAGES[awaitingMessageIndex].title}
+                                    Waiting for reveal...
                                 </DialogTitle>
-                            
+                                <DialogDescription className="font-bangers text-xl text-theme-muted mt-2 transition-all duration-500">
+                                    {AWAITING_RANDOMNESS_MESSAGES[awaitingMessageIndex].title}
+                                </DialogDescription>
                             </>
                         )}
 
@@ -706,6 +711,19 @@ export default function MintSection(): React.JSX.Element {
                                 )}
                             </div>
                         </div>
+                    )}
+
+                    {/* Mint another button while waiting for randomness or confirming */}
+                    {(mintStatus === 'awaitingRandomness' || mintStatus === 'confirming') && (
+                        <DialogFooter className="sm:justify-center">
+                            <Button
+                                onClick={closeModal}
+                                className="font-bangers text-xl px-8 py-3 rounded-xl btn-theme-primary"
+                            >
+                                <Sparkles className="w-5 h-5 mr-2" />
+                                Mint Another
+                            </Button>
+                        </DialogFooter>
                     )}
 
                     {/* Footer buttons only for revealed success/error states */}
