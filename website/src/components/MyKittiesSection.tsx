@@ -41,7 +41,7 @@ interface TraitsConfig {
 
 // Get trait name by index (1-indexed in contract)
 const getTraitName = (traitsConfig: TraitsConfig | null, traitType: keyof TraitsConfig, index: number): string => {
-    if (!traitsConfig || index === 0) return "None"
+    if (!traitsConfig || index === 0) return "Normal"
     const traits = traitsConfig[traitType]
     if (!traits || index > traits.length) {
         // Check from_items for special traits
@@ -165,6 +165,7 @@ interface CarouselCardProps {
     kitty: Kitty
     isFlipped: boolean
     hasClaimable: boolean
+    isExpanded: boolean
     claimingTokenIds: Set<number>
     onClick: () => void
     traitsConfig: TraitsConfig | null
@@ -175,7 +176,7 @@ interface CarouselCardProps {
     onClaim: (tokenId: number) => void
 }
 
-function CarouselCard({ kitty, isFlipped, hasClaimable, claimingTokenIds, onClick, traitsConfig, redeemETH, redeemCoin, liquidityActive, onBurn, onClaim }: CarouselCardProps) {
+function CarouselCard({ kitty, isFlipped, hasClaimable, isExpanded, claimingTokenIds, onClick, traitsConfig, redeemETH, redeemCoin, liquidityActive, onBurn, onClaim }: CarouselCardProps) {
     return (
         <div
             className="flex-shrink-0 w-40 cursor-pointer transition-transform hover:scale-105"
@@ -195,13 +196,20 @@ function CarouselCard({ kitty, isFlipped, hasClaimable, claimingTokenIds, onClic
                 >
                     {/* Front - Freg Image */}
                     <div
-                        className="overflow-hidden rounded-xl bg-white"
+                        className="overflow-hidden rounded-xl bg-white relative"
                         style={{
                             aspectRatio: '617.49 / 644.18',
                             backfaceVisibility: 'hidden'
                         }}
                     >
                         <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
+                        {hasClaimable && (
+                            <div className="absolute top-1 right-1 z-10">
+                                <div className="bg-theme-primary rounded-full p-1 animate-pulse">
+                                    <Gift className="w-3 h-3 text-theme-button-text" />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Back - Metadata */}
@@ -282,17 +290,19 @@ function CarouselCard({ kitty, isFlipped, hasClaimable, claimingTokenIds, onClic
             <p className="font-bangers text-sm text-theme-primary text-center mt-1">
                 #{kitty.tokenId}
             </p>
-            {(hasClaimable || claimingTokenIds.has(kitty.tokenId)) && (
-                <button
-                    disabled={claimingTokenIds.has(kitty.tokenId)}
-                    className={`mt-1 w-full text-[10px] rounded-lg py-1 font-bangers transition-colors flex items-center justify-center gap-1 ${
-                        claimingTokenIds.has(kitty.tokenId) ? "bg-theme-primary/50 cursor-not-allowed text-white/60" : "bg-theme-primary hover:brightness-110 cursor-pointer text-theme-button-text"
-                    }`}
-                    onClick={(e) => { e.stopPropagation(); onClaim(kitty.tokenId) }}
-                >
-                    <Gift className="w-3 h-3" />
-                    {claimingTokenIds.has(kitty.tokenId) ? "Claiming..." : "Claim Item"}
-                </button>
+            {(isExpanded || claimingTokenIds.has(kitty.tokenId)) && (
+                <div className="overflow-hidden">
+                    <button
+                        disabled={claimingTokenIds.has(kitty.tokenId)}
+                        className={`mt-1 w-full text-[10px] rounded-lg py-1 font-bangers transition-colors flex items-center justify-center gap-1 animate-slide-down ${
+                            claimingTokenIds.has(kitty.tokenId) ? "bg-theme-primary/50 cursor-not-allowed text-white/60" : "bg-theme-primary hover:brightness-110 cursor-pointer text-theme-button-text"
+                        }`}
+                        onClick={(e) => { e.stopPropagation(); onClaim(kitty.tokenId) }}
+                    >
+                        <Gift className="w-3 h-3" />
+                        {claimingTokenIds.has(kitty.tokenId) ? "Claiming..." : "Claim Item"}
+                    </button>
+                </div>
             )}
         </div>
     )
@@ -306,13 +316,11 @@ export default function MyKittiesSection(): React.JSX.Element {
     const { items, isLoading: itemsLoading, refetch: refetchItems } = useOwnedItems()
 
     const [tab, setTab] = useState<'fregs' | 'items'>('fregs')
-    const [claimModalKittyId, setClaimModalKittyId] = useState<number | null>(null)
-    const [isClaiming, setIsClaiming] = useState(false)
+    const [selectedCard, setSelectedCard] = useState<number | null>(null)
     const [claimingTokenIds, setClaimingTokenIds] = useState<Set<number>>(new Set())
     const [showModal, setShowModal] = useState(false)
     const [modalData, setModalData] = useState<{ success: boolean; message: string; itemType?: number; itemTokenId?: number; isBurn?: boolean }>({ success: false, message: "" })
     const [viewMode, setViewMode] = useState<'grid' | 'carousel'>('grid')
-    const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set())
     const [traitsConfig, setTraitsConfig] = useState<TraitsConfig | null>(null)
     const [redeemETH, setRedeemETH] = useState<string | null>(null)
     const [redeemCoin, setRedeemCoin] = useState<string | null>(null)
@@ -417,20 +425,18 @@ export default function MyKittiesSection(): React.JSX.Element {
         return () => window.clearInterval(interval)
     }, [isApplying, resultWasRandom])
 
-    const handleClaim = useCallback(async () => {
-        if (!contracts || !address || claimModalKittyId === null) return
+    const handleClaim = useCallback(async (tokenId: number) => {
+        if (!contracts || !address) return
 
-        const tokenId = claimModalKittyId
         const session = ++claimSessionRef.current
         const isCurrent = () => claimSessionRef.current === session
 
         flushSync(() => {
-            setIsClaiming(true)
             setClaimingTokenIds(prev => new Set(prev).add(tokenId))
+            setSelectedCard(null)
             setIsModalLoading(true)
             setClaimTxSubmitted(false)
             setModalData({ success: false, message: "" })
-            setClaimModalKittyId(null)
             setShowModal(true)
         })
 
@@ -483,23 +489,13 @@ export default function MyKittiesSection(): React.JSX.Element {
         } finally {
             setClaimingTokenIds(prev => { const next = new Set(prev); next.delete(tokenId); return next })
             if (isCurrent()) {
-                setIsClaiming(false)
                 setIsModalLoading(false)
             }
         }
-    }, [address, contracts, claimModalKittyId, refetchKitties, refetchUnclaimed, refetchItems])
+    }, [address, contracts, refetchKitties, refetchUnclaimed, refetchItems])
 
     const handleKittyClick = (tokenId: number) => {
-        // Clicking always flips the card to show metadata
-        setFlippedCards(prev => {
-            const newSet = new Set(prev)
-            if (newSet.has(tokenId)) {
-                newSet.delete(tokenId)
-            } else {
-                newSet.add(tokenId)
-            }
-            return newSet
-        })
+        setSelectedCard(prev => prev === tokenId ? null : tokenId)
     }
 
     const handleBurn = useCallback((tokenId: number) => {
@@ -807,14 +803,29 @@ export default function MyKittiesSection(): React.JSX.Element {
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                             {kitties.map((kitty) => {
                                 const hasClaimable = canClaim(kitty.tokenId)
-                                const isFlipped = flippedCards.has(kitty.tokenId)
+                                const isSelected = selectedCard === kitty.tokenId && hasClaimable
+                                const isFlipped = selectedCard === kitty.tokenId && !hasClaimable
 
                                 return (
                                     <div
                                         key={kitty.tokenId}
-                                        className="cursor-pointer transition-transform hover:scale-102"
+                                        className="cursor-pointer transition-all duration-300 relative"
+                                        style={isSelected ? {
+                                            transform: 'scale(1.06)',
+                                            filter: `drop-shadow(0 0 10px ${kitty.bodyColor}99) drop-shadow(0 0 20px ${kitty.bodyColor}55)`,
+                                        } : {}}
                                         onClick={() => handleKittyClick(kitty.tokenId)}
                                     >
+                                        {/* Pokemon-card pop-out background */}
+                                        {isSelected && (
+                                            <div
+                                                className="absolute inset-0 rounded-2xl -z-10 -m-2"
+                                                style={{
+                                                    background: `radial-gradient(ellipse at 50% 40%, ${kitty.bodyColor}55 0%, ${kitty.bodyColor}22 50%, transparent 80%)`,
+                                                    border: `2px solid ${kitty.bodyColor}88`,
+                                                }}
+                                            />
+                                        )}
                                         {/* Flip container - only wraps the image area */}
                                         <div
                                             className="relative"
@@ -829,13 +840,20 @@ export default function MyKittiesSection(): React.JSX.Element {
                                             >
                                                 {/* Front - Freg Image */}
                                                 <div
-                                                    className="overflow-hidden rounded-xl bg-white"
+                                                    className="overflow-hidden rounded-xl bg-white relative"
                                                     style={{
                                                         aspectRatio: '617.49 / 644.18',
                                                         backfaceVisibility: 'hidden'
                                                     }}
                                                 >
                                                     <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
+                                                    {hasClaimable && (
+                                                        <div className="absolute top-2 right-2 z-10">
+                                                            <div className="bg-theme-primary rounded-full p-1.5 animate-pulse">
+                                                                <Gift className="w-4 h-4 text-theme-button-text" />
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {/* Back - Metadata */}
@@ -916,17 +934,19 @@ export default function MyKittiesSection(): React.JSX.Element {
                                         <p className="font-bangers text-lg text-theme-primary text-center mt-2">
                                             #{kitty.tokenId}
                                         </p>
-                                        {(hasClaimable || claimingTokenIds.has(kitty.tokenId)) && (
-                                            <button
-                                                disabled={claimingTokenIds.has(kitty.tokenId)}
-                                                className={`mt-1 w-full text-[11px] rounded-lg py-1.5 font-bangers transition-colors flex items-center justify-center gap-1 ${
-                                                    claimingTokenIds.has(kitty.tokenId) ? "bg-theme-primary/50 cursor-not-allowed text-white/60" : "bg-theme-primary hover:brightness-110 cursor-pointer text-theme-button-text"
-                                                }`}
-                                                onClick={(e) => { e.stopPropagation(); setClaimModalKittyId(kitty.tokenId) }}
-                                            >
-                                                <Gift className="w-3 h-3" />
-                                                {claimingTokenIds.has(kitty.tokenId) ? "Claiming..." : "Claim Item"}
-                                            </button>
+                                        {((isSelected && hasClaimable) || claimingTokenIds.has(kitty.tokenId)) && (
+                                            <div className="overflow-hidden">
+                                                <button
+                                                    disabled={claimingTokenIds.has(kitty.tokenId)}
+                                                    className={`mt-1 w-full text-[11px] rounded-lg py-1.5 font-bangers transition-colors flex items-center justify-center gap-1 animate-slide-down ${
+                                                        claimingTokenIds.has(kitty.tokenId) ? "bg-theme-primary/50 cursor-not-allowed text-white/60" : "bg-theme-primary hover:brightness-110 cursor-pointer text-theme-button-text"
+                                                    }`}
+                                                    onClick={(e) => { e.stopPropagation(); handleClaim(kitty.tokenId) }}
+                                                >
+                                                    <Gift className="w-3 h-3" />
+                                                    {claimingTokenIds.has(kitty.tokenId) ? "Claiming..." : "Claim Item"}
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                 )
@@ -951,15 +971,16 @@ export default function MyKittiesSection(): React.JSX.Element {
                                         <CarouselCard
                                             key={`row1-${kitty.tokenId}-${index}`}
                                             kitty={kitty}
-                                            isFlipped={flippedCards.has(kitty.tokenId)}
+                                            isFlipped={selectedCard === kitty.tokenId && !canClaim(kitty.tokenId)}
                                             hasClaimable={canClaim(kitty.tokenId)}
+                                            isExpanded={selectedCard === kitty.tokenId && canClaim(kitty.tokenId)}
                                             onClick={() => handleKittyClick(kitty.tokenId)}
                                             traitsConfig={traitsConfig}
                                             redeemETH={redeemETH}
                                             redeemCoin={redeemCoin}
                                             liquidityActive={liquidityActive}
                                             onBurn={handleBurn}
-                                            onClaim={setClaimModalKittyId}
+                                            onClaim={handleClaim}
                                             claimingTokenIds={claimingTokenIds}
                                         />
                                     ))}
@@ -980,15 +1001,16 @@ export default function MyKittiesSection(): React.JSX.Element {
                                         <CarouselCard
                                             key={`row2-${kitty.tokenId}-${index}`}
                                             kitty={kitty}
-                                            isFlipped={flippedCards.has(kitty.tokenId)}
+                                            isFlipped={selectedCard === kitty.tokenId && !canClaim(kitty.tokenId)}
                                             hasClaimable={canClaim(kitty.tokenId)}
+                                            isExpanded={selectedCard === kitty.tokenId && canClaim(kitty.tokenId)}
                                             onClick={() => handleKittyClick(kitty.tokenId)}
                                             traitsConfig={traitsConfig}
                                             redeemETH={redeemETH}
                                             redeemCoin={redeemCoin}
                                             liquidityActive={liquidityActive}
                                             onBurn={handleBurn}
-                                            onClaim={setClaimModalKittyId}
+                                            onClaim={handleClaim}
                                             claimingTokenIds={claimingTokenIds}
                                         />
                                     ))}
@@ -1191,48 +1213,6 @@ export default function MyKittiesSection(): React.JSX.Element {
                     )}
                 </>
             )}
-
-            {/* Claim Item Modal */}
-            {(() => {
-                const claimKitty = claimModalKittyId !== null ? kitties.find(k => k.tokenId === claimModalKittyId) : null
-                return (
-                    <Dialog open={claimModalKittyId !== null} onOpenChange={(open) => !open && setClaimModalKittyId(null)}>
-                        <DialogContent className="bg-theme-card border-2 border-theme rounded-2xl max-w-xs">
-                            <DialogHeader className="text-center">
-                                <DialogTitle className="font-bangers text-2xl text-theme-primary text-center">
-                                    Claim Item
-                                </DialogTitle>
-                                <DialogDescription className="font-righteous text-theme-muted text-sm text-center">
-                                    Claim a random item for Freg #{claimModalKittyId}
-                                </DialogDescription>
-                            </DialogHeader>
-                            {claimKitty && (
-                                <div className="flex justify-center my-2">
-                                    <div className="overflow-hidden rounded-xl bg-white w-40" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                        <KittyRenderer {...claimKitty} size="sm" className="w-full h-full" />
-                                    </div>
-                                </div>
-                            )}
-                            <DialogFooter className="flex gap-3 sm:justify-center">
-                                <Button
-                                    onClick={() => setClaimModalKittyId(null)}
-                                    className="flex-1 font-bangers text-lg px-4 py-3 rounded-xl bg-theme-card border border-theme-muted/30 text-theme-muted hover:text-theme-primary"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={handleClaim}
-                                    disabled={claimModalKittyId !== null && claimingTokenIds.has(claimModalKittyId)}
-                                    className="flex-1 font-bangers text-lg px-4 py-3 rounded-xl btn-theme-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <Gift className="w-5 h-5 mr-1" />
-                                    {claimModalKittyId !== null && claimingTokenIds.has(claimModalKittyId) ? "Claiming..." : "Claim!"}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                )
-            })()}
 
             {/* Burn Confirm Modal */}
             <Dialog open={burnConfirmTokenId !== null} onOpenChange={(open) => !open && setBurnConfirmTokenId(null)}>

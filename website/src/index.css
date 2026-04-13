@@ -349,6 +349,21 @@
   animation: reveal-glow 1.5s ease-in-out infinite;
 }
 
+@keyframes slide-down {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.25s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+}
+
 .animate-reveal-title {
   animation: reveal-title 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   animation-delay: 0.2s;
