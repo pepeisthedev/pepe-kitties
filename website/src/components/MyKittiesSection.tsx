@@ -12,7 +12,6 @@ import KittyRenderer from "./KittyRenderer"
 import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
 import { waitForEvent } from "../lib/waitForEvent"
-import { readBufferedGasAwareVrfFee } from "../lib/vrfFee"
 import { ITEM_TYPE_NAMES, ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, ITEMS, checkItemIncompatibility, BASE_HEAD_COUNT, BASE_STOMACH_COUNT, BASE_MOUTH_COUNT } from "../config/contracts"
 import { Gift, LayoutGrid, Rows, Flame, AlertTriangle, Wand2, Palette, Backpack } from "lucide-react"
 import {
@@ -442,13 +441,8 @@ export default function MyKittiesSection(): React.JSX.Element {
 
         try {
             const contract = await contracts.items.write()
-            const bufferedVrfFee = await readBufferedGasAwareVrfFee(
-                contracts.items.read,
-                contracts.provider,
-                "quoteClaimItemFee"
-            )
             // Manually specify gas to avoid MetaMask gas estimation issues on localhost
-            const tx = await contract.claimItem(tokenId, { value: bufferedVrfFee, gasLimit: 1000000n })
+            const tx = await contract.claimItem(tokenId, { gasLimit: 1000000n })
             if (isCurrent()) setClaimTxSubmitted(true)
             const receipt = await tx.wait()
 
@@ -607,12 +601,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                 if (!isValidHexColor(newColor)) throw new Error("Invalid hex color")
                 tx = await contract.useColorChange(selectedItem.tokenId, selectedKitty.tokenId, newColor, gasOpts)
             } else if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) {
-                const bufferedVrfFee = await readBufferedGasAwareVrfFee(
-                    contracts.items.read,
-                    contracts.provider,
-                    "quoteHeadRerollFee"
-                )
-                tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId, { ...gasOpts, value: bufferedVrfFee })
+                tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (isSkinItem(selectedItem.itemType)) {
                 tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (isHeadItem(selectedItem.itemType)) {

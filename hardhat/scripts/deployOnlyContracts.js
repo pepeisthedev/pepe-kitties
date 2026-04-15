@@ -1,4 +1,4 @@
-const { ethers, network } = require("hardhat");
+const { ethers, network, run } = require("hardhat");
 const fs = require("fs");
 const path = require("path");
 const { retryWithBackoff } = require("./deployUtils");
@@ -59,23 +59,42 @@ const VRF_CALLBACK_GAS = {
     headReroll: Number(process.env.VRF_HEAD_REROLL_CALLBACK_GAS_LIMIT || 350000),
     spin: Number(process.env.VRF_SPIN_CALLBACK_GAS_LIMIT || 450000),
 };
-const VRF_REQUEST_CONFIRMATIONS = Number(process.env.VRF_REQUEST_CONFIRMATIONS || 1);
-const DEFAULT_VRF_WRAPPER_ADDRESSES = {
-    baseSepolia: "0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed",
-    base: "0xb0407dbe851f8318bd31404A49e658143C982F23",
+const DEFAULT_VRF_COORDINATOR_ADDRESSES = {
+  baseSepolia: "0x5C210eF41CD1a72de73bF76eC39637bB0d3d7BEE",
+  base: "0xd5D517aBE5cF79B7e95eC98dB0f0277788aFF634",
 };
 
-function getVrfWrapperAddress() {
+const DEFAULT_VRF_KEY_HASHES = {
+  // Base Sepolia only exposes the 30 gwei lane
+  baseSepolia: "0x9e1344a1247c8a1785d0a4681a27152bffdb43666ae5bf7d14d24a5efd44bf71",
+
+  // Base mainnet 2 gwei lane
+  base: "0x00b81b5a830cb0a4009fbd8904de511e28631e62ce5ad231373d3cdad373ccab",
+};
+
+function getVrfConfig() {
     if (network.name === "localhost" || network.name === "hardhat") {
-        return null;
+        return { coordinator: null, subscriptionId: 0, keyHash: ethers.ZeroHash };
     }
     if (network.name === "baseSepolia") {
-        return process.env.BASE_SEPOLIA_VRF_WRAPPER_ADDRESS || DEFAULT_VRF_WRAPPER_ADDRESSES.baseSepolia;
+        return {
+            coordinator: process.env.BASE_SEPOLIA_VRF_COORDINATOR || DEFAULT_VRF_COORDINATOR_ADDRESSES.baseSepolia,
+            subscriptionId: BigInt(process.env.BASE_SEPOLIA_VRF_SUBSCRIPTION_ID || 0),
+            keyHash: process.env.BASE_SEPOLIA_VRF_KEY_HASH || DEFAULT_VRF_KEY_HASHES.baseSepolia,
+        };
     }
     if (network.name === "base") {
-        return process.env.BASE_VRF_WRAPPER_ADDRESS || DEFAULT_VRF_WRAPPER_ADDRESSES.base;
+        return {
+            coordinator: process.env.BASE_VRF_COORDINATOR || DEFAULT_VRF_COORDINATOR_ADDRESSES.base,
+            subscriptionId: BigInt(process.env.BASE_VRF_SUBSCRIPTION_ID || 0),
+            keyHash: process.env.BASE_VRF_KEY_HASH || DEFAULT_VRF_KEY_HASHES.base,
+        };
     }
-    return process.env.VRF_WRAPPER_ADDRESS || "";
+    return {
+        coordinator: process.env.VRF_COORDINATOR || "",
+        subscriptionId: BigInt(process.env.VRF_SUBSCRIPTION_ID || 0),
+        keyHash: process.env.VRF_KEY_HASH || ethers.ZeroHash,
+    };
 }
 
 function loadItemsConfig() {
@@ -343,7 +362,7 @@ async function restoreDynamicItemTypesFromStatus(fregsItems, fregShop, svgRender
 
 // ============ CONFIGURATION ============
 const MINT_PASSES_TO_MINT = 2;
-const ADDITIONAL_MINTPASS_RECIPIENT = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
+const ADDITIONAL_MINTPASS_RECIPIENT = "";
 
 // SpinTheWheel configuration (weights out of 10000)
 const SPIN_LOSE_WEIGHT = 0;
@@ -399,21 +418,28 @@ async function main() {
     const ROYALTY_FEE = 500; // 5%
     const isLocalhost = network.name === "localhost" || network.name === "hardhat";
 
-    let vrfWrapperAddress = getVrfWrapperAddress();
-    if (!isLocalhost && !vrfWrapperAddress) {
-        throw new Error(`Missing VRF wrapper address for ${network.name}. Set BASE_SEPOLIA_VRF_WRAPPER_ADDRESS or BASE_VRF_WRAPPER_ADDRESS.`);
+    const vrfConfig = getVrfConfig();
+    if (!isLocalhost) {
+        if (!vrfConfig.coordinator) throw new Error(`Missing VRF coordinator for ${network.name}. Set BASE_VRF_COORDINATOR in .env.`);
+        if (!vrfConfig.subscriptionId || vrfConfig.subscriptionId === 0n) throw new Error(`Missing VRF subscription ID for ${network.name}. Set BASE_VRF_SUBSCRIPTION_ID in .env.`);
     }
 
+    let vrfCoordinatorAddress = vrfConfig.coordinator;
+    let vrfSubscriptionId = vrfConfig.subscriptionId;
+    let vrfKeyHash = vrfConfig.keyHash;
+
     if (isLocalhost) {
-        console.log("\n--- Deploying MockVRFV2PlusWrapper ---");
+        console.log("\n--- Deploying MockVRFV2PlusWrapper (mock coordinator) ---");
         const MockVRFV2PlusWrapper = await ethers.getContractFactory("MockVRFV2PlusWrapper");
-        const mockWrapper = await deployContract(MockVRFV2PlusWrapper, [], "MockVRFV2PlusWrapper");
-        vrfWrapperAddress = await mockWrapper.getAddress();
+        const mockCoordinator = await deployContract(MockVRFV2PlusWrapper, [], "MockVRFV2PlusWrapper");
+        vrfCoordinatorAddress = await mockCoordinator.getAddress();
+        vrfSubscriptionId = 1;
+        vrfKeyHash = ethers.ZeroHash;
     }
 
     console.log("\n--- Deploying FregsRandomizer ---");
     const FregsRandomizer = await ethers.getContractFactory("FregsRandomizer");
-    const fregsRandomizer = await deployContract(FregsRandomizer, [vrfWrapperAddress], "FregsRandomizer");
+    const fregsRandomizer = await deployContract(FregsRandomizer, [vrfCoordinatorAddress, vrfSubscriptionId, vrfKeyHash], "FregsRandomizer");
     const fregsRandomizerAddress = await fregsRandomizer.getAddress();
 
     // ============ Steg 2: Deploy Contracts ============
@@ -452,6 +478,11 @@ async function main() {
     const fregShop = await deployContract(FregShop, [], "FregShop");
     const fregShopAddress = await fregShop.getAddress();
 
+    console.log("\n--- Deploying FregsAirdrop ---");
+    const FregsAirdrop = await ethers.getContractFactory("FregsAirdrop");
+    const fregsAirdrop = await deployContract(FregsAirdrop, [], "FregsAirdrop");
+    const fregsAirdropAddress = await fregsAirdrop.getAddress();
+
     // ============ Steg 3: Configure Cross-Contract References ============
     console.log("\n--- Configuring Cross-Contract References ---");
 
@@ -465,9 +496,18 @@ async function main() {
             VRF_CALLBACK_GAS.spin
         )
     );
-    await sendTx(fregsRandomizer.setRequestConfirmations(VRF_REQUEST_CONFIRMATIONS));
+   // await sendTx(fregsRandomizer.setRequestConfirmations(VRF_REQUEST_CONFIRMATIONS));
     if (isLocalhost) {
         await sendTx(fregsRandomizer.setAutoFulfill(true));
+    }
+    console.log("  VRF coordinator:", vrfCoordinatorAddress);
+    console.log("  VRF subscription ID:", vrfSubscriptionId);
+
+    if (!isLocalhost) {
+        console.log("Adding FregsRandomizer as VRF subscription consumer...");
+        const coordinator = await ethers.getContractAt("IVRFCoordinatorV2Plus", vrfCoordinatorAddress);
+        await sendTx(coordinator.addConsumer(vrfSubscriptionId, fregsRandomizerAddress));
+        console.log("  FregsRandomizer added as consumer!");
     }
 
     console.log("Setting items contract on Fregs...");
@@ -514,6 +554,10 @@ async function main() {
     await sendTx(fregShop.setFregCoinContract(fregCoinAddress));
     await sendTx(fregShop.setItemsContract(fregsItemsAddress));
     await sendTx(fregsItems.setShopContract(fregShopAddress));
+
+    console.log("Configuring FregsAirdrop...");
+    await sendTx(fregsAirdrop.setFregCoin(fregCoinAddress));
+    await sendTx(fregsAirdrop.setFregs(fregsAddress));
 
     // ============ Steg 4: Set Mint Phase + localhost setup ============
     if (isLocalhost) {
@@ -638,6 +682,7 @@ async function main() {
     copyABI("FregCoin", "FregCoin");
     copyABI("FregsLiquidity", "FregsLiquidity");
     copyABI("FregShop", "FregShop");
+    copyABI("FregsAirdrop", "FregsAirdrop");
     console.log("  Reused FregsSVGRenderer ABI left unchanged.");
     console.log("ABIs copied successfully!");
 
@@ -655,8 +700,10 @@ async function main() {
             spinTheWheel: spinTheWheelAddress,
             fregsLiquidity: fregsLiquidityAddress,
             fregShop: fregShopAddress,
+            fregsAirdrop: fregsAirdropAddress,
             svgRenderer: svgRendererAddress,
-            vrfWrapper: vrfWrapperAddress,
+            vrfCoordinator: vrfCoordinatorAddress,
+            vrfSubscriptionId: vrfSubscriptionId,
             // Preserve svgPartWriter from previous deploy
             svgPartWriter: previousStatus.contracts?.svgPartWriter || null,
         },
@@ -671,7 +718,39 @@ async function main() {
     };
     saveDeploymentStatus(newStatus, network.name);
 
-    // ============ Steg 9: Summary ============
+    // ============ Steg 9: Verify Contracts ============
+    const shouldVerify = process.env.VERIFY_CONTRACTS === "true" && !isLocalhost;
+    if (shouldVerify) {
+        console.log("\n--- Verifying Contracts on Basescan ---");
+        console.log("Waiting 30s for indexing...");
+        await new Promise(resolve => setTimeout(resolve, 30000));
+
+        const toVerify = [
+            { name: "FregsRandomizer",  address: fregsRandomizerAddress,  args: [vrfCoordinatorAddress, vrfSubscriptionId, vrfKeyHash] },
+            { name: "Fregs",            address: fregsAddress,             args: [ROYALTY_RECEIVER, ROYALTY_FEE, "Fregs", "FREG"] },
+            { name: "FregsItems",       address: fregsItemsAddress,        args: [ROYALTY_RECEIVER, ROYALTY_FEE, "Fregs Items", "FREGITEM", fregsAddress] },
+            { name: "FregsMintPass",    address: fregsMintPassAddress,     args: [""] },
+            { name: "FregCoin",         address: fregCoinAddress,          args: [] },
+            { name: "SpinTheWheel",     address: spinTheWheelAddress,      args: [""] },
+            { name: "FregsLiquidity",   address: fregsLiquidityAddress,    args: [] },
+            { name: "FregShop",         address: fregShopAddress,          args: [] },
+            { name: "FregsAirdrop",     address: fregsAirdropAddress,      args: [] },
+        ];
+
+        for (const { name, address, args } of toVerify) {
+            try {
+                console.log(`Verifying ${name}...`);
+                await run("verify:verify", { address, constructorArguments: args });
+                console.log(`  ${name} verified!`);
+            } catch (error) {
+                console.log(`  ${name} verification failed: ${error.message}`);
+            }
+        }
+    } else if (!shouldVerify && !isLocalhost) {
+        console.log("\n--- Skipping Contract Verification (VERIFY_CONTRACTS != true) ---");
+    }
+
+    // ============ Steg 10: Summary ============
     console.log("\n" + "=".repeat(60));
     console.log("DEPLOYMENT SUMMARY (contracts only, SVGs reused)");
     console.log("=".repeat(60));
@@ -685,7 +764,9 @@ async function main() {
     console.log("  SpinTheWheel:    ", spinTheWheelAddress);
     console.log("  FregsLiquidity:  ", fregsLiquidityAddress);
     console.log("  FregShop:        ", fregShopAddress);
-    console.log("  VRF Wrapper:     ", vrfWrapperAddress);
+    console.log("  FregsAirdrop:    ", fregsAirdropAddress);
+    console.log("  VRF Coordinator: ", vrfCoordinatorAddress);
+    console.log("  VRF Subscription:", vrfSubscriptionId);
     console.log("  SVG Renderer:    ", `${svgRendererAddress} (reused)`);
     console.log("\nArt Contracts (REUSED from previous deploy):");
     console.log("  Background:      ", rendererRouters.background || "N/A");
@@ -715,7 +796,9 @@ async function main() {
     console.log(`VITE_SPIN_THE_WHEEL_ADDRESS=${spinTheWheelAddress}`);
     console.log(`VITE_FREGS_LIQUIDITY_ADDRESS=${fregsLiquidityAddress}`);
     console.log(`VITE_FREG_SHOP_ADDRESS=${fregShopAddress}`);
+    console.log(`VITE_FREG_AIRDROP_ADDRESS=${fregsAirdropAddress}`);
     console.log(`VITE_SVG_RENDERER_ADDRESS=${svgRendererAddress}`);
+    console.log(`VITE_FREGS_RANDOMIZER_ADDRESS=${fregsRandomizerAddress}`);
 }
 
 main()

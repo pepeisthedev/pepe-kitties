@@ -2,8 +2,8 @@ const { ethers, network } = require("hardhat");
 const { loadDeploymentStatus } = require("./deploymentStatus");
 
 const NONE = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-const TOTAL_MINTS = 1000;
-const BATCH_SIZE = 50;
+const TOTAL_MINTS = 200;
+const BATCH_SIZE = 10;
 const EVENT_TIMEOUT_MS = Number(process.env.VRF_EVENT_TIMEOUT_MS || 180000);
 const EVENT_POLL_MS = Number(process.env.VRF_EVENT_POLL_MS || 3000);
 
@@ -62,16 +62,6 @@ async function sleep(ms) {
     await new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function callUint(contract, functionName, args = [], overrides = {}) {
-    const data = contract.interface.encodeFunctionData(functionName, args);
-    const result = await ethers.provider.call({
-        to: await contract.getAddress(),
-        data,
-        ...overrides,
-    });
-    return contract.interface.decodeFunctionResult(functionName, result)[0];
-}
-
 async function getTxGasPrice() {
     const feeData = await ethers.provider.getFeeData();
     const candidates = [feeData.gasPrice, feeData.maxFeePerGas].filter(
@@ -79,11 +69,6 @@ async function getTxGasPrice() {
     );
     if (candidates.length === 0) return 1n;
     return candidates.reduce((max, v) => v > max ? v : max);
-}
-
-async function readGasAwareQuote(contract, functionName, gasPrice) {
-    const fee = await callUint(contract, functionName, [], { gasPrice });
-    return fee * 120n / 100n;
 }
 
 async function waitForEvent({ contract, filter, fromBlock, description, match }) {
@@ -146,15 +131,10 @@ async function main() {
 
     const mintPrice = await fregs.mintPrice();
     const mintPhase = await fregs.mintPhase();
-    const initialGasPrice = await getTxGasPrice();
-    const mintVrfFee = await readGasAwareQuote(fregs, "quoteMintFee", initialGasPrice);
-    const claimVrfFee = await readGasAwareQuote(fregsItems, "quoteClaimItemFee", initialGasPrice);
 
     console.log(`Network:       ${network.name}`);
     console.log(`Deployer:      ${deployer.address}`);
     console.log(`Mint price:    ${ethers.formatEther(mintPrice)} ETH`);
-    console.log(`Mint VRF fee:  ${ethers.formatEther(mintVrfFee)} ETH`);
-    console.log(`Claim VRF fee: ${ethers.formatEther(claimVrfFee)} ETH`);
     console.log(`Mint phase:    ${mintPhase} (0=Paused, 1=Whitelist, 2=Public)`);
     console.log(`Minting ${TOTAL_MINTS} fregs...\n`);
 
@@ -168,13 +148,11 @@ async function main() {
     for (let i = 0; i < TOTAL_MINTS; i++) {
         try {
             const gasPrice = await getTxGasPrice();
-            const vrfFee = await readGasAwareQuote(fregs, "quoteMintFee", gasPrice);
-            const totalValue = mintPrice + vrfFee;
             const color = randomHexColor();
 
             const { tx, receipt } = await sendTx(
                 txOptions => fregs.mint(color, txOptions),
-                { value: totalValue, gasLimit: 800000n, gasPrice },
+                { value: mintPrice, gasLimit: 800000n, gasPrice },
                 nonceState
             );
 
@@ -224,11 +202,10 @@ async function main() {
         const tokenId = mintedTokenIds[i];
         try {
             const gasPrice = await getTxGasPrice();
-            const vrfFee = await readGasAwareQuote(fregsItems, "quoteClaimItemFee", gasPrice);
 
             const { receipt } = await sendTx(
                 txOptions => fregsItems.claimItem(tokenId, txOptions),
-                { value: vrfFee, gasLimit: 700000n, gasPrice },
+                { gasLimit: 700000n, gasPrice },
                 nonceState
             );
 

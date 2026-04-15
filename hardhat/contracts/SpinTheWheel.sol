@@ -78,33 +78,20 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
 
     // ============ Spin the Wheel ============
 
-    function spin() external payable nonReentrant {
+    function spin() external nonReentrant {
         require(active, "Spin is not active");
         require(address(randomizer) != address(0), "Randomizer not set");
         require(balanceOf(msg.sender, SPIN_TOKEN) >= 1, "No SpinToken");
         require(address(mintPassContract) != address(0), "MintPass contract not set");
         require(address(itemsContract) != address(0), "Items contract not set");
 
-        uint256 vrfFee = randomizer.quoteSpinFee();
-        require(msg.value >= vrfFee, "Insufficient VRF fee");
-
         // Burn 1 SpinToken
         _burn(msg.sender, SPIN_TOKEN, 1);
         emit CoinBurned(msg.sender, 1);
 
         pendingSpinCount += 1;
-        uint256 requestId = randomizer.requestSpin{value: vrfFee}(msg.sender);
+        uint256 requestId = randomizer.requestSpin(msg.sender);
         emit SpinRequested(requestId, msg.sender);
-
-        uint256 refund = msg.value - vrfFee;
-        if (refund > 0) {
-            payable(msg.sender).transfer(refund);
-        }
-    }
-
-    function quoteSpinFee() external view returns (uint256) {
-        require(address(randomizer) != address(0), "Randomizer not set");
-        return randomizer.quoteSpinFee();
     }
 
     // Intentionally not nonReentrant so localhost mock VRF auto-fulfill can settle in the same tx.

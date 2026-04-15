@@ -2,8 +2,9 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./chainlink/VRFConsumerBaseV2Plus.sol";
+import "./chainlink/IVRFCoordinatorV2Plus.sol";
 import "./chainlink/VRFV2PlusClient.sol";
-import "./chainlink/VRFV2PlusWrapperConsumerBase.sol";
 
 interface IFregsRandomMintConsumer {
     function fulfillMint(address minter, string calldata color, uint256 randomWord) external;
@@ -18,11 +19,11 @@ interface ISpinTheWheelRandomConsumer {
     function fulfillSpin(address player, uint256 randomWord) external;
 }
 
-interface IMockVRFV2PlusWrapper {
+interface IMockVRFCoordinator {
     function fulfillRequest(uint256 requestId) external;
 }
 
-contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
+contract FregsRandomizer is Ownable, VRFConsumerBaseV2Plus {
     enum ActionType {
         NONE,
         MINT,
@@ -39,13 +40,17 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
         string color;
     }
 
-  uint32 public mintCallbackGasLimit = 700_000;
+    uint32 public mintCallbackGasLimit = 700_000;
     uint32 public claimItemCallbackGasLimit = 500_000;
     uint32 public headRerollCallbackGasLimit = 350_000;
     uint32 public spinCallbackGasLimit = 450_000;
     uint16 public requestConfirmations = 1;
     uint32 public constant NUM_WORDS = 1;
     bool public autoFulfill;
+
+    // Subscription model config
+    uint256 public subscriptionId;
+    bytes32 public keyHash;
 
     address public fregsContract;
     address public itemsContract;
@@ -90,6 +95,8 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
     );
     event RequestConfirmationsSet(uint16 requestConfirmations);
     event AutoFulfillSet(bool autoFulfill);
+    event SubscriptionSet(uint256 subscriptionId, bytes32 keyHash);
+    event CoordinatorSet(address coordinator);
 
     modifier onlyFregs() {
         require(msg.sender == fregsContract, "Only Fregs");
@@ -106,13 +113,18 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
         _;
     }
 
-    constructor(address wrapper) Ownable(msg.sender) VRFV2PlusWrapperConsumerBase(wrapper) {}
+    constructor(address coordinator, uint256 _subscriptionId, bytes32 _keyHash)
+        Ownable(msg.sender)
+        VRFConsumerBaseV2Plus(coordinator)
+    {
+        subscriptionId = _subscriptionId;
+        keyHash = _keyHash;
+    }
 
     function setContracts(address _fregsContract, address _itemsContract, address _spinTheWheelContract) external onlyOwner {
         fregsContract = _fregsContract;
         itemsContract = _itemsContract;
         spinTheWheelContract = _spinTheWheelContract;
-
         emit ContractsSet(_fregsContract, _itemsContract, _spinTheWheelContract);
     }
 
@@ -126,7 +138,6 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
         claimItemCallbackGasLimit = _claimItemCallbackGasLimit;
         headRerollCallbackGasLimit = _headRerollCallbackGasLimit;
         spinCallbackGasLimit = _spinCallbackGasLimit;
-
         emit CallbackGasLimitsSet(
             _mintCallbackGasLimit,
             _claimItemCallbackGasLimit,
@@ -146,27 +157,20 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
         emit AutoFulfillSet(_autoFulfill);
     }
 
-    function quoteMintFee() public view returns (uint256) {
-        return i_vrfV2PlusWrapper.calculateRequestPriceNative(mintCallbackGasLimit, NUM_WORDS);
+    function setSubscription(uint256 _subscriptionId, bytes32 _keyHash) external onlyOwner {
+        subscriptionId = _subscriptionId;
+        keyHash = _keyHash;
+        emit SubscriptionSet(_subscriptionId, _keyHash);
     }
 
-    function quoteClaimItemFee() public view returns (uint256) {
-        return i_vrfV2PlusWrapper.calculateRequestPriceNative(claimItemCallbackGasLimit, NUM_WORDS);
+    function setCoordinator(address _coordinator) external onlyOwner {
+        require(_coordinator != address(0), "Invalid coordinator");
+        i_vrfCoordinator = IVRFCoordinatorV2Plus(_coordinator);
+        emit CoordinatorSet(_coordinator);
     }
 
-    function quoteHeadRerollFee() public view returns (uint256) {
-        return i_vrfV2PlusWrapper.calculateRequestPriceNative(headRerollCallbackGasLimit, NUM_WORDS);
-    }
-
-    function quoteSpinFee() public view returns (uint256) {
-        return i_vrfV2PlusWrapper.calculateRequestPriceNative(spinCallbackGasLimit, NUM_WORDS);
-    }
-
-    function requestMint(address minter, string calldata color) external payable onlyFregs returns (uint256 requestId) {
-        uint256 fee = quoteMintFee();
-        require(msg.value == fee, "Incorrect VRF fee");
-
-        requestId = _requestRandomness(mintCallbackGasLimit, fee);
+    function requestMint(address minter, string calldata color) external onlyFregs returns (uint256 requestId) {
+        requestId = _requestRandomness(mintCallbackGasLimit);
         pendingRequests[requestId] = PendingRequest({
             actionType: ActionType.MINT,
             requester: minter,
@@ -174,16 +178,12 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
             secondaryId: 0,
             color: color
         });
-
         emit RandomnessRequested(requestId, ActionType.MINT, minter, 0, 0);
         _autoFulfillIfEnabled(requestId);
     }
 
-    function requestClaimItem(address requester, uint256 fregId) external payable onlyItems returns (uint256 requestId) {
-        uint256 fee = quoteClaimItemFee();
-        require(msg.value == fee, "Incorrect VRF fee");
-
-        requestId = _requestRandomness(claimItemCallbackGasLimit, fee);
+    function requestClaimItem(address requester, uint256 fregId) external onlyItems returns (uint256 requestId) {
+        requestId = _requestRandomness(claimItemCallbackGasLimit);
         pendingRequests[requestId] = PendingRequest({
             actionType: ActionType.CLAIM_ITEM,
             requester: requester,
@@ -191,21 +191,16 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
             secondaryId: 0,
             color: ""
         });
-
         emit RandomnessRequested(requestId, ActionType.CLAIM_ITEM, requester, fregId, 0);
         _autoFulfillIfEnabled(requestId);
     }
 
     function requestHeadReroll(address requester, uint256 itemTokenId, uint256 fregId)
         external
-        payable
         onlyItems
         returns (uint256 requestId)
     {
-        uint256 fee = quoteHeadRerollFee();
-        require(msg.value == fee, "Incorrect VRF fee");
-
-        requestId = _requestRandomness(headRerollCallbackGasLimit, fee);
+        requestId = _requestRandomness(headRerollCallbackGasLimit);
         pendingRequests[requestId] = PendingRequest({
             actionType: ActionType.HEAD_REROLL,
             requester: requester,
@@ -213,16 +208,12 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
             secondaryId: fregId,
             color: ""
         });
-
         emit RandomnessRequested(requestId, ActionType.HEAD_REROLL, requester, itemTokenId, fregId);
         _autoFulfillIfEnabled(requestId);
     }
 
-    function requestSpin(address player) external payable onlySpinTheWheel returns (uint256 requestId) {
-        uint256 fee = quoteSpinFee();
-        require(msg.value == fee, "Incorrect VRF fee");
-
-        requestId = _requestRandomness(spinCallbackGasLimit, fee);
+    function requestSpin(address player) external onlySpinTheWheel returns (uint256 requestId) {
+        requestId = _requestRandomness(spinCallbackGasLimit);
         pendingRequests[requestId] = PendingRequest({
             actionType: ActionType.SPIN,
             requester: player,
@@ -230,15 +221,8 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
             secondaryId: 0,
             color: ""
         });
-
         emit RandomnessRequested(requestId, ActionType.SPIN, player, 0, 0);
         _autoFulfillIfEnabled(requestId);
-    }
-
-    function withdraw(address payable to, uint256 amount) external onlyOwner {
-        require(to != address(0), "Invalid recipient");
-        require(address(this).balance >= amount, "Insufficient balance");
-        to.transfer(amount);
     }
 
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
@@ -268,9 +252,6 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
 
         uint256 randomWord = storedRandomWords[requestId];
 
-        // Clear stored state before external call.
-        // If the callback reverts, the entire tx reverts atomically,
-        // restoring this state so the request remains available for retry.
         delete failedRequests[requestId];
         delete storedRandomWords[requestId];
         delete pendingRequests[requestId];
@@ -313,19 +294,22 @@ contract FregsRandomizer is Ownable, VRFV2PlusWrapperConsumerBase {
         }
     }
 
-    function _requestRandomness(uint32 callbackGasLimit, uint256 requestPrice) internal returns (uint256) {
-        return requestRandomnessPayInNative(
-            callbackGasLimit,
-            requestConfirmations,
-            NUM_WORDS,
-            requestPrice,
-            VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+    function _requestRandomness(uint32 callbackGasLimit) internal returns (uint256) {
+        return i_vrfCoordinator.requestRandomWords(
+            VRFV2PlusClient.RandomWordsRequest({
+                keyHash: keyHash,
+                subId: subscriptionId,
+                requestConfirmations: requestConfirmations,
+                callbackGasLimit: callbackGasLimit,
+                numWords: NUM_WORDS,
+                extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
+            })
         );
     }
 
     function _autoFulfillIfEnabled(uint256 requestId) internal {
         if (autoFulfill) {
-            IMockVRFV2PlusWrapper(address(i_vrfV2PlusWrapper)).fulfillRequest(requestId);
+            IMockVRFCoordinator(address(i_vrfCoordinator)).fulfillRequest(requestId);
         }
     }
 

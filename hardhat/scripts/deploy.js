@@ -83,23 +83,42 @@ const FROM_ITEMS_TRAITS_JSON_PATH = path.join(FROM_ITEMS_PATH, "traits.json");
 
 // Path to built-in items.json. Dynamic/test items are added later via deployNewShopItem.js.
 const ITEMS_JSON_PATH = path.join(__dirname, "../../website/src/config/items.json");
-
-const DEFAULT_VRF_WRAPPER_ADDRESSES = {
-    baseSepolia: "0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed",
-    base: "0xb0407dbe851f8318bd31404A49e658143C982F23",
+const DEFAULT_VRF_COORDINATOR_ADDRESSES = {
+  baseSepolia: "0x5C210eF41CD1a72de73bF76eC39637bB0d3d7BEE",
+  base: "0xd5D517aBE5cF79B7e95eC98dB0f0277788aFF634",
 };
 
-function getVrfWrapperAddress() {
+const DEFAULT_VRF_KEY_HASHES = {
+  // Base Sepolia only exposes the 30 gwei lane
+  baseSepolia: "0x9e1344a1247c8a1785d0a4681a27152bffdb43666ae5bf7d14d24a5efd44bf71",
+
+  // Base mainnet 2 gwei lane
+  base: "0x00b81b5a830cb0a4009fbd8904de511e28631e62ce5ad231373d3cdad373ccab",
+};
+
+function getVrfConfig() {
     if (network.name === "localhost" || network.name === "hardhat") {
-        return null;
+        return { coordinator: null, subscriptionId: 0, keyHash: ethers.ZeroHash };
     }
     if (network.name === "baseSepolia") {
-        return process.env.BASE_SEPOLIA_VRF_WRAPPER_ADDRESS || DEFAULT_VRF_WRAPPER_ADDRESSES.baseSepolia;
+        return {
+            coordinator: process.env.BASE_SEPOLIA_VRF_COORDINATOR || DEFAULT_VRF_COORDINATOR_ADDRESSES.baseSepolia,
+            subscriptionId: BigInt(process.env.BASE_SEPOLIA_VRF_SUBSCRIPTION_ID || 0),
+            keyHash: process.env.BASE_SEPOLIA_VRF_KEY_HASH || DEFAULT_VRF_KEY_HASHES.baseSepolia,
+        };
     }
     if (network.name === "base") {
-        return process.env.BASE_VRF_WRAPPER_ADDRESS || DEFAULT_VRF_WRAPPER_ADDRESSES.base;
+        return {
+            coordinator: process.env.BASE_VRF_COORDINATOR || DEFAULT_VRF_COORDINATOR_ADDRESSES.base,
+            subscriptionId: BigInt(process.env.BASE_VRF_SUBSCRIPTION_ID || 0),
+            keyHash: process.env.BASE_VRF_KEY_HASH || DEFAULT_VRF_KEY_HASHES.base,
+        };
     }
-    return process.env.VRF_WRAPPER_ADDRESS || "";
+    return {
+        coordinator: process.env.VRF_COORDINATOR || "",
+        subscriptionId: BigInt(process.env.VRF_SUBSCRIPTION_ID || 0),
+        keyHash: process.env.VRF_KEY_HASH || ethers.ZeroHash,
+    };
 }
 
 // ============ LOAD TRAITS FROM JSON ============
@@ -661,22 +680,29 @@ async function main() {
     const ROYALTY_FEE = 500; // 5% (500/10000)
     const isLocalhost = network.name === "localhost" || network.name === "hardhat";
 
-    let vrfWrapperAddress = getVrfWrapperAddress();
-    if (!isLocalhost && !vrfWrapperAddress) {
-        throw new Error(`Missing VRF wrapper address for ${network.name}. Set BASE_SEPOLIA_VRF_WRAPPER_ADDRESS or BASE_VRF_WRAPPER_ADDRESS.`);
+    const vrfConfig = getVrfConfig();
+    if (!isLocalhost) {
+        if (!vrfConfig.coordinator) throw new Error(`Missing VRF coordinator for ${network.name}. Set BASE_VRF_COORDINATOR in .env.`);
+        if (!vrfConfig.subscriptionId || vrfConfig.subscriptionId === 0n) throw new Error(`Missing VRF subscription ID for ${network.name}. Set BASE_VRF_SUBSCRIPTION_ID in .env.`);
     }
 
+    let vrfCoordinatorAddress = vrfConfig.coordinator;
+    let vrfSubscriptionId = vrfConfig.subscriptionId;
+    let vrfKeyHash = vrfConfig.keyHash;
+
     if (isLocalhost) {
-        console.log("\n--- Deploying MockVRFV2PlusWrapper ---");
+        console.log("\n--- Deploying MockVRFV2PlusWrapper (mock coordinator) ---");
         const MockVRFV2PlusWrapper = await ethers.getContractFactory("MockVRFV2PlusWrapper");
-        const mockWrapper = await deployContract(MockVRFV2PlusWrapper, [], "MockVRFV2PlusWrapper");
-        vrfWrapperAddress = await mockWrapper.getAddress();
+        const mockCoordinator = await deployContract(MockVRFV2PlusWrapper, [], "MockVRFV2PlusWrapper");
+        vrfCoordinatorAddress = await mockCoordinator.getAddress();
+        vrfSubscriptionId = 1; // dummy
+        vrfKeyHash = ethers.ZeroHash; // dummy
     }
 
     // ============ Deploy FregsRandomizer ============
     console.log("\n--- Deploying FregsRandomizer ---");
     const FregsRandomizer = await ethers.getContractFactory("FregsRandomizer");
-    const fregsRandomizer = await deployContract(FregsRandomizer, [vrfWrapperAddress], "FregsRandomizer");
+    const fregsRandomizer = await deployContract(FregsRandomizer, [vrfCoordinatorAddress, vrfSubscriptionId, vrfKeyHash], "FregsRandomizer");
     const fregsRandomizerAddress = await fregsRandomizer.getAddress();
 
     // ============ Deploy Fregs ============
@@ -732,7 +758,7 @@ async function main() {
 
     console.log("Configuring FregsRandomizer...");
     await sendTx(() => fregsRandomizer.setContracts(fregsAddress, fregsItemsAddress, spinTheWheelAddress));
-    await sendTx(() => 
+    await sendTx(() =>
         fregsRandomizer.setCallbackGasLimits(
             VRF_CALLBACK_GAS.mint,
             VRF_CALLBACK_GAS.claimItem,
@@ -743,6 +769,15 @@ async function main() {
     await sendTx(() => fregsRandomizer.setRequestConfirmations(VRF_REQUEST_CONFIRMATIONS));
     if (isLocalhost) {
         await sendTx(() => fregsRandomizer.setAutoFulfill(true));
+    }
+    console.log("  VRF coordinator:", vrfCoordinatorAddress);
+    console.log("  VRF subscription ID:", vrfSubscriptionId);
+
+    if (!isLocalhost) {
+        console.log("Adding FregsRandomizer as VRF subscription consumer...");
+        const coordinator = await ethers.getContractAt("IVRFCoordinatorV2Plus", vrfCoordinatorAddress);
+        await sendTx(() => coordinator.addConsumer(vrfSubscriptionId, fregsRandomizerAddress));
+        console.log("  FregsRandomizer added as consumer!");
     }
 
     console.log("Setting items contract on Fregs...");
@@ -882,7 +917,8 @@ async function main() {
     deploymentStatus.contracts.fregsLiquidity = fregsLiquidityAddress;
     deploymentStatus.contracts.fregShop = fregShopAddress;
     deploymentStatus.contracts.fregsAirdrop = fregsAirdropAddress;
-    deploymentStatus.contracts.vrfWrapper = vrfWrapperAddress;
+    deploymentStatus.contracts.vrfCoordinator = vrfCoordinatorAddress;
+    deploymentStatus.contracts.vrfSubscriptionId = vrfSubscriptionId;
 
     // ============ Deploy Art and SVG Renderer ============
     const artAddresses = await deployArt(deploymentStatus);
@@ -1093,7 +1129,8 @@ async function main() {
     console.log("  FregShop:        ", fregShopAddress);
     console.log("  FregsAirdrop:    ", fregsAirdropAddress);
     console.log("  SVG Renderer:    ", svgRendererAddress);
-    console.log("  VRF Wrapper:     ", vrfWrapperAddress);
+    console.log("  VRF Coordinator: ", vrfCoordinatorAddress);
+    console.log("  VRF Subscription:", vrfSubscriptionId);
     console.log("\nArt Contracts (6 unified routers):");
     console.log("  Background:        ", artAddresses.background || "Not deployed (uses color rect)");
     console.log("  Body:              ", artAddresses.body || "Not deployed");

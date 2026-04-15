@@ -102,6 +102,11 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const [vrfHeadRerollGas, setVrfHeadRerollGas] = useState("350000")
   const [vrfSpinGas, setVrfSpinGas] = useState("450000")
 
+  // Chainlink subscription panel
+  const [showChainlinkSubscription, setShowChainlinkSubscription] = useState(false)
+  const [chainlinkSubId, setChainlinkSubId] = useState("19315363693436507623175268498583628439514801257397111320347610079663840815576")
+  const [chainlinkGasLane, setChainlinkGasLane] = useState("2gwei")
+
   // Liquidity panel
   const [showLiquidity, setShowLiquidity] = useState(false)
   const [liquidityEthBalance, setLiquidityEthBalance] = useState("0")
@@ -332,6 +337,28 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
       setTxStatus('success')
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to update VRF gas limits')
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetChainlinkSubscription = async () => {
+    if (!contracts?.fregsRandomizer) return
+    setTxStatus('pending')
+    setTxMessage('Updating Chainlink subscription...')
+    try {
+      const KEY_HASHES: Record<string, string> = {
+        "2gwei":  "0x00b81b5a830cb0a4009fbd8904de511e28631e62ce5ad231373d3cdad373ccab",
+        "30gwei": "0x3fd2fec10d06ee8f65e7f2e95f5c56511359ece3f33960ad8a866ae24a8ff10b",
+      }
+      const keyHash = KEY_HASHES[chainlinkGasLane]
+      const contract = await contracts.fregsRandomizer.write()
+      const tx = await contract.setSubscription(BigInt(chainlinkSubId), keyHash)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxMessage('Chainlink subscription updated!')
+      setTxStatus('success')
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to update Chainlink subscription')
       setTxStatus('error')
     }
   }
@@ -1848,6 +1875,48 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
                 className="bg-purple-600 hover:bg-purple-500 text-white font-bangers"
               >
                 Update Gas Limits
+              </Button>
+            </CardContent>
+          )}
+        </Card>
+      )}
+      {/* Chainlink Subscription */}
+      {contracts?.fregsRandomizer && (
+        <Card className="bg-white/5 border-white/10">
+          <div
+            className="flex items-center justify-between p-4 cursor-pointer"
+            onClick={() => setShowChainlinkSubscription(!showChainlinkSubscription)}
+          >
+            <h3 className="font-bangers text-xl text-white">Chainlink Subscription</h3>
+            <span className="text-white/60">{showChainlinkSubscription ? '▲' : '▼'}</span>
+          </div>
+          {showChainlinkSubscription && (
+            <CardContent className="pt-0 space-y-4">
+              <div>
+                <label className="text-white/70 text-sm">Subscription ID</label>
+                <Input
+                  value={chainlinkSubId}
+                  onChange={(e) => setChainlinkSubId(e.target.value)}
+                  className="bg-white/10 border-white/20 text-white mt-1 font-mono text-xs"
+                  placeholder="Subscription ID"
+                />
+              </div>
+              <div>
+                <label className="text-white/70 text-sm">Gas Lane</label>
+                <select
+                  value={chainlinkGasLane}
+                  onChange={(e) => setChainlinkGasLane(e.target.value)}
+                  className="w-full mt-1 rounded-md bg-white/10 border border-white/20 text-white px-3 py-2 text-sm"
+                >
+                  <option value="2gwei">2 gwei (cheaper, slower)</option>
+                  <option value="30gwei">30 gwei (more expensive, faster)</option>
+                </select>
+              </div>
+              <Button
+                onClick={handleSetChainlinkSubscription}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-bangers"
+              >
+                Update Subscription
               </Button>
             </CardContent>
           )}

@@ -9,7 +9,6 @@ import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
 import { waitForEvent } from "../lib/waitForEvent"
-import { readBufferedGasAwareVrfFee } from "../lib/vrfFee"
 import { ITEM_TYPE_NAMES, ITEM_TYPES } from "../config/contracts"
 import { Gift } from "lucide-react"
 
@@ -72,13 +71,8 @@ export default function ClaimItemsSection(): React.JSX.Element {
 
         try {
             const contract = await contracts.items.write()
-            const bufferedVrfFee = await readBufferedGasAwareVrfFee(
-                contracts.items.read,
-                contracts.provider,
-                "quoteClaimItemFee"
-            )
             // Manually specify gas to avoid MetaMask gas estimation issues on localhost
-            const tx = await contract.claimItem(kittyId, { value: bufferedVrfFee, gasLimit: 1000000n })
+            const tx = await contract.claimItem(kittyId, { gasLimit: 1000000n })
             const receipt = await tx.wait()
 
             let claimedItem = parseItemClaimedEvent(receipt)

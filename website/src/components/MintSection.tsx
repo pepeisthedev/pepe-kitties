@@ -9,7 +9,6 @@ import { useContractData, useContracts, useOwnedKitties, useUnclaimedKitties } f
 import LoadingSpinner from "./LoadingSpinner"
 import KittyRenderer from "./KittyRenderer"
 import { waitForEvent } from "../lib/waitForEvent"
-import { readBufferedGasAwareVrfFee } from "../lib/vrfFee"
 import {
     Dialog,
     DialogContent,
@@ -210,14 +209,9 @@ export default function MintSection(): React.JSX.Element {
         try {
             const contract = await contracts.fregs.write()
             const existingTokenIds = new Set(kitties.map(kitty => kitty.tokenId))
-            const bufferedVrfFee = await readBufferedGasAwareVrfFee(
-                contracts.fregs.read,
-                contracts.provider,
-                "quoteMintFee"
-            )
             // Only free mint wallets skip ETH payment — everyone else pays
             const needsPayment = !hasFreeMint
-            const totalValue = needsPayment ? parseEther(contractData.mintPrice) + bufferedVrfFee : bufferedVrfFee
+            const totalValue = needsPayment ? parseEther(contractData.mintPrice) : 0n
             const tx = await contract.mint(skinColor, {
                 value: totalValue,
                 gasLimit: 500000n,

@@ -255,34 +255,16 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     // ============ Claim Item ============
 
-    function claimItem(uint256 fregId) external payable nonReentrant {
+    function claimItem(uint256 fregId) external nonReentrant {
         require(address(randomizer) != address(0), "Randomizer not set");
         require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
         require(!hasClaimed[fregId], "Already claimed");
 
-        uint256 vrfFee = randomizer.quoteClaimItemFee();
-        require(msg.value >= vrfFee, "Insufficient VRF fee");
-
         hasClaimed[fregId] = true;
         pendingClaimCount += 1;
 
-        uint256 requestId = randomizer.requestClaimItem{value: vrfFee}(msg.sender, fregId);
+        uint256 requestId = randomizer.requestClaimItem(msg.sender, fregId);
         emit ClaimItemRequested(requestId, fregId, msg.sender);
-
-        uint256 refund = msg.value - vrfFee;
-        if (refund > 0) {
-            payable(msg.sender).transfer(refund);
-        }
-    }
-
-    function quoteClaimItemFee() external view returns (uint256) {
-        require(address(randomizer) != address(0), "Randomizer not set");
-        return randomizer.quoteClaimItemFee();
-    }
-
-    function quoteHeadRerollFee() external view returns (uint256) {
-        require(address(randomizer) != address(0), "Randomizer not set");
-        return randomizer.quoteHeadRerollFee();
     }
 
     // Intentionally not nonReentrant so localhost mock VRF auto-fulfill can settle in the same tx.
@@ -315,25 +297,17 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         emit ColorChangeUsed(itemTokenId, fregId, msg.sender, newColor);
     }
 
-    function useHeadReroll(uint256 itemTokenId, uint256 fregId) external payable nonReentrant {
+    function useHeadReroll(uint256 itemTokenId, uint256 fregId) external nonReentrant {
         require(address(randomizer) != address(0), "Randomizer not set");
         require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
         require(itemType[itemTokenId] == HEAD_REROLL, "Not a head reroll item");
         require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
 
-        uint256 vrfFee = randomizer.quoteHeadRerollFee();
-        require(msg.value >= vrfFee, "Insufficient VRF fee");
-
         fregs.prepareHeadReroll(fregId, msg.sender);
         _burn(itemTokenId);
-        uint256 requestId = randomizer.requestHeadReroll{value: vrfFee}(msg.sender, itemTokenId, fregId);
+        uint256 requestId = randomizer.requestHeadReroll(msg.sender, itemTokenId, fregId);
 
         emit HeadRerollRequested(requestId, itemTokenId, fregId, msg.sender);
-
-        uint256 refund = msg.value - vrfFee;
-        if (refund > 0) {
-            payable(msg.sender).transfer(refund);
-        }
     }
 
     function fulfillHeadReroll(address requester, uint256 itemTokenId, uint256 fregId, uint256 randomWord)

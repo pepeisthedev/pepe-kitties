@@ -6,7 +6,9 @@ const path = require("path");
 const BATCH_SIZE = 200; // tokens per getFregDataBatch call
 
 const TRAITS_JSON_PATH = path.join(__dirname, "../../website/public/frogz/default/traits.json");
+const ITEMS_JSON_PATH = path.join(__dirname, "../../website/src/config/items.json");
 const traitsConfig = JSON.parse(fs.readFileSync(TRAITS_JSON_PATH, "utf8"));
+const itemsConfig = JSON.parse(fs.readFileSync(ITEMS_JSON_PATH, "utf8"));
 
 // Build name maps and target percentage maps from traits.json
 // Trait IDs are 1-based (index+1), isNone traits map to ID 0
@@ -29,6 +31,16 @@ function buildMaps(traitList) {
 const { nameMap: HEAD_NAMES, targetPctMap: HEAD_TARGET } = buildMaps(traitsConfig.head);
 const { nameMap: MOUTH_NAMES, targetPctMap: MOUTH_TARGET } = buildMaps(traitsConfig.mouth);
 const { nameMap: STOMACH_NAMES, targetPctMap: STOMACH_TARGET } = buildMaps(traitsConfig.stomach);
+
+// Build item name/target maps from items.json using claimWeight on claimable items
+const claimableItems = itemsConfig.items.filter(i => i.isClaimable);
+const totalClaimWeight = claimableItems.reduce((sum, i) => sum + (i.claimWeight || 0), 0);
+const ITEM_NAMES = {};
+const ITEM_TARGET = {};
+for (const item of claimableItems) {
+    ITEM_NAMES[item.id] = item.name;
+    ITEM_TARGET[item.id] = ((item.claimWeight || 0) / totalClaimWeight * 100).toFixed(2);
+}
 
 function printDistribution(title, counts, total, nameMap, targetPctMap) {
     console.log(`\n${"=".repeat(70)}`);
@@ -59,9 +71,12 @@ function printDistribution(title, counts, total, nameMap, targetPctMap) {
     }
 }
 
+const ITEMS_OWNER = "0x3a168aD7eBbFA30f0ce7848c7e21F47474763154";
+
 async function main() {
     const status = loadDeploymentStatus(network.name);
     const fregs = await ethers.getContractAt("Fregs", status.contracts.fregs);
+    const fregsItems = await ethers.getContractAt("FregsItems", status.contracts.fregsItems);
 
     const totalSupply = await fregs.totalSupply();
     const total = Number(totalSupply);
@@ -106,8 +121,24 @@ async function main() {
     printDistribution("MOUTH TRAITS", mouthCounts, tokenIds.length, MOUTH_NAMES, MOUTH_TARGET);
     printDistribution("STOMACH TRAITS", stomachCounts, tokenIds.length, STOMACH_NAMES, STOMACH_TARGET);
 
+    // Fetch item distribution from wallet that owns all claimed items
+    console.log(`\nFetching items owned by ${ITEMS_OWNER}...`);
+    const itemCounts = {};
+    const { types } = await fregsItems.getOwnedItems(ITEMS_OWNER);
+    for (const t of types) {
+        const iType = Number(t);
+        itemCounts[iType] = (itemCounts[iType] || 0) + 1;
+    }
+
+    const totalClaimed = types.length;
+    console.log(`Done. ${totalClaimed} items found.\n`);
+
+    if (totalClaimed > 0) {
+        printDistribution("ITEMS CLAIMED", itemCounts, totalClaimed, ITEM_NAMES, ITEM_TARGET);
+    }
+
     console.log(`\n${"=".repeat(60)}`);
-    console.log(`  SUMMARY: ${tokenIds.length} tokens read`);
+    console.log(`  SUMMARY: ${tokenIds.length} tokens | ${totalClaimed} items claimed`);
     console.log(`${"=".repeat(60)}`);
 }
 

@@ -1,8 +1,10 @@
 const { ethers, network } = require("hardhat");
 const { loadDeploymentStatus } = require("./deploymentStatus");
 
-const TOTAL_SPINS = 3500;
-const BATCH_SIZE = 50;
+const TOTAL_SPINS = 1000;
+const BATCH_SIZE = 5;
+const EVENT_TIMEOUT_MS = Number(process.env.VRF_EVENT_TIMEOUT_MS || 180000);
+const EVENT_POLL_MS = Number(process.env.VRF_EVENT_POLL_MS || 3000);
 
 const ITEM_NAMES = {
     1: "Color Change", 2: "Head Reroll", 4: "Robot", 5: "Gold Skin",
@@ -37,6 +39,29 @@ function printDistribution(title, counts, total) {
             `  ${name.padEnd(maxNameLen)}  ${String(count).padStart(maxCountLen)}  ${pct.padStart(6)}%  ${bar}`
         );
     }
+}
+
+async function sleep(ms) {
+    await new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForSpinResult(spinTheWheel, player, fromBlock) {
+    const deadline = Date.now() + EVENT_TIMEOUT_MS;
+    let nextFromBlock = Number(fromBlock);
+
+    while (Date.now() < deadline) {
+        const latestBlock = await ethers.provider.getBlockNumber();
+        const logs = await spinTheWheel.queryFilter(
+            spinTheWheel.filters.SpinResult(player),
+            nextFromBlock,
+            latestBlock
+        );
+        if (logs.length > 0) return logs[0];
+        nextFromBlock = latestBlock + 1;
+        await sleep(EVENT_POLL_MS);
+    }
+
+    throw new Error("Timed out waiting for SpinResult event");
 }
 
 async function main() {
@@ -75,10 +100,18 @@ async function main() {
             const tx = await spinTheWheel.spin({ gasLimit: 500000n });
             const receipt = await tx.wait();
 
+            // Try to find SpinResult in the receipt (works on localhost with autoFulfill)
+            let parsed = null;
             const event = receipt.logs.find(l => {
                 try { return spinTheWheel.interface.parseLog(l)?.name === "SpinResult"; } catch { return false; }
             });
-            const parsed = event ? spinTheWheel.interface.parseLog(event) : null;
+            if (event) {
+                parsed = spinTheWheel.interface.parseLog(event);
+            } else {
+                // On live networks, VRF callback arrives in a later block — poll for it
+                const log = await waitForSpinResult(spinTheWheel, deployer.address, receipt.blockNumber);
+                parsed = spinTheWheel.interface.parseLog(log);
+            }
 
             if (parsed) {
                 const prizeType = Number(parsed.args.prizeType);

@@ -11,7 +11,6 @@ import {
 } from "./ui/dialog"
 import { useContracts, useOwnedItems, useSpinTokenBalance } from "../hooks"
 import { waitForEvent } from "../lib/waitForEvent"
-import { readBufferedGasAwareVrfFee } from "../lib/vrfFee"
 import ItemCard from "./ItemCard"
 import { ITEM_TYPE_NAMES, ITEM_TYPES, SPIN_THE_WHEEL_ADDRESS } from "../config/contracts"
 import { CircleHelp, RotateCw, X, Lock } from "lucide-react"
@@ -271,6 +270,7 @@ export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.
 
   const [spinPhase, setSpinPhase] = useState<SpinPhase>("idle")
   const [spinResult, setSpinResult] = useState<SpinResult | null>(null)
+  const [spinError, setSpinError] = useState<string | null>(null)
   const [isInfoOpen, setIsInfoOpen] = useState(false)
   const [prizeInfo, setPrizeInfo] = useState<PrizeInfoEntry[]>(FALLBACK_PRIZE_INFO)
   const [isPrizeInfoLoading, setIsPrizeInfoLoading] = useState(false)
@@ -463,15 +463,11 @@ export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.
 
     setSpinPhase("confirming")
     setSpinResult(null)
+    setSpinError(null)
 
     try {
       const contract = await contracts.spinTheWheel.write()
-      const bufferedVrfFee = await readBufferedGasAwareVrfFee(
-        contracts.spinTheWheel.read,
-        contracts.provider,
-        "quoteSpinFee"
-      )
-      const tx = await contract.spin({ value: bufferedVrfFee, gasLimit: 500000n })
+      const tx = await contract.spin({ gasLimit: 500000n })
 
       // Transaction submitted - start spinning the wheel
       setSpinPhase("spinning")
@@ -505,6 +501,8 @@ export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.
       if (err.code === 4001 || err.code === "ACTION_REJECTED") {
         setSpinPhase("idle")
       } else {
+        const message = err.reason || err.shortMessage || err.message || "Transaction failed"
+        setSpinError(message)
         setSpinResult(null)
         setSpinPhase("result")
       }
@@ -514,6 +512,7 @@ export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.
   const handleCloseResult = () => {
     setSpinPhase("idle")
     setSpinResult(null)
+    setSpinError(null)
   }
 
   // Transition from "revealing" (wheel stopped) to "result" (modal appears)
@@ -702,6 +701,42 @@ export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.
 
         </div>
       </div>
+
+      {/* Error Modal - appears when transaction fails */}
+      {spinPhase === "result" && !spinResult && spinError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center animate-backdrop-fade"
+          style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+          onClick={handleCloseResult}
+        >
+          <div
+            className="relative z-10 animate-spiral-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative rounded-3xl p-8 md:p-10 text-center max-w-sm mx-4"
+              style={{
+                background: "linear-gradient(135deg, #1e0533 0%, #2d1054 40%, #1a0a2e 100%)",
+                border: "3px solid rgba(239, 68, 68, 0.7)",
+              }}
+            >
+              <button
+                onClick={handleCloseResult}
+                className="absolute top-3 right-3 text-white/50 hover:text-white transition-colors z-20"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <p className="font-bangers text-4xl text-red-400 mb-4">Spin Failed</p>
+              <p className="font-righteous text-base text-white/75 mb-6">{spinError}</p>
+              <Button
+                onClick={handleCloseResult}
+                variant="ghost"
+                className="w-full px-8 py-3 rounded-2xl font-righteous text-base text-white/70 hover:text-white hover:bg-white/10"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Result Modal - appears after reveal delay */}
       {spinPhase === "result" && spinResult && (

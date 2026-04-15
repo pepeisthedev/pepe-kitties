@@ -265,8 +265,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         require(_tokenIdCounter + pendingMintCount < supply, "Max supply reached");
 
         bool isFree = freeMints[msg.sender] > 0;
-        uint256 vrfFee = randomizer.quoteMintFee();
-        uint256 requiredPayment = vrfFee;
+        uint256 requiredPayment = 0;
 
         if (mintPhase == 0) {
             // Paused: only owner can mint
@@ -276,37 +275,31 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             if (!isFree) {
                 // Must have a mint pass — burn it, still pay ETH
                 require(mintPassContract != address(0), "Mint pass not configured");
-                requiredPayment += mintPrice;
+                requiredPayment = mintPrice;
                 require(msg.value >= requiredPayment, "Insufficient funds");
                 IFregsMintPass(mintPassContract).burnForMint(msg.sender);
             }
         } else {
             // Public: anyone can mint, free mint wallets still free
             if (!isFree) {
-                requiredPayment += mintPrice;
+                requiredPayment = mintPrice;
                 require(msg.value >= requiredPayment, "Insufficient funds");
             }
         }
 
         if (isFree) {
-            require(msg.value >= requiredPayment, "Insufficient funds");
             freeMints[msg.sender] -= 1;
         }
 
         pendingMintCount += 1;
 
-        uint256 requestId = randomizer.requestMint{value: vrfFee}(msg.sender, _color);
+        uint256 requestId = randomizer.requestMint(msg.sender, _color);
         emit MintRequested(requestId, msg.sender, _color);
 
         uint256 refund = msg.value - requiredPayment;
         if (refund > 0) {
             payable(msg.sender).transfer(refund);
         }
-    }
-
-    function quoteMintFee() external view returns (uint256) {
-        require(address(randomizer) != address(0), "Randomizer not set");
-        return randomizer.quoteMintFee();
     }
 
     // Intentionally not nonReentrant so localhost mock VRF auto-fulfill can settle in the same tx.
