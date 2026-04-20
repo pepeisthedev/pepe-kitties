@@ -36,28 +36,47 @@ const VERIFY_CONTRACTS = false;
 
 // Paths
 const WEBSITE_ABI_PATH = path.join(__dirname, "../../website/src/assets/abis");
-const DEFAULT_VRF_WRAPPER_ADDRESSES = {
-    baseSepolia: "0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed",
-    base: "0xb0407dbe851f8318bd31404A49e658143C982F23",
+const DEFAULT_VRF_COORDINATOR_ADDRESSES = {
+    baseSepolia: "0x5C210eF41CD1a72de73bF76eC39637bB0d3d7BEE",
+    base: "0xd5D517aBE5cF79B7e95eC98dB0f0277788aFF634",
 };
 
-function getVrfWrapperAddress() {
+const DEFAULT_VRF_KEY_HASHES = {
+    baseSepolia: "0x9e1344a1247c8a1785d0a4681a27152bffdb43666ae5bf7d14d24a5efd44bf71",
+    base: "0x00b81b5a830cb0a4009fbd8904de511e28631e62ce5ad231373d3cdad373ccab",
+};
+
+function getVrfConfig() {
     if (network.name === "localhost" || network.name === "hardhat") {
-        return null;
+        return { coordinator: null, subscriptionId: 0, keyHash: ethers.ZeroHash };
     }
     if (network.name === "baseSepolia") {
-        return process.env.BASE_SEPOLIA_VRF_WRAPPER_ADDRESS || DEFAULT_VRF_WRAPPER_ADDRESSES.baseSepolia;
+        return {
+            coordinator: process.env.BASE_SEPOLIA_VRF_COORDINATOR || DEFAULT_VRF_COORDINATOR_ADDRESSES.baseSepolia,
+            subscriptionId: BigInt(process.env.BASE_SEPOLIA_VRF_SUBSCRIPTION_ID || 0),
+            keyHash: process.env.BASE_SEPOLIA_VRF_KEY_HASH || DEFAULT_VRF_KEY_HASHES.baseSepolia,
+        };
     }
     if (network.name === "base") {
-        return process.env.BASE_VRF_WRAPPER_ADDRESS || DEFAULT_VRF_WRAPPER_ADDRESSES.base;
+        return {
+            coordinator: process.env.BASE_VRF_COORDINATOR || DEFAULT_VRF_COORDINATOR_ADDRESSES.base,
+            subscriptionId: BigInt(process.env.BASE_VRF_SUBSCRIPTION_ID || 0),
+            keyHash: process.env.BASE_VRF_KEY_HASH || DEFAULT_VRF_KEY_HASHES.base,
+        };
     }
-    return process.env.VRF_WRAPPER_ADDRESS || "";
+    return {
+        coordinator: process.env.VRF_COORDINATOR || "",
+        subscriptionId: BigInt(process.env.VRF_SUBSCRIPTION_ID || 0),
+        keyHash: process.env.VRF_KEY_HASH || ethers.ZeroHash,
+    };
 }
 
 // ============ HELPERS ============
 
-async function sendTx(txPromise, confirmations = 1) {
-    const tx = await txPromise;
+async function sendTx(txFactoryOrPromise, confirmations = 1) {
+    const tx = typeof txFactoryOrPromise === "function"
+        ? await txFactoryOrPromise()
+        : await txFactoryOrPromise;
     const receipt = await tx.wait(confirmations);
     if (network.name !== "localhost" && network.name !== "hardhat") {
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -154,10 +173,32 @@ async function main() {
     }
 
     const isLocalhost = network.name === "localhost" || network.name === "hardhat";
-    let vrfWrapperAddress = deploymentStatus.contracts?.vrfWrapper || getVrfWrapperAddress();
-    if (!isLocalhost && !vrfWrapperAddress && !existingRandomizerAddress) {
-        console.error(`\n❌ Error: Missing VRF wrapper address for ${network.name}.`);
-        console.error("Set BASE_SEPOLIA_VRF_WRAPPER_ADDRESS or BASE_VRF_WRAPPER_ADDRESS.");
+    const vrfConfig = getVrfConfig();
+    let vrfCoordinatorAddress = vrfConfig.coordinator;
+    let vrfSubscriptionId = vrfConfig.subscriptionId;
+    let vrfKeyHash = vrfConfig.keyHash;
+
+    if (!isLocalhost && !existingRandomizerAddress) {
+        if (!vrfCoordinatorAddress) {
+            console.error(`\n❌ Error: Missing VRF coordinator for ${network.name}.`);
+            console.error("Set BASE_SEPOLIA_VRF_COORDINATOR or BASE_VRF_COORDINATOR.");
+            process.exit(1);
+        }
+        if (!vrfSubscriptionId || vrfSubscriptionId === 0n) {
+            console.error(`\n❌ Error: Missing VRF subscription ID for ${network.name}.`);
+            console.error("Set BASE_SEPOLIA_VRF_SUBSCRIPTION_ID or BASE_VRF_SUBSCRIPTION_ID.");
+            process.exit(1);
+        }
+    }
+
+    if (vrfCoordinatorAddress) {
+        console.log("VRF Coordinator:", vrfCoordinatorAddress);
+    }
+    if (vrfSubscriptionId) {
+        console.log("VRF Subscription:", vrfSubscriptionId.toString());
+    }
+
+    if (!isLocalhost && !vrfCoordinatorAddress && !existingRandomizerAddress) {
         process.exit(1);
     }
 
@@ -171,12 +212,18 @@ async function main() {
             console.log("\n--- Deploying MockVRFV2PlusWrapper ---");
             const MockVRFV2PlusWrapper = await ethers.getContractFactory("MockVRFV2PlusWrapper");
             const mockWrapper = await deployContract(MockVRFV2PlusWrapper, [], "MockVRFV2PlusWrapper");
-            vrfWrapperAddress = await mockWrapper.getAddress();
+            vrfCoordinatorAddress = await mockWrapper.getAddress();
+            vrfSubscriptionId = 1;
+            vrfKeyHash = ethers.ZeroHash;
         }
 
         console.log("\n--- Deploying FregsRandomizer ---");
         const FregsRandomizer = await ethers.getContractFactory("FregsRandomizer");
-        fregsRandomizer = await deployContract(FregsRandomizer, [vrfWrapperAddress], "FregsRandomizer");
+        fregsRandomizer = await deployContract(
+            FregsRandomizer,
+            [vrfCoordinatorAddress, vrfSubscriptionId, vrfKeyHash],
+            "FregsRandomizer"
+        );
         fregsRandomizerAddress = await fregsRandomizer.getAddress();
     }
 
@@ -211,6 +258,11 @@ async function main() {
     await sendTx(() => fregsRandomizer.setRequestConfirmations(VRF_REQUEST_CONFIRMATIONS));
     if (isLocalhost) {
         await sendTx(() => fregsRandomizer.setAutoFulfill(true));
+    } else if (!existingRandomizerAddress) {
+        console.log("Adding FregsRandomizer as VRF subscription consumer...");
+        const coordinator = await ethers.getContractAt("IVRFCoordinatorV2Plus", vrfCoordinatorAddress);
+        await sendTx(() => coordinator.addConsumer(vrfSubscriptionId, fregsRandomizerAddress));
+        console.log("  FregsRandomizer added as consumer!");
     }
 
     console.log("Setting lose weight:", LOSE_WEIGHT, "(", LOSE_WEIGHT / 100, "%)");
@@ -290,8 +342,11 @@ async function main() {
     console.log("\n--- Saving Deployment Status ---");
     deploymentStatus.contracts.spinTheWheel = spinTheWheelAddress;
     deploymentStatus.contracts.fregsRandomizer = fregsRandomizerAddress;
-    if (vrfWrapperAddress) {
-        deploymentStatus.contracts.vrfWrapper = vrfWrapperAddress;
+    if (vrfCoordinatorAddress) {
+        deploymentStatus.contracts.vrfCoordinator = vrfCoordinatorAddress;
+    }
+    if (vrfSubscriptionId) {
+        deploymentStatus.contracts.vrfSubscriptionId = vrfSubscriptionId.toString();
     }
     saveDeploymentStatus(deploymentStatus, network.name);
 
@@ -308,6 +363,19 @@ async function main() {
         console.log("\n--- Verifying Contract on Block Explorer ---");
         console.log("Waiting 30s for indexing...");
         await new Promise(resolve => setTimeout(resolve, 30000));
+
+        if (!existingRandomizerAddress) {
+            try {
+                console.log("Verifying FregsRandomizer...");
+                await run("verify:verify", {
+                    address: fregsRandomizerAddress,
+                    constructorArguments: [vrfCoordinatorAddress, vrfSubscriptionId, vrfKeyHash]
+                });
+                console.log("FregsRandomizer verified!");
+            } catch (error) {
+                console.log("FregsRandomizer verification failed:", error.message);
+            }
+        }
 
         try {
             console.log("Verifying SpinTheWheel...");
@@ -329,8 +397,11 @@ async function main() {
     console.log("\nContract Address:");
     console.log("  SpinTheWheel:", spinTheWheelAddress);
     console.log("  FregsRandomizer:", fregsRandomizerAddress);
-    if (vrfWrapperAddress) {
-        console.log("  VRF Wrapper:", vrfWrapperAddress);
+    if (vrfCoordinatorAddress) {
+        console.log("  VRF Coordinator:", vrfCoordinatorAddress);
+    }
+    if (vrfSubscriptionId) {
+        console.log("  VRF Subscription:", vrfSubscriptionId.toString());
     }
     console.log("\nPrize Configuration:");
     console.log("  Total Weight:", LOSE_WEIGHT + MINTPASS_WEIGHT + HOODIE_WEIGHT + FROGSUIT_WEIGHT + CHEST_WEIGHT);
@@ -355,8 +426,7 @@ async function main() {
     console.log("  2. Or airdrop to multiple users:");
     console.log("     await spinTheWheel.airdrop([addr1, addr2], [amount1, amount2])");
     console.log("  3. Users can spin with:");
-    console.log("     const fee = await spinTheWheel.quoteSpinFee()");
-    console.log("     await spinTheWheel.spin({ value: fee })");
+    console.log("     await spinTheWheel.spin()");
 
     console.log("\nFor .env file:");
     console.log(`VITE_SPIN_THE_WHEEL_ADDRESS=${spinTheWheelAddress}`);

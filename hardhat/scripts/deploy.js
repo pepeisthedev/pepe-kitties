@@ -1067,7 +1067,7 @@ async function main() {
             console.log("Verifying FregsRandomizer...");
             await run("verify:verify", {
                 address: fregsRandomizerAddress,
-                constructorArguments: [vrfWrapperAddress]
+                constructorArguments: [vrfCoordinatorAddress, vrfSubscriptionId, vrfKeyHash]
             });
             console.log("FregsRandomizer verified!");
         } catch (error) {
@@ -1161,8 +1161,9 @@ async function main() {
     console.log(`     - Script: npx hardhat run scripts/fundChestRewards.js --network ${network.name}`);
     console.log("     - Approve: await fregCoin.approve(fregsItemsAddress, ethers.parseEther('133700000000'))");
     console.log("     - Deposit: await fregsItems.depositCoins(ethers.parseEther('133700000000'))");
-    console.log("  2. Activate mint pass sale:");
-    console.log("     await fregsMintPass.setMintPassSaleActive(true)");
+    console.log("  2. Set mint phase when ready:");
+    console.log("     await fregs.setMintPhase(1) // whitelist");
+    console.log("     await fregs.setMintPhase(2) // public");
     // ============ Save Deployment Status ============
     console.log("\n--- Saving Deployment Status ---");
     saveDeploymentStatus(deploymentStatus, network.name);

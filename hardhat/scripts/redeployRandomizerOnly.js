@@ -2,22 +2,39 @@ const { ethers, network } = require("hardhat");
 const { retryWithBackoff } = require("./deployUtils");
 const { loadDeploymentStatus, saveDeploymentStatus } = require("./deploymentStatus");
 
-const DEFAULT_VRF_WRAPPER_ADDRESSES = {
-    baseSepolia: "0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed",
-    base: "0xb0407dbe851f8318bd31404A49e658143C982F23",
+const DEFAULT_VRF_COORDINATOR_ADDRESSES = {
+    baseSepolia: "0x5C210eF41CD1a72de73bF76eC39637bB0d3d7BEE",
+    base: "0xd5D517aBE5cF79B7e95eC98dB0f0277788aFF634",
 };
 
-function getVrfWrapperAddress() {
+const DEFAULT_VRF_KEY_HASHES = {
+    baseSepolia: "0x9e1344a1247c8a1785d0a4681a27152bffdb43666ae5bf7d14d24a5efd44bf71",
+    base: "0x00b81b5a830cb0a4009fbd8904de511e28631e62ce5ad231373d3cdad373ccab",
+};
+
+function getVrfConfig() {
     if (network.name === "localhost" || network.name === "hardhat") {
-        return null;
+        return { coordinator: null, subscriptionId: 0, keyHash: ethers.ZeroHash };
     }
     if (network.name === "baseSepolia") {
-        return process.env.BASE_SEPOLIA_VRF_WRAPPER_ADDRESS || DEFAULT_VRF_WRAPPER_ADDRESSES.baseSepolia;
+        return {
+            coordinator: process.env.BASE_SEPOLIA_VRF_COORDINATOR || DEFAULT_VRF_COORDINATOR_ADDRESSES.baseSepolia,
+            subscriptionId: BigInt(process.env.BASE_SEPOLIA_VRF_SUBSCRIPTION_ID || 0),
+            keyHash: process.env.BASE_SEPOLIA_VRF_KEY_HASH || DEFAULT_VRF_KEY_HASHES.baseSepolia,
+        };
     }
     if (network.name === "base") {
-        return process.env.BASE_VRF_WRAPPER_ADDRESS || DEFAULT_VRF_WRAPPER_ADDRESSES.base;
+        return {
+            coordinator: process.env.BASE_VRF_COORDINATOR || DEFAULT_VRF_COORDINATOR_ADDRESSES.base,
+            subscriptionId: BigInt(process.env.BASE_VRF_SUBSCRIPTION_ID || 0),
+            keyHash: process.env.BASE_VRF_KEY_HASH || DEFAULT_VRF_KEY_HASHES.base,
+        };
     }
-    return process.env.VRF_WRAPPER_ADDRESS || "";
+    return {
+        coordinator: process.env.VRF_COORDINATOR || "",
+        subscriptionId: BigInt(process.env.VRF_SUBSCRIPTION_ID || 0),
+        keyHash: process.env.VRF_KEY_HASH || ethers.ZeroHash,
+    };
 }
 
 async function sendTx(txFn, confirmations = 1) {
@@ -49,10 +66,18 @@ async function deployContract(factory, args = [], name = "Contract") {
 
 async function main() {
     const status = loadDeploymentStatus(network.name);
-    const vrfWrapperAddress = getVrfWrapperAddress();
+    const isLocalhost = network.name === "localhost" || network.name === "hardhat";
+    const vrfConfig = getVrfConfig();
+    let vrfCoordinatorAddress = vrfConfig.coordinator;
+    let vrfSubscriptionId = vrfConfig.subscriptionId;
+    let vrfKeyHash = vrfConfig.keyHash;
 
-    if (!vrfWrapperAddress) {
-        throw new Error(`Missing VRF wrapper address for ${network.name}`);
+    if (!vrfCoordinatorAddress && !isLocalhost) {
+        throw new Error(`Missing VRF coordinator for ${network.name}`);
+    }
+
+    if (!isLocalhost && (!vrfSubscriptionId || vrfSubscriptionId === 0n)) {
+        throw new Error(`Missing VRF subscription ID for ${network.name}`);
     }
 
     if (!status.contracts?.fregs || !status.contracts?.fregsItems || !status.contracts?.spinTheWheel) {
@@ -61,7 +86,12 @@ async function main() {
 
     const [deployer] = await ethers.getSigners();
     console.log(`Redeploying randomizer on ${network.name} with ${deployer.address}`);
-    console.log(`Wrapper: ${vrfWrapperAddress}`);
+    if (isLocalhost) {
+        console.log("Using localhost mock VRF coordinator");
+    } else {
+        console.log(`Coordinator: ${vrfCoordinatorAddress}`);
+        console.log(`Subscription: ${vrfSubscriptionId.toString()}`);
+    }
 
     const fregs = await ethers.getContractAt("Fregs", status.contracts.fregs);
     const items = await ethers.getContractAt("FregsItems", status.contracts.fregsItems);
@@ -77,6 +107,10 @@ async function main() {
     if (status.contracts.fregsRandomizer) {
         try {
             const previousRandomizer = await ethers.getContractAt("FregsRandomizer", status.contracts.fregsRandomizer);
+            const pendingRequestCount = Number(await previousRandomizer.pendingRequestCount());
+            if (pendingRequestCount !== 0) {
+                throw new Error(`Existing randomizer still has ${pendingRequestCount} pending request(s). Rescue/cancel them before redeploying.`);
+            }
             mintCallbackGasLimit = Number(await previousRandomizer.mintCallbackGasLimit());
             claimItemCallbackGasLimit = Number(await previousRandomizer.claimItemCallbackGasLimit());
             headRerollCallbackGasLimit = Number(await previousRandomizer.headRerollCallbackGasLimit());
@@ -84,12 +118,47 @@ async function main() {
             requestConfirmations = Number(await previousRandomizer.requestConfirmations());
             autoFulfill = await previousRandomizer.autoFulfill();
         } catch (error) {
+            if (error.message.includes("pending request")) {
+                throw error;
+            }
             console.warn("Could not read previous randomizer config, falling back to defaults.");
         }
     }
 
+    const pendingMintCount = Number(await fregs.pendingMintCount());
+    const pendingFregHeadRerollCount = Number(await fregs.pendingHeadRerollCount());
+    const pendingClaimCount = Number(await items.pendingClaimCount());
+    const pendingItemHeadRerollCount = Number(await items.pendingHeadRerollCount());
+    const pendingSpinCount = Number(await spin.pendingSpinCount());
+
+    if (
+        pendingMintCount !== 0 ||
+        pendingFregHeadRerollCount !== 0 ||
+        pendingClaimCount !== 0 ||
+        pendingItemHeadRerollCount !== 0 ||
+        pendingSpinCount !== 0
+    ) {
+        throw new Error(
+            "Cannot rewire randomizer while requests are pending " +
+            `(mints=${pendingMintCount}, fregHeadRerolls=${pendingFregHeadRerollCount}, ` +
+            `itemClaims=${pendingClaimCount}, itemHeadRerolls=${pendingItemHeadRerollCount}, spins=${pendingSpinCount}).`
+        );
+    }
+
+    if (isLocalhost) {
+        const MockVRFV2PlusWrapper = await ethers.getContractFactory("MockVRFV2PlusWrapper");
+        const mockCoordinator = await deployContract(MockVRFV2PlusWrapper, [], "MockVRFV2PlusWrapper");
+        vrfCoordinatorAddress = await mockCoordinator.getAddress();
+        vrfSubscriptionId = 1;
+        vrfKeyHash = ethers.ZeroHash;
+    }
+
     const FregsRandomizer = await ethers.getContractFactory("FregsRandomizer");
-    const randomizer = await deployContract(FregsRandomizer, [vrfWrapperAddress], "FregsRandomizer");
+    const randomizer = await deployContract(
+        FregsRandomizer,
+        [vrfCoordinatorAddress, vrfSubscriptionId, vrfKeyHash],
+        "FregsRandomizer"
+    );
     const randomizerAddress = await randomizer.getAddress();
 
     console.log("Configuring FregsRandomizer...");
@@ -108,6 +177,11 @@ async function main() {
     await sendTx(() => randomizer.setRequestConfirmations(requestConfirmations));
     if (autoFulfill) {
         await sendTx(() => randomizer.setAutoFulfill(true));
+    } else {
+        console.log("Adding FregsRandomizer as VRF subscription consumer...");
+        const coordinator = await ethers.getContractAt("IVRFCoordinatorV2Plus", vrfCoordinatorAddress);
+        await sendTx(() => coordinator.addConsumer(vrfSubscriptionId, randomizerAddress));
+        console.log("  FregsRandomizer added as consumer!");
     }
 
     console.log("Rewiring contracts to the new randomizer...");
@@ -118,7 +192,8 @@ async function main() {
     status.network = network.name;
     status.contracts = {
         ...status.contracts,
-        vrfWrapper: vrfWrapperAddress,
+        vrfCoordinator: vrfCoordinatorAddress,
+        vrfSubscriptionId: vrfSubscriptionId.toString(),
         fregsRandomizer: randomizerAddress,
     };
     saveDeploymentStatus(status, network.name);
