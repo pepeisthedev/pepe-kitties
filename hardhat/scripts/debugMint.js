@@ -42,22 +42,8 @@ function formatTrait(value) {
     return value === NONE ? "NONE" : value;
 }
 
-function formatWei(value) {
-    return `${ethers.formatEther(value)} ETH`;
-}
-
 async function sleep(ms) {
     await new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function callUint(contract, functionName, args = [], overrides = {}) {
-    const data = contract.interface.encodeFunctionData(functionName, args);
-    const result = await ethers.provider.call({
-        to: await contract.getAddress(),
-        data,
-        ...overrides,
-    });
-    return contract.interface.decodeFunctionResult(functionName, result)[0];
 }
 
 async function getTxGasPrice() {
@@ -71,12 +57,6 @@ async function getTxGasPrice() {
     }
 
     return candidates.reduce((max, value) => value > max ? value : max);
-}
-
-async function readGasAwareQuote(contract, functionName, gasPrice) {
-    // Add 20% buffer so minor gas price fluctuations between quote and send don't cause "Insufficient VRF fee"
-    const fee = await callUint(contract, functionName, [], { gasPrice });
-    return fee * 120n / 100n;
 }
 
 async function waitForEvent({ contract, filter, fromBlock, description, match }) {
@@ -155,15 +135,10 @@ async function main() {
     };
 
     const mintPrice = await fregs.mintPrice();
-    const initialGasPrice = await getTxGasPrice();
-    const mintVrfFee = await readGasAwareQuote(fregs, "quoteMintFee", initialGasPrice);
-    const claimVrfFee = await readGasAwareQuote(fregsItems, "quoteClaimItemFee", initialGasPrice);
 
-    console.log(`Network:       ${network.name}`);
-    console.log(`Deployer:      ${deployer.address}`);
-    console.log(`Mint price:    ${ethers.formatEther(mintPrice)} ETH`);
-    console.log(`Mint VRF fee:  ${ethers.formatEther(mintVrfFee)} ETH`);
-    console.log(`Claim VRF fee: ${ethers.formatEther(claimVrfFee)} ETH`);
+    console.log(`Network:    ${network.name}`);
+    console.log(`Deployer:   ${deployer.address}`);
+    console.log(`Mint price: ${ethers.formatEther(mintPrice)} ETH`);
     console.log(`Minting ${MINT_COUNT} fregs in public phase...\n`);
 
     const mintedTokenIds = [];
@@ -172,12 +147,10 @@ async function main() {
         let mintTxHash = null;
         try {
             const gasPrice = await getTxGasPrice();
-            const vrfFee = await readGasAwareQuote(fregs, "quoteMintFee", gasPrice);
-            const totalValue = mintPrice + vrfFee;
             const { tx, receipt } = await sendTx(
                 (txOptions) => fregs.mint(randomHexColor(), txOptions),
                 {
-                    value: totalValue,
+                    value: mintPrice,
                     gasLimit: MINT_GAS_LIMIT,
                     gasPrice,
                 },
@@ -220,11 +193,9 @@ async function main() {
         let claimTxHash = null;
         try {
             const gasPrice = await getTxGasPrice();
-            const vrfFee = await readGasAwareQuote(fregsItems, "quoteClaimItemFee", gasPrice);
             const { tx, receipt } = await sendTx(
                 (txOptions) => fregsItems.claimItem(tokenId, txOptions),
                 {
-                    value: vrfFee,
                     gasLimit: CLAIM_GAS_LIMIT,
                     gasPrice,
                 },
@@ -251,7 +222,7 @@ async function main() {
             const itemType = Number(parsed.args.itemType);
             const name = ITEM_NAMES[itemType] || `Unknown(${itemType})`;
             claimCounts[name] = (claimCounts[name] || 0) + 1;
-            console.log(`  Freg #${tokenId}: ${name} (gas: ${receipt.gasUsed}, fee=${formatWei(vrfFee)})`);
+            console.log(`  Freg #${tokenId}: ${name} (gas: ${receipt.gasUsed})`);
         } catch (error) {
             const txHash = claimTxHash || error?.receipt?.hash || error?.transaction?.hash || null;
             const txInfo = txHash ? ` tx=${txHash}` : "";
