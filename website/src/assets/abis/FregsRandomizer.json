@@ -181,6 +181,31 @@
         "type": "address"
       }
     ],
+    "name": "RandomnessCancelled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "enum FregsRandomizer.ActionType",
+        "name": "actionType",
+        "type": "uint8"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "requester",
+        "type": "address"
+      }
+    ],
     "name": "RandomnessFailed",
     "type": "event"
   },
@@ -229,6 +254,12 @@
         "internalType": "address",
         "name": "requester",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "clientRequestId",
+        "type": "uint256"
       },
       {
         "indexed": false,
@@ -330,6 +361,19 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      }
+    ],
+    "name": "cancelRequest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "claimItemCallbackGasLimit",
     "outputs": [
@@ -393,6 +437,11 @@
         "internalType": "address",
         "name": "requester",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "clientRequestId",
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
@@ -516,6 +565,19 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "pendingRequestCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -534,6 +596,11 @@
         "internalType": "address",
         "name": "requester",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "clientRequestId",
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
@@ -590,6 +657,11 @@
         "internalType": "uint256",
         "name": "fregId",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "clientRequestId",
+        "type": "uint256"
       }
     ],
     "name": "requestClaimItem",
@@ -632,6 +704,11 @@
         "internalType": "uint256",
         "name": "fregId",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "clientRequestId",
+        "type": "uint256"
       }
     ],
     "name": "requestHeadReroll",
@@ -656,6 +733,11 @@
         "internalType": "string",
         "name": "color",
         "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "clientRequestId",
+        "type": "uint256"
       }
     ],
     "name": "requestMint",
@@ -675,6 +757,11 @@
         "internalType": "address",
         "name": "player",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "clientRequestId",
+        "type": "uint256"
       }
     ],
     "name": "requestSpin",

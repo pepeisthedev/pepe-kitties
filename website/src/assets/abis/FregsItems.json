@@ -32,6 +32,11 @@
   },
   {
     "inputs": [],
+    "name": "AlreadyClaimedErr",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ApprovalCallerNotOwnerNorApproved",
     "type": "error"
   },
@@ -43,6 +48,11 @@
   {
     "inputs": [],
     "name": "BalanceQueryForZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ClaimRequestsPending",
     "type": "error"
   },
   {
@@ -116,6 +126,36 @@
   },
   {
     "inputs": [],
+    "name": "HeadRerollsPending",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InsufficientCoinBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidAmount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidItemType",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidTraitType",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LengthMismatchErr",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "MintERC2309QuantityExceedsLimit",
     "type": "error"
   },
@@ -131,7 +171,57 @@
   },
   {
     "inputs": [],
+    "name": "MissingPendingRequest",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NameRequired",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NoClaimWeights",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NoExcessCoins",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotAuthorized",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NotCompatibleWithSpotMints",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotFregOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotItemOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OnlyRandomizer",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OnlyShopContract",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OnlySpinContract",
     "type": "error"
   },
   {
@@ -168,7 +258,27 @@
   },
   {
     "inputs": [],
+    "name": "PendingRequestMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RandomRequestsPending",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RandomizerNotSet",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SVGRendererNotSet",
     "type": "error"
   },
   {
@@ -194,6 +304,11 @@
   {
     "inputs": [],
     "name": "TokenAlreadyExists",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TokenDoesNotExist",
     "type": "error"
   },
   {
@@ -296,11 +411,17 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "fregId",
+        "name": "actionId",
         "type": "uint256"
       },
       {
         "indexed": true,
+        "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
         "internalType": "address",
         "name": "owner",
         "type": "address"
@@ -402,11 +523,17 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "itemTokenId",
+        "name": "actionId",
         "type": "uint256"
       },
       {
         "indexed": true,
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
         "internalType": "uint256",
         "name": "fregId",
         "type": "uint256"
@@ -1175,6 +1302,25 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimActionByRequestId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "claimChestCount",
     "outputs": [
@@ -1294,6 +1440,16 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "actionId",
+        "type": "uint256"
+      },
+      {
         "internalType": "address",
         "name": "requester",
         "type": "address"
@@ -1316,6 +1472,16 @@
   },
   {
     "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "actionId",
+        "type": "uint256"
+      },
       {
         "internalType": "address",
         "name": "requester",
@@ -1537,6 +1703,44 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "headRerollActionByRequestId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "headRerollRequestIdByAction",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "headRerollWeight",
     "outputs": [
@@ -1731,6 +1935,32 @@
   },
   {
     "inputs": [],
+    "name": "nextClaimActionId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "nextHeadRerollActionId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "nextItemTypeId",
     "outputs": [
       {
@@ -1811,6 +2041,38 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "pendingHeadRerollActionByFregId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pendingHeadRerollCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "randomizer",
     "outputs": [
@@ -1847,11 +2109,24 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "",
         "type": "uint256"
       }
     ],
     "name": "rescuePendingClaimCount",
+    "outputs": [],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "requestIds",
+        "type": "uint256[]"
+      }
+    ],
+    "name": "rescuePendingClaims",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

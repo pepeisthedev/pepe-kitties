@@ -51,6 +51,14 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     mapping(uint256 => uint256) public itemMaxSupply;
     mapping(uint256 => uint256) public itemMintCount;
 
+    struct PendingSpin {
+        address player;
+        bool active;
+    }
+
+    mapping(uint256 => PendingSpin) private pendingSpins;
+    mapping(uint256 => uint256) public spinActionByRequestId;
+    uint256 public nextSpinActionId;
     uint256 public pendingSpinCount;
 
     bool public active;
@@ -67,7 +75,7 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     event ItemPrizeAdded(uint256 itemType, uint256 weight);
     event ItemPrizeRemoved(uint256 itemType);
     event WeightsUpdated(uint256 loseWeight, uint256 mintPassWeight, uint256 totalItemWeight);
-    event SpinRequested(uint256 indexed requestId, address indexed player);
+    event SpinRequested(uint256 indexed requestId, uint256 indexed actionId, address indexed player);
 
     modifier onlyRandomizer() {
         require(address(randomizer) != address(0) && msg.sender == address(randomizer), "Only randomizer");
@@ -85,23 +93,38 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         require(address(mintPassContract) != address(0), "MintPass contract not set");
         require(address(itemsContract) != address(0), "Items contract not set");
 
+        uint256 totalWeight = loseWeight + mintPassWeight + totalItemWeight;
+        require(totalWeight > 0, "No prizes configured");
+
+        uint256 actionId = ++nextSpinActionId;
+        pendingSpins[actionId] = PendingSpin({player: msg.sender, active: true});
+
         // Burn 1 SpinToken
         _burn(msg.sender, SPIN_TOKEN, 1);
         emit CoinBurned(msg.sender, 1);
 
         pendingSpinCount += 1;
-        uint256 requestId = randomizer.requestSpin(msg.sender);
-        emit SpinRequested(requestId, msg.sender);
+        uint256 requestId = randomizer.requestSpin(msg.sender, actionId);
+        if (pendingSpins[actionId].active) {
+            spinActionByRequestId[requestId] = actionId;
+        }
+        emit SpinRequested(requestId, actionId, msg.sender);
     }
 
     // Intentionally not nonReentrant so localhost mock VRF auto-fulfill can settle in the same tx.
-    function fulfillSpin(address player, uint256 randomWord) external onlyRandomizer {
-        require(pendingSpinCount > 0, "No pending spin");
+    function fulfillSpin(uint256 requestId, uint256 actionId, address player, uint256 randomWord) external onlyRandomizer {
+        PendingSpin memory pending = pendingSpins[actionId];
+        require(pending.active, "Unknown spin request");
+        require(pending.player == player, "Spin player mismatch");
+
+        uint256 trackedActionId = spinActionByRequestId[requestId];
+        require(trackedActionId == 0 || trackedActionId == actionId, "Spin request mismatch");
+
+        delete pendingSpins[actionId];
+        delete spinActionByRequestId[requestId];
         pendingSpinCount -= 1;
 
         uint256 totalWeight = loseWeight + mintPassWeight + totalItemWeight;
-        require(totalWeight > 0, "No prizes configured");
-
         uint256 rand = randomWord % totalWeight;
         uint256 cumulative = loseWeight;
 
@@ -169,14 +192,17 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     }
 
     function setMintPassContract(address _mintPass) external onlyOwner {
+        require(pendingSpinCount == 0, "Spin requests pending");
         mintPassContract = IFregsMintPass(_mintPass);
     }
 
     function setItemsContract(address _items) external onlyOwner {
+        require(pendingSpinCount == 0, "Spin requests pending");
         itemsContract = IFregsItems(_items);
     }
 
     function setRandomizer(address _randomizer) external onlyOwner {
+        require(pendingSpinCount == 0, "Spin requests pending");
         randomizer = IFregsRandomizer(_randomizer);
     }
 
@@ -242,9 +268,27 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         revert("Item type not found");
     }
 
-    function rescuePendingSpinCount(uint256 amount) external onlyOwner {
-        require(amount <= pendingSpinCount, "Amount exceeds pending");
-        pendingSpinCount -= amount;
+    function rescuePendingSpinCount(uint256) external pure {
+        revert("Use request-specific rescue");
+    }
+
+    function rescuePendingSpins(uint256[] calldata requestIds) external onlyOwner {
+        for (uint256 i = 0; i < requestIds.length; i++) {
+            uint256 requestId = requestIds[i];
+            uint256 actionId = spinActionByRequestId[requestId];
+            require(actionId != 0, "Unknown spin request");
+
+            PendingSpin memory pending = pendingSpins[actionId];
+            require(pending.active, "Spin not pending");
+
+            delete pendingSpins[actionId];
+            delete spinActionByRequestId[requestId];
+            pendingSpinCount -= 1;
+
+            randomizer.cancelRequest(requestId);
+            _mint(pending.player, SPIN_TOKEN, 1, "");
+            emit CoinsMinted(pending.player, 1);
+        }
     }
 
     function setItemMaxSupply(uint256 itemType, uint256 maxSupply) external onlyOwner {

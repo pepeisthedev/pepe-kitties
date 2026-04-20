@@ -89,7 +89,6 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const [pendingCounts, setPendingCounts] = useState<{ mintCount: number; headRerollCount: number } | null>(null)
   const [pendingRerollTokenIds, setPendingRerollTokenIds] = useState<number[] | null>(null)
   const [scanning, setScanning] = useState(false)
-  const [rescueAndRerollTokenId, setRescueAndRerollTokenId] = useState("")
 
   // VRF request confirmations panel
   const [showVrfConfirmations, setShowVrfConfirmations] = useState(false)
@@ -835,12 +834,12 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
 
   const handleRescueHeadReroll = async () => {
     if (!contracts) return
-    const tokenIds = rescueTokenIds
+    const tokenIds = Array.from(new Set(rescueTokenIds
       .split(/[\n,\s]+/)
       .map(s => s.trim())
       .filter(s => s.length > 0)
       .map(Number)
-      .filter(n => !isNaN(n))
+      .filter(n => !isNaN(n))))
 
     if (tokenIds.length === 0) {
       setErrorMessage("No valid token IDs provided")
@@ -849,44 +848,27 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     }
 
     setTxStatus('pending')
-    setTxMessage(`Clearing pending head reroll for token${tokenIds.length > 1 ? 's' : ''} ${tokenIds.join(', ')}...`)
-    try {
-      const contract = await contracts.fregs.write()
-      const tx = await contract.rescuePendingHeadRerollTokens(tokenIds)
-      setTxStatus('confirming')
-      await tx.wait()
-      setTxStatus('success')
-      setTxMessage(`Cleared pending head reroll for ${tokenIds.length} token${tokenIds.length > 1 ? 's' : ''}!`)
-      setRescueTokenIds("")
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to rescue pending head reroll")
-      setTxStatus('error')
-    }
-  }
-
-  const handleRescueAndReroll = async () => {
-    if (!contracts) return
-    const tokenId = Number(rescueAndRerollTokenId.trim())
-    if (isNaN(tokenId)) {
-      setErrorMessage("Enter a valid token ID")
-      setTxStatus('error')
-      return
-    }
-
-    setTxStatus('pending')
-    setTxMessage(`Rescuing token #${tokenId} — minting a new Head Reroll item to the owner...`)
+    setTxMessage(`Rescuing pending head reroll for token${tokenIds.length > 1 ? 's' : ''} ${tokenIds.join(', ')}...`)
     try {
       const contract = await contracts.items.write()
-      const tx = await contract.rescueHeadReroll(tokenId)
-      setTxStatus('confirming')
-      await tx.wait()
+
+      for (let i = 0; i < tokenIds.length; i++) {
+        setTxMessage(`Rescuing token ${i + 1} of ${tokenIds.length}...`)
+        const tx = await contract.rescueHeadReroll(tokenIds[i])
+        setTxStatus('confirming')
+        await tx.wait()
+        if (i < tokenIds.length - 1) {
+          setTxStatus('pending')
+        }
+      }
+
       setTxStatus('success')
-      setTxMessage(`Rescued token #${tokenId}! A new Head Reroll item was minted to the owner.`)
-      setRescueAndRerollTokenId("")
+      setTxMessage(`Rescued ${tokenIds.length} pending head reroll${tokenIds.length > 1 ? 's' : ''}! A new Head Reroll item was minted back to each owner.`)
+      setRescueTokenIds("")
       setPendingRerollTokenIds(null)
       setPendingCounts(null)
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to rescue")
+      setErrorMessage(err.message || "Failed to rescue pending head reroll")
       setTxStatus('error')
     }
   }
@@ -1702,7 +1684,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
         {showRescueHeadReroll && (
           <CardContent className="p-6 pt-0 space-y-4">
             <p className="font-righteous text-white/60 text-sm">
-              Clears the stuck <span className="font-mono text-orange-400">pendingHeadReroll</span> flag on specific tokens so they can be transferred. Use when a VRF head reroll request was never fulfilled.
+              Rescues stuck head rerolls safely through the items contract. This cancels the exact VRF request and mints a fresh <span className="font-mono text-orange-400">Head Reroll</span> item back to the freg owner.
             </p>
 
             {/* Scan button + counters */}
@@ -1736,7 +1718,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
                     <p className="font-righteous text-red-400 text-sm mb-2">
                       Stuck tokens ({pendingRerollTokenIds.length}): <span className="font-mono text-white">{pendingRerollTokenIds.join(', ')}</span>
                     </p>
-                    <p className="font-righteous text-white/50 text-xs">Token IDs pre-filled below.</p>
+                    <p className="font-righteous text-white/50 text-xs">Token IDs are pre-filled below for rescue.</p>
                   </>
                 )}
               </div>
@@ -1744,7 +1726,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
 
             <div>
               <label className="font-righteous text-white/70 block mb-2">
-                Token IDs to clear (comma or newline separated):
+                Token IDs to rescue (comma or newline separated):
               </label>
               <textarea
                 value={rescueTokenIds}
@@ -1757,32 +1739,8 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
               onClick={handleRescueHeadReroll}
               className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4"
             >
-              Clear Pending Reroll
+              Rescue Pending Rerolls
             </Button>
-
-            {/* Rescue & Re-roll */}
-            <div className="border-t border-white/20 pt-4 space-y-3">
-              <p className="font-righteous text-white/60 text-sm">
-                <span className="text-orange-400 font-bold">Rescue & Re-roll</span> — clears the stuck flag and mints a new Head Reroll item to the freg owner so they can re-roll themselves. No VRF fee required.
-              </p>
-              <div className="flex items-center gap-3">
-                <label className="font-righteous text-white/70 shrink-0">Token ID:</label>
-                <input
-                  type="number"
-                  value={rescueAndRerollTokenId}
-                  onChange={(e) => setRescueAndRerollTokenId(e.target.value)}
-                  className="w-32 bg-black/50 border-2 border-orange-400/50 text-white font-mono p-2 rounded-md"
-                  placeholder="42"
-                />
-                <Button
-                  onClick={handleRescueAndReroll}
-                  disabled={rescueAndRerollTokenId.trim() === ""}
-                  className="bg-yellow-500 hover:bg-yellow-400 text-black font-bangers text-lg px-6 disabled:opacity-50"
-                >
-                  Rescue & Re-roll
-                </Button>
-              </div>
-            </div>
           </CardContent>
         )}
       </Card>

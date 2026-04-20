@@ -38,6 +38,11 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         _burn(holder, MINT_PASS, 1);
     }
 
+    function refundMintPass(address holder) external {
+        require(msg.sender == fregsContract, "Only Fregs contract");
+        _mint(holder, MINT_PASS, 1, "");
+    }
+
     // ============ Owner Functions ============
 
     function setFregsContract(address _fregsContract) external onlyOwner {
@@ -58,6 +63,7 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     // Mint from SpinTheWheel spin wheel
     function mintFromCoin(address to, uint256 amount) external {
         require(msg.sender == spinTheWheelContract, "Only SpinTheWheel contract");
+        totalMinted += amount;
         _mint(to, MINT_PASS, amount, "");
         emit MintedFromCoin(to, amount);
     }

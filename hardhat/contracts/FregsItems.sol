@@ -11,9 +11,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IFregs {
     function ownerOf(uint256 tokenId) external view returns (address);
-    function prepareHeadReroll(uint256 tokenId, address sender) external;
-    function fulfillHeadReroll(address sender, uint256 tokenId, uint256 randomWord) external;
-    function clearPendingHeadReroll(uint256 tokenId) external;
+    function prepareHeadReroll(uint256 tokenId, address sender, uint256 actionId) external;
+    function fulfillHeadReroll(uint256 actionId, address sender, uint256 tokenId, uint256 randomWord) external;
+    function clearPendingHeadReroll(uint256 tokenId, uint256 actionId) external;
     function setTrait(uint256 tokenId, uint256 traitType, uint256 traitValue, address sender) external;
     function setBodyColor(uint256 tokenId, string memory _color, address sender) external;
     function setMutated(uint256 tokenId, address sender) external;
@@ -28,6 +28,30 @@ interface ISVGItemsRenderer {
 
 contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     using Strings for uint256;
+
+    error AlreadyClaimedErr();
+    error ClaimRequestsPending();
+    error HeadRerollsPending();
+    error InsufficientCoinBalance();
+    error InvalidAmount();
+    error InvalidItemType();
+    error InvalidTraitType();
+    error LengthMismatchErr();
+    error MissingPendingRequest();
+    error NameRequired();
+    error NoClaimWeights();
+    error NoExcessCoins();
+    error NotAuthorized();
+    error NotFregOwner();
+    error NotItemOwner();
+    error OnlyRandomizer();
+    error OnlyShopContract();
+    error OnlySpinContract();
+    error PendingRequestMismatch();
+    error RandomRequestsPending();
+    error RandomizerNotSet();
+    error SVGRendererNotSet();
+    error TokenDoesNotExist();
 
     // Item type constants
     uint256 public constant COLOR_CHANGE = 1;
@@ -88,7 +112,31 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     uint256 public mutationItemTypeId;
 
     uint256 private _tokenIdCounter;
+    uint256 public nextClaimActionId;
+    uint256 public nextHeadRerollActionId;
     uint256 public pendingClaimCount;
+    uint256 public pendingHeadRerollCount;
+
+    struct PendingClaim {
+        address requester;
+        uint256 fregId;
+        bool active;
+    }
+
+    struct PendingHeadReroll {
+        address requester;
+        uint256 itemTokenId;
+        uint256 fregId;
+        bool active;
+    }
+
+    mapping(uint256 => PendingClaim) private pendingClaims;
+    mapping(uint256 => uint256) public claimActionByRequestId;
+
+    mapping(uint256 => PendingHeadReroll) private pendingHeadRerolls;
+    mapping(uint256 => uint256) public headRerollActionByRequestId;
+    mapping(uint256 => uint256) public headRerollRequestIdByAction;
+    mapping(uint256 => uint256) public pendingHeadRerollActionByFregId;
 
     // Track which fregs have claimed items
     mapping(uint256 => bool) public hasClaimed;
@@ -187,11 +235,22 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         address indexed to,
         uint256 itemType
     );
-    event ClaimItemRequested(uint256 indexed requestId, uint256 indexed fregId, address indexed owner);
-    event HeadRerollRequested(uint256 indexed requestId, uint256 indexed itemTokenId, uint256 indexed fregId, address owner);
+    event ClaimItemRequested(
+        uint256 indexed requestId,
+        uint256 indexed actionId,
+        uint256 indexed fregId,
+        address owner
+    );
+    event HeadRerollRequested(
+        uint256 indexed requestId,
+        uint256 indexed actionId,
+        uint256 indexed itemTokenId,
+        uint256 fregId,
+        address owner
+    );
 
     modifier onlyRandomizer() {
-        require(address(randomizer) != address(0) && msg.sender == address(randomizer), "Only randomizer");
+        if (address(randomizer) == address(0) || msg.sender != address(randomizer)) revert OnlyRandomizer();
         _;
     }
 
@@ -210,8 +269,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        require(_exists(tokenId), "Token does not exist");
-        require(address(svgRenderer) != address(0), "SVG renderer not set");
+        if (!_exists(tokenId)) revert TokenDoesNotExist();
+        if (address(svgRenderer) == address(0)) revert SVGRendererNotSet();
 
         string memory itemName = _getItemName(itemType[tokenId]);
         string memory itemDescription = _getItemDescription(itemType[tokenId]);
@@ -256,20 +315,44 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     // ============ Claim Item ============
 
     function claimItem(uint256 fregId) external nonReentrant {
-        require(address(randomizer) != address(0), "Randomizer not set");
-        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
-        require(!hasClaimed[fregId], "Already claimed");
+        if (address(randomizer) == address(0)) revert RandomizerNotSet();
+        if (fregs.ownerOf(fregId) != msg.sender) revert NotFregOwner();
+        if (hasClaimed[fregId]) revert AlreadyClaimedErr();
+        if (_getClaimTotalWeight() == 0) revert NoClaimWeights();
 
+        uint256 actionId = ++nextClaimActionId;
+        pendingClaims[actionId] = PendingClaim({
+            requester: msg.sender,
+            fregId: fregId,
+            active: true
+        });
         hasClaimed[fregId] = true;
         pendingClaimCount += 1;
 
-        uint256 requestId = randomizer.requestClaimItem(msg.sender, fregId);
-        emit ClaimItemRequested(requestId, fregId, msg.sender);
+        uint256 requestId = randomizer.requestClaimItem(msg.sender, fregId, actionId);
+        if (pendingClaims[actionId].active) {
+            claimActionByRequestId[requestId] = actionId;
+        }
+        emit ClaimItemRequested(requestId, actionId, fregId, msg.sender);
     }
 
     // Intentionally not nonReentrant so localhost mock VRF auto-fulfill can settle in the same tx.
-    function fulfillClaimItem(address requester, uint256 fregId, uint256 randomWord) external onlyRandomizer {
-        require(pendingClaimCount > 0, "No pending claim");
+    function fulfillClaimItem(
+        uint256 requestId,
+        uint256 actionId,
+        address requester,
+        uint256 fregId,
+        uint256 randomWord
+    ) external onlyRandomizer {
+        PendingClaim memory pending = pendingClaims[actionId];
+        if (!pending.active) revert MissingPendingRequest();
+        if (pending.requester != requester || pending.fregId != fregId) revert PendingRequestMismatch();
+
+        uint256 trackedActionId = claimActionByRequestId[requestId];
+        if (trackedActionId != 0 && trackedActionId != actionId) revert PendingRequestMismatch();
+
+        delete pendingClaims[actionId];
+        delete claimActionByRequestId[requestId];
         pendingClaimCount -= 1;
 
         uint256 newItemType = _selectClaimItemType(randomWord);
@@ -287,9 +370,9 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     // ============ Use Items ============
 
     function useColorChange(uint256 itemTokenId, uint256 fregId, string memory newColor) external nonReentrant {
-        require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
-        require(itemType[itemTokenId] == COLOR_CHANGE, "Not a color change item");
-        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
+        if (ownerOf(itemTokenId) != msg.sender) revert NotItemOwner();
+        if (itemType[itemTokenId] != COLOR_CHANGE) revert InvalidItemType();
+        if (fregs.ownerOf(fregId) != msg.sender) revert NotFregOwner();
 
         _burn(itemTokenId);
         fregs.setBodyColor(fregId, newColor, msg.sender);
@@ -298,23 +381,60 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function useHeadReroll(uint256 itemTokenId, uint256 fregId) external nonReentrant {
-        require(address(randomizer) != address(0), "Randomizer not set");
-        require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
-        require(itemType[itemTokenId] == HEAD_REROLL, "Not a head reroll item");
-        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
+        if (address(randomizer) == address(0)) revert RandomizerNotSet();
+        if (ownerOf(itemTokenId) != msg.sender) revert NotItemOwner();
+        if (itemType[itemTokenId] != HEAD_REROLL) revert InvalidItemType();
+        if (fregs.ownerOf(fregId) != msg.sender) revert NotFregOwner();
 
-        fregs.prepareHeadReroll(fregId, msg.sender);
+        uint256 actionId = ++nextHeadRerollActionId;
+        pendingHeadRerolls[actionId] = PendingHeadReroll({
+            requester: msg.sender,
+            itemTokenId: itemTokenId,
+            fregId: fregId,
+            active: true
+        });
+        pendingHeadRerollActionByFregId[fregId] = actionId;
+        pendingHeadRerollCount += 1;
+
+        fregs.prepareHeadReroll(fregId, msg.sender, actionId);
         _burn(itemTokenId);
-        uint256 requestId = randomizer.requestHeadReroll(msg.sender, itemTokenId, fregId);
+        uint256 requestId = randomizer.requestHeadReroll(msg.sender, itemTokenId, fregId, actionId);
+        if (pendingHeadRerolls[actionId].active) {
+            headRerollActionByRequestId[requestId] = actionId;
+            headRerollRequestIdByAction[actionId] = requestId;
+        }
 
-        emit HeadRerollRequested(requestId, itemTokenId, fregId, msg.sender);
+        emit HeadRerollRequested(requestId, actionId, itemTokenId, fregId, msg.sender);
     }
 
-    function fulfillHeadReroll(address requester, uint256 itemTokenId, uint256 fregId, uint256 randomWord)
+    function fulfillHeadReroll(
+        uint256 requestId,
+        uint256 actionId,
+        address requester,
+        uint256 itemTokenId,
+        uint256 fregId,
+        uint256 randomWord
+    )
         external
         onlyRandomizer
     {
-        fregs.fulfillHeadReroll(requester, fregId, randomWord);
+        PendingHeadReroll memory pending = pendingHeadRerolls[actionId];
+        if (!pending.active) revert MissingPendingRequest();
+        if (pending.requester != requester || pending.itemTokenId != itemTokenId || pending.fregId != fregId) {
+            revert PendingRequestMismatch();
+        }
+
+        uint256 trackedActionId = headRerollActionByRequestId[requestId];
+        if (trackedActionId != 0 && trackedActionId != actionId) revert PendingRequestMismatch();
+
+        fregs.fulfillHeadReroll(actionId, requester, fregId, randomWord);
+
+        delete pendingHeadRerolls[actionId];
+        delete pendingHeadRerollActionByFregId[fregId];
+        delete headRerollActionByRequestId[requestId];
+        delete headRerollRequestIdByAction[actionId];
+        pendingHeadRerollCount -= 1;
+
         emit HeadRerollUsed(itemTokenId, fregId, requester);
     }
 
@@ -322,31 +442,45 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     // item to the freg owner so they can re-roll themselves. No VRF fee required.
     function rescueHeadReroll(uint256 fregId) external nonReentrant {
         address fregOwner = fregs.ownerOf(fregId);
-        require(msg.sender == fregOwner || msg.sender == owner(), "Not authorized");
-        fregs.clearPendingHeadReroll(fregId); // reverts if no pending reroll
+        if (msg.sender != fregOwner && msg.sender != owner()) revert NotAuthorized();
+
+        uint256 actionId = pendingHeadRerollActionByFregId[fregId];
+        if (actionId == 0) revert MissingPendingRequest();
+
+        PendingHeadReroll memory pending = pendingHeadRerolls[actionId];
+        if (!pending.active) revert MissingPendingRequest();
+
+        uint256 requestId = headRerollRequestIdByAction[actionId];
+        if (requestId == 0) revert MissingPendingRequest();
+
+        delete pendingHeadRerolls[actionId];
+        delete pendingHeadRerollActionByFregId[fregId];
+        delete headRerollActionByRequestId[requestId];
+        delete headRerollRequestIdByAction[actionId];
+        pendingHeadRerollCount -= 1;
+
+        fregs.clearPendingHeadReroll(fregId, actionId);
+        randomizer.cancelRequest(requestId);
         _mintSingleItem(fregOwner, HEAD_REROLL);
     }
 
     function useSpecialSkinItem(uint256 itemTokenId, uint256 fregId) external nonReentrant {
-        require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
-        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
+        if (ownerOf(itemTokenId) != msg.sender) revert NotItemOwner();
+        if (fregs.ownerOf(fregId) != msg.sender) revert NotFregOwner();
 
         uint256 iType = itemType[itemTokenId];
 
         // Get body value from dynamic mapping (configured at deployment to match traits.json)
         // If trait value is configured (> 0), it's a valid skin item
         uint256 bodyValue = skinItemToTraitValue[iType];
-        require(bodyValue > 0, "Not a special skin item");
+        if (bodyValue == 0) revert InvalidItemType();
 
         // Skeleton skin cannot be applied to fregs wearing hoodie or frogsuit
         if (iType == SKELETON_SKIN) {
             uint256 currentHead = fregs.head(fregId);
             uint256 hoodieHead = headItemToTraitValue[HOODIE];
             uint256 frogsuitHead = headItemToTraitValue[FROGSUIT];
-            require(
-                currentHead != hoodieHead && currentHead != frogsuitHead,
-                "Skeleton fregs don't wear clothes"
-            );
+            if (currentHead == hoodieHead || currentHead == frogsuitHead) revert InvalidItemType();
         }
 
         _burn(itemTokenId);
@@ -357,14 +491,14 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     // Use a dynamic trait item
     function useDynamicTraitItem(uint256 itemTokenId, uint256 fregId) external nonReentrant {
-        require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
-        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
+        if (ownerOf(itemTokenId) != msg.sender) revert NotItemOwner();
+        if (fregs.ownerOf(fregId) != msg.sender) revert NotFregOwner();
 
         uint256 iType = itemType[itemTokenId];
         ItemTypeConfig storage config = itemTypeConfigs[iType];
 
-        require(bytes(config.name).length > 0, "Unknown item type");
-        require(config.targetTraitType <= TRAIT_BELLY, "Not a trait item");
+        if (bytes(config.name).length == 0) revert InvalidItemType();
+        if (config.targetTraitType > TRAIT_BELLY) revert InvalidTraitType();
 
         _burn(itemTokenId);
         fregs.setTrait(fregId, config.targetTraitType, config.traitValue, msg.sender);
@@ -374,20 +508,20 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     // Use a head trait item (Hoodie, Frogsuit, etc.)
     function useHeadTraitItem(uint256 itemTokenId, uint256 fregId) external nonReentrant {
-        require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
-        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
+        if (ownerOf(itemTokenId) != msg.sender) revert NotItemOwner();
+        if (fregs.ownerOf(fregId) != msg.sender) revert NotFregOwner();
 
         uint256 iType = itemType[itemTokenId];
 
         // Get head value from dynamic mapping (configured at deployment to match traits.json)
         uint256 headValue = headItemToTraitValue[iType];
-        require(headValue > 0, "Head item not configured");
+        if (headValue == 0) revert InvalidItemType();
 
         // Hoodie and Frogsuit cannot be applied to skeleton fregs
         if (iType == HOODIE || iType == FROGSUIT) {
             uint256 currentBody = fregs.body(fregId);
             uint256 skeletonBody = skinItemToTraitValue[SKELETON_SKIN];
-            require(currentBody != skeletonBody, "Skeleton fregs don't wear clothes");
+            if (currentBody == skeletonBody) revert InvalidItemType();
         }
 
         _burn(itemTokenId);
@@ -397,10 +531,10 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function useMutationItem(uint256 itemTokenId, uint256 fregId) external nonReentrant {
-        require(mutationItemTypeId != 0, "Mutation item not configured");
-        require(ownerOf(itemTokenId) == msg.sender, "Not item owner");
-        require(itemType[itemTokenId] == mutationItemTypeId, "Not a mutation item");
-        require(fregs.ownerOf(fregId) == msg.sender, "Not freg owner");
+        if (mutationItemTypeId == 0) revert InvalidItemType();
+        if (ownerOf(itemTokenId) != msg.sender) revert NotItemOwner();
+        if (itemType[itemTokenId] != mutationItemTypeId) revert InvalidItemType();
+        if (fregs.ownerOf(fregId) != msg.sender) revert NotFregOwner();
 
         _burn(itemTokenId);
         fregs.setMutated(fregId, msg.sender);
@@ -409,13 +543,10 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function burnChest(uint256 chestTokenId) external nonReentrant {
-        require(chestOpeningActive, "Chest opening is not active");
-        require(ownerOf(chestTokenId) == msg.sender, "Not chest owner");
-        require(itemType[chestTokenId] == TREASURE_CHEST, "Not a treasure chest");
-        require(
-            IERC20(fregCoinContract).balanceOf(address(this)) >= chestCoinReward,
-            "Insufficient coin balance"
-        );
+        if (!chestOpeningActive) revert InvalidItemType();
+        if (ownerOf(chestTokenId) != msg.sender) revert NotItemOwner();
+        if (itemType[chestTokenId] != TREASURE_CHEST) revert InvalidItemType();
+        if (IERC20(fregCoinContract).balanceOf(address(this)) < chestCoinReward) revert InsufficientCoinBalance();
 
         _burn(chestTokenId);
         chestsBurned += 1;
@@ -428,16 +559,16 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     // ============ Owner Functions ============
 
     function setMutationItemTypeId(uint256 _itemTypeId) external onlyOwner {
-        require(_itemTypeId >= 101, "Must be a dynamic item type");
-        require(bytes(itemTypeConfigs[_itemTypeId].name).length > 0, "Unknown item type");
+        if (_itemTypeId < 101) revert InvalidItemType();
+        if (bytes(itemTypeConfigs[_itemTypeId].name).length == 0) revert InvalidItemType();
         mutationItemTypeId = _itemTypeId;
     }
 
     // Owner mint function for minting any item type to any address
     function ownerMint(address to, uint256 _itemType, uint256 amount) external onlyOwner {
-        require(amount > 0, "Amount must be greater than 0");
-        require(_itemType >= 101, "Cannot owner-mint built-in items");
-        require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Unknown item type");
+        if (amount == 0) revert InvalidAmount();
+        if (_itemType < 101) revert InvalidItemType();
+        if (bytes(itemTypeConfigs[_itemType].name).length == 0) revert InvalidItemType();
 
         uint256 startTokenId = _tokenIdCounter;
         _safeMint(to, amount);
@@ -453,8 +584,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     // Mint from SpinTheWheel spin wheel
     function mintFromCoin(address to, uint256 _itemType) external {
-        require(msg.sender == spinTheWheelContract, "Only spin contract");
-        require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Unknown item type");
+        if (msg.sender != spinTheWheelContract) revert OnlySpinContract();
+        if (bytes(itemTypeConfigs[_itemType].name).length == 0) revert InvalidItemType();
 
         uint256 newItemId = _tokenIdCounter;
         _safeMint(to, 1);
@@ -470,9 +601,9 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     // Mint from FregShop
     function mintFromShop(address to, uint256 _itemType) external {
-        require(msg.sender == shopContract, "Only shop contract");
-        require(_itemType >= 101, "Only dynamic items");
-        require(bytes(itemTypeConfigs[_itemType].name).length > 0, "Unknown item type");
+        if (msg.sender != shopContract) revert OnlyShopContract();
+        if (_itemType < 101) revert InvalidItemType();
+        if (bytes(itemTypeConfigs[_itemType].name).length == 0) revert InvalidItemType();
 
         uint256 newItemId = _tokenIdCounter;
         _safeMint(to, 1);
@@ -491,6 +622,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function setSpinTheWheelContract(address _spinTheWheel) external onlyOwner {
+        if (pendingHeadRerollCount != 0) revert HeadRerollsPending();
         spinTheWheelContract = _spinTheWheel;
     }
 
@@ -499,6 +631,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function setRandomizer(address _randomizer) external onlyOwner {
+        if (pendingClaimCount != 0 || pendingHeadRerollCount != 0) revert RandomRequestsPending();
         randomizer = IFregsRandomizer(_randomizer);
     }
 
@@ -512,7 +645,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         bool isClaimable,
         uint256 claimWeight
     ) external onlyOwner returns (uint256 itemTypeId) {
-        require(bytes(name).length > 0, "Name required");
+        if (bytes(name).length == 0) revert NameRequired();
 
         itemTypeId = nextItemTypeId;
         nextItemTypeId++;
@@ -542,7 +675,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         bool isClaimable,
         uint256 claimWeight
     ) external onlyOwner {
-        require(bytes(itemTypeConfigs[itemTypeId].name).length > 0, "Unknown item type");
+        if (bytes(itemTypeConfigs[itemTypeId].name).length == 0) revert InvalidItemType();
 
         itemTypeConfigs[itemTypeId] = ItemTypeConfig({
             name: name,
@@ -557,7 +690,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     // Set max variants for a trait type (for dice rolls)
     function setTraitMaxVariants(uint256 traitType, uint256 maxVariant) external onlyOwner {
-        require(traitType <= TRAIT_BELLY, "Invalid trait type");
+        if (traitType > TRAIT_BELLY) revert InvalidTraitType();
         specialTraitMaxVariants[traitType] = maxVariant;
     }
 
@@ -577,6 +710,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function setFregs(address _fregs) external onlyOwner {
+        if (pendingClaimCount != 0 || pendingHeadRerollCount != 0) revert RandomRequestsPending();
         fregs = IFregs(_fregs);
     }
 
@@ -595,7 +729,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         uint256[] calldata itemTypes,
         uint256[] calldata traitValues
     ) external onlyOwner {
-        require(itemTypes.length == traitValues.length, "Length mismatch");
+        if (itemTypes.length != traitValues.length) revert LengthMismatchErr();
         for (uint256 i = 0; i < itemTypes.length; i++) {
             uint256 iType = itemTypes[i];
             // Determine if it's a skin or head item based on item type constant
@@ -623,7 +757,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         string[] calldata names,
         string[] calldata descriptions
     ) external onlyOwner {
-        require(itemTypeIds.length == names.length && names.length == descriptions.length, "Length mismatch");
+        if (itemTypeIds.length != names.length || names.length != descriptions.length) revert LengthMismatchErr();
         for (uint256 i = 0; i < itemTypeIds.length; i++) {
             itemTypeConfigs[itemTypeIds[i]].name = names[i];
             itemTypeConfigs[itemTypeIds[i]].description = descriptions[i];
@@ -639,7 +773,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function setTreasureChestWeight(uint256 _weight) external onlyOwner {
-        require(pendingClaimCount == 0, "Claim requests pending");
+        if (pendingClaimCount != 0) revert ClaimRequestsPending();
         treasureChestWeight = _weight;
     }
 
@@ -657,7 +791,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         uint256 _diamond,
         uint256 _bone
     ) external onlyOwner {
-        require(pendingClaimCount == 0, "Claim requests pending");
+        if (pendingClaimCount != 0) revert ClaimRequestsPending();
         colorChangeWeight = _colorChange;
         headRerollWeight = _headReroll;
         treasureChestWeight = _treasureChest;
@@ -667,16 +801,33 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         boneWeight = _bone;
     }
 
-    function rescuePendingClaimCount(uint256 amount) external onlyOwner {
-        require(amount <= pendingClaimCount, "Amount exceeds pending");
-        pendingClaimCount -= amount;
+    function rescuePendingClaimCount(uint256) external pure {
+        revert("Use request-specific rescue");
+    }
+
+    function rescuePendingClaims(uint256[] calldata requestIds) external onlyOwner {
+        for (uint256 i = 0; i < requestIds.length; i++) {
+            uint256 requestId = requestIds[i];
+            uint256 actionId = claimActionByRequestId[requestId];
+            if (actionId == 0) revert MissingPendingRequest();
+
+            PendingClaim memory pending = pendingClaims[actionId];
+            if (!pending.active) revert MissingPendingRequest();
+
+            delete pendingClaims[actionId];
+            delete claimActionByRequestId[requestId];
+            pendingClaimCount -= 1;
+            hasClaimed[pending.fregId] = false;
+
+            randomizer.cancelRequest(requestId);
+        }
     }
 
     function withdrawExcess() external onlyOwner {
         uint256 activeChests = totalChestsMinted - chestsBurned;
         uint256 reserved = activeChests * chestCoinReward;
         uint256 balance = IERC20(fregCoinContract).balanceOf(address(this));
-        require(balance > reserved, "No excess coins");
+        if (balance <= reserved) revert NoExcessCoins();
         IERC20(fregCoinContract).transfer(owner(), balance - reserved);
     }
 
@@ -691,14 +842,25 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         itemType[newItemId] = _itemType;
     }
 
-    function _selectClaimItemType(uint256 randomWord) internal view returns (uint256) {
-        bool chestsAvailable = claimChestCount < MAX_CLAIM_CHESTS;
-        uint256 totalWeight = colorChangeWeight + headRerollWeight + metalSkinWeight + goldSkinWeight + diamondSkinWeight + boneWeight;
-        if (chestsAvailable) {
+    function _getClaimTotalWeight() internal view returns (uint256 totalWeight) {
+        totalWeight =
+            colorChangeWeight +
+            headRerollWeight +
+            metalSkinWeight +
+            goldSkinWeight +
+            diamondSkinWeight +
+            boneWeight;
+
+        if (claimChestCount < MAX_CLAIM_CHESTS) {
             totalWeight += treasureChestWeight;
         }
+    }
 
-        require(totalWeight > 0, "No claim weights configured");
+    function _selectClaimItemType(uint256 randomWord) internal view returns (uint256) {
+        bool chestsAvailable = claimChestCount < MAX_CLAIM_CHESTS;
+        uint256 totalWeight = _getClaimTotalWeight();
+
+        if (totalWeight == 0) revert NoClaimWeights();
         uint256 rand = randomWord % totalWeight;
         uint256 cumulative = 0;
 
@@ -757,7 +919,7 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         view
         returns (uint256 _itemType, string memory _name)
     {
-        require(_exists(itemTokenId), "Token does not exist");
+        if (!_exists(itemTokenId)) revert TokenDoesNotExist();
         _itemType = itemType[itemTokenId];
         _name = _getItemName(_itemType);
     }

@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 interface IFregsMintPass {
     function burnForMint(address holder) external;
+    function refundMintPass(address holder) external;
 }
 
 interface IFregsItemsReader {
@@ -47,8 +48,22 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     IFregsRandomizer public randomizer;
     mapping(uint256 => bool) public isMutated;
     mapping(uint256 => bool) public pendingHeadReroll;
+    mapping(uint256 => uint256) public pendingHeadRerollActionByTokenId;
+
+    struct PendingMint {
+        address minter;
+        bytes32 colorHash;
+        uint256 payment;
+        bool usedFreeMint;
+        bool usedMintPass;
+        bool active;
+    }
+
+    mapping(uint256 => PendingMint) private pendingMints;
+    mapping(uint256 => uint256) public mintActionByRequestId;
 
     uint256 private _tokenIdCounter;
+    uint256 public nextMintActionId;
     uint256 public pendingMintCount;
     uint256 public pendingHeadRerollCount;
 
@@ -108,20 +123,17 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     event TraitSet(uint256 indexed tokenId, uint256 traitType, uint256 traitValue);
     event Mutated(uint256 indexed tokenId, address indexed owner);
     event BodyColorChanged(uint256 indexed tokenId, string oldColor, string newColor);
-    event MintRequested(uint256 indexed requestId, address indexed owner, string bodyColor);
-    event HeadRerollRequested(uint256 indexed requestId, uint256 indexed tokenId, address indexed owner, uint256 itemTokenId);
+    event MintRequested(uint256 indexed requestId, uint256 indexed actionId, address indexed owner, string bodyColor);
+    event HeadRerollRequested(
+        uint256 indexed requestId,
+        uint256 indexed actionId,
+        uint256 indexed tokenId,
+        address owner,
+        uint256 itemTokenId
+    );
 
     modifier onlyRandomizer() {
         require(address(randomizer) != address(0) && msg.sender == address(randomizer), "Only randomizer");
-        _;
-    }
-
-    modifier onlyRandomizerOrItems() {
-        require(
-            (address(randomizer) != address(0) && msg.sender == address(randomizer)) ||
-            msg.sender == itemsContract,
-            "Only randomizer"
-        );
         _;
     }
 
@@ -291,10 +303,22 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             freeMints[msg.sender] -= 1;
         }
 
+        uint256 actionId = ++nextMintActionId;
+        pendingMints[actionId] = PendingMint({
+            minter: msg.sender,
+            colorHash: keccak256(bytes(_color)),
+            payment: requiredPayment,
+            usedFreeMint: isFree,
+            usedMintPass: mintPhase == 1 && !isFree,
+            active: true
+        });
         pendingMintCount += 1;
 
-        uint256 requestId = randomizer.requestMint(msg.sender, _color);
-        emit MintRequested(requestId, msg.sender, _color);
+        uint256 requestId = randomizer.requestMint(msg.sender, _color, actionId);
+        if (pendingMints[actionId].active) {
+            mintActionByRequestId[requestId] = actionId;
+        }
+        emit MintRequested(requestId, actionId, msg.sender, _color);
 
         uint256 refund = msg.value - requiredPayment;
         if (refund > 0) {
@@ -303,12 +327,26 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     // Intentionally not nonReentrant so localhost mock VRF auto-fulfill can settle in the same tx.
-    function fulfillMint(address minter, string calldata _color, uint256 randomWord) external onlyRandomizer {
-        require(pendingMintCount > 0, "No pending mint");
+    function fulfillMint(
+        uint256 requestId,
+        uint256 actionId,
+        address minter,
+        string calldata _color,
+        uint256 randomWord
+    ) external onlyRandomizer {
+        PendingMint memory pending = pendingMints[actionId];
+        require(pending.active, "Unknown mint request");
+        require(pending.minter == minter, "Mint requester mismatch");
+        require(pending.colorHash == keccak256(bytes(_color)), "Mint color mismatch");
 
-        uint256 newTokenId = _tokenIdCounter;
+        uint256 trackedActionId = mintActionByRequestId[requestId];
+        require(trackedActionId == 0 || trackedActionId == actionId, "Mint request mismatch");
+
+        delete pendingMints[actionId];
+        delete mintActionByRequestId[requestId];
         pendingMintCount -= 1;
 
+        uint256 newTokenId = _tokenIdCounter;
         _mint(minter, 1);
         _tokenIdCounter += 1;
 
@@ -347,20 +385,25 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         return uint256(keccak256(abi.encode(randomWord, salt)));
     }
 
-    function prepareHeadReroll(uint256 tokenId, address sender) external {
+    function prepareHeadReroll(uint256 tokenId, address sender, uint256 actionId) external {
         require(msg.sender == itemsContract, "Only items contract");
+        require(actionId != 0, "Invalid action");
         require(ownerOf(tokenId) == sender, "Not token owner");
-        require(!pendingHeadReroll[tokenId], "Head reroll pending");
+        require(pendingHeadRerollActionByTokenId[tokenId] == 0, "Head reroll pending");
 
         pendingHeadReroll[tokenId] = true;
+        pendingHeadRerollActionByTokenId[tokenId] = actionId;
         pendingHeadRerollCount += 1;
     }
 
-    function fulfillHeadReroll(address sender, uint256 tokenId, uint256 randomWord) external onlyRandomizerOrItems {
+    function fulfillHeadReroll(uint256 actionId, address sender, uint256 tokenId, uint256 randomWord) external {
+        require(msg.sender == itemsContract, "Only items contract");
         require(pendingHeadReroll[tokenId], "No pending head reroll");
+        require(pendingHeadRerollActionByTokenId[tokenId] == actionId, "Head reroll request mismatch");
         require(ownerOf(tokenId) == sender, "Not token owner");
 
-        pendingHeadReroll[tokenId] = false;
+        delete pendingHeadReroll[tokenId];
+        delete pendingHeadRerollActionByTokenId[tokenId];
         pendingHeadRerollCount -= 1;
         head[tokenId] = _getWeightedTraitFromRandom(TRAIT_HEAD, randomWord);
 
@@ -432,10 +475,12 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function setItemsContract(address _itemsContract) public onlyOwner {
+        require(pendingHeadRerollCount == 0, "Head rerolls pending");
         itemsContract = _itemsContract;
     }
 
     function setMintPassContract(address _mintPassContract) public onlyOwner {
+        require(pendingMintCount == 0, "Mint requests pending");
         mintPassContract = _mintPassContract;
     }
 
@@ -444,6 +489,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function setRandomizer(address _randomizer) public onlyOwner {
+        require(pendingMintCount == 0 && pendingHeadRerollCount == 0, "Random requests pending");
         randomizer = IFregsRandomizer(_randomizer);
     }
 
@@ -498,30 +544,53 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     // Trait counts are now determined dynamically from svgRenderer.getTraitCount()
     // No setters needed - just deploy new traits to the SVGRouter
 
-    function rescuePendingMintCount(uint256 amount) external onlyOwner {
-        require(amount <= pendingMintCount, "Amount exceeds pending");
-        pendingMintCount -= amount;
+    function rescuePendingMintCount(uint256) external pure {
+        revert("Use request-specific rescue");
     }
 
-    function rescuePendingHeadRerollCount(uint256 amount) external onlyOwner {
-        require(amount <= pendingHeadRerollCount, "Amount exceeds pending");
-        pendingHeadRerollCount -= amount;
-    }
+    function rescuePendingMints(uint256[] calldata requestIds) external onlyOwner {
+        for (uint256 i = 0; i < requestIds.length; i++) {
+            uint256 requestId = requestIds[i];
+            uint256 actionId = mintActionByRequestId[requestId];
+            require(actionId != 0, "Unknown mint request");
 
-    function rescuePendingHeadRerollTokens(uint256[] calldata tokenIds) external onlyOwner {
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            if (pendingHeadReroll[tokenIds[i]]) {
-                pendingHeadReroll[tokenIds[i]] = false;
-                pendingHeadRerollCount -= 1;
+            PendingMint memory pending = pendingMints[actionId];
+            require(pending.active, "Mint not pending");
+
+            delete mintActionByRequestId[requestId];
+            delete pendingMints[actionId];
+            pendingMintCount -= 1;
+
+            randomizer.cancelRequest(requestId);
+
+            if (pending.usedFreeMint) {
+                freeMints[pending.minter] += 1;
+            }
+            if (pending.usedMintPass) {
+                require(mintPassContract != address(0), "Mint pass not configured");
+                IFregsMintPass(mintPassContract).refundMintPass(pending.minter);
+            }
+            if (pending.payment > 0) {
+                payable(pending.minter).transfer(pending.payment);
             }
         }
     }
 
+    function rescuePendingHeadRerollCount(uint256) external pure {
+        revert("Use request-specific rescue");
+    }
+
+    function rescuePendingHeadRerollTokens(uint256[] calldata) external pure {
+        revert("Use item contract rescue");
+    }
+
     // Single-token variant called by FregsItems.rescueHeadReroll — avoids array allocation in items contract
-    function clearPendingHeadReroll(uint256 tokenId) external {
+    function clearPendingHeadReroll(uint256 tokenId, uint256 actionId) external {
         require(msg.sender == itemsContract, "Only items contract");
         require(pendingHeadReroll[tokenId], "No pending head reroll");
-        pendingHeadReroll[tokenId] = false;
+        require(pendingHeadRerollActionByTokenId[tokenId] == actionId, "Head reroll request mismatch");
+        delete pendingHeadReroll[tokenId];
+        delete pendingHeadRerollActionByTokenId[tokenId];
         pendingHeadRerollCount -= 1;
     }
 

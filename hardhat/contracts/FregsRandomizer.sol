@@ -7,16 +7,35 @@ import "./chainlink/IVRFCoordinatorV2Plus.sol";
 import "./chainlink/VRFV2PlusClient.sol";
 
 interface IFregsRandomMintConsumer {
-    function fulfillMint(address minter, string calldata color, uint256 randomWord) external;
+    function fulfillMint(
+        uint256 requestId,
+        uint256 clientRequestId,
+        address minter,
+        string calldata color,
+        uint256 randomWord
+    ) external;
 }
 
 interface IFregsItemsRandomConsumer {
-    function fulfillClaimItem(address requester, uint256 fregId, uint256 randomWord) external;
-    function fulfillHeadReroll(address requester, uint256 itemTokenId, uint256 fregId, uint256 randomWord) external;
+    function fulfillClaimItem(
+        uint256 requestId,
+        uint256 clientRequestId,
+        address requester,
+        uint256 fregId,
+        uint256 randomWord
+    ) external;
+    function fulfillHeadReroll(
+        uint256 requestId,
+        uint256 clientRequestId,
+        address requester,
+        uint256 itemTokenId,
+        uint256 fregId,
+        uint256 randomWord
+    ) external;
 }
 
 interface ISpinTheWheelRandomConsumer {
-    function fulfillSpin(address player, uint256 randomWord) external;
+    function fulfillSpin(uint256 requestId, uint256 clientRequestId, address player, uint256 randomWord) external;
 }
 
 interface IMockVRFCoordinator {
@@ -35,6 +54,7 @@ contract FregsRandomizer is Ownable, VRFConsumerBaseV2Plus {
     struct PendingRequest {
         ActionType actionType;
         address requester;
+        uint256 clientRequestId;
         uint256 primaryId;
         uint256 secondaryId;
         string color;
@@ -59,11 +79,13 @@ contract FregsRandomizer is Ownable, VRFConsumerBaseV2Plus {
     mapping(uint256 => PendingRequest) public pendingRequests;
     mapping(uint256 => uint256) public storedRandomWords;
     mapping(uint256 => bool) public failedRequests;
+    uint256 public pendingRequestCount;
 
     event RandomnessRequested(
         uint256 indexed requestId,
         ActionType indexed actionType,
         address indexed requester,
+        uint256 clientRequestId,
         uint256 primaryId,
         uint256 secondaryId
     );
@@ -81,6 +103,11 @@ contract FregsRandomizer is Ownable, VRFConsumerBaseV2Plus {
     );
 
     event RandomnessRetried(
+        uint256 indexed requestId,
+        ActionType indexed actionType,
+        address indexed requester
+    );
+    event RandomnessCancelled(
         uint256 indexed requestId,
         ActionType indexed actionType,
         address indexed requester
@@ -122,6 +149,7 @@ contract FregsRandomizer is Ownable, VRFConsumerBaseV2Plus {
     }
 
     function setContracts(address _fregsContract, address _itemsContract, address _spinTheWheelContract) external onlyOwner {
+        require(pendingRequestCount == 0, "Random requests pending");
         fregsContract = _fregsContract;
         itemsContract = _itemsContract;
         spinTheWheelContract = _spinTheWheelContract;
@@ -165,63 +193,84 @@ contract FregsRandomizer is Ownable, VRFConsumerBaseV2Plus {
 
     function setCoordinator(address _coordinator) external onlyOwner {
         require(_coordinator != address(0), "Invalid coordinator");
+        require(pendingRequestCount == 0, "Random requests pending");
         i_vrfCoordinator = IVRFCoordinatorV2Plus(_coordinator);
         emit CoordinatorSet(_coordinator);
     }
 
-    function requestMint(address minter, string calldata color) external onlyFregs returns (uint256 requestId) {
+    function requestMint(address minter, string calldata color, uint256 clientRequestId)
+        external
+        onlyFregs
+        returns (uint256 requestId)
+    {
+        require(clientRequestId != 0, "Invalid client request");
         requestId = _requestRandomness(mintCallbackGasLimit);
         pendingRequests[requestId] = PendingRequest({
             actionType: ActionType.MINT,
             requester: minter,
+            clientRequestId: clientRequestId,
             primaryId: 0,
             secondaryId: 0,
             color: color
         });
-        emit RandomnessRequested(requestId, ActionType.MINT, minter, 0, 0);
+        pendingRequestCount += 1;
+        emit RandomnessRequested(requestId, ActionType.MINT, minter, clientRequestId, 0, 0);
         _autoFulfillIfEnabled(requestId);
     }
 
-    function requestClaimItem(address requester, uint256 fregId) external onlyItems returns (uint256 requestId) {
-        requestId = _requestRandomness(claimItemCallbackGasLimit);
-        pendingRequests[requestId] = PendingRequest({
-            actionType: ActionType.CLAIM_ITEM,
-            requester: requester,
-            primaryId: fregId,
-            secondaryId: 0,
-            color: ""
-        });
-        emit RandomnessRequested(requestId, ActionType.CLAIM_ITEM, requester, fregId, 0);
-        _autoFulfillIfEnabled(requestId);
-    }
-
-    function requestHeadReroll(address requester, uint256 itemTokenId, uint256 fregId)
+    function requestClaimItem(address requester, uint256 fregId, uint256 clientRequestId)
         external
         onlyItems
         returns (uint256 requestId)
     {
+        require(clientRequestId != 0, "Invalid client request");
+        requestId = _requestRandomness(claimItemCallbackGasLimit);
+        pendingRequests[requestId] = PendingRequest({
+            actionType: ActionType.CLAIM_ITEM,
+            requester: requester,
+            clientRequestId: clientRequestId,
+            primaryId: fregId,
+            secondaryId: 0,
+            color: ""
+        });
+        pendingRequestCount += 1;
+        emit RandomnessRequested(requestId, ActionType.CLAIM_ITEM, requester, clientRequestId, fregId, 0);
+        _autoFulfillIfEnabled(requestId);
+    }
+
+    function requestHeadReroll(address requester, uint256 itemTokenId, uint256 fregId, uint256 clientRequestId)
+        external
+        onlyItems
+        returns (uint256 requestId)
+    {
+        require(clientRequestId != 0, "Invalid client request");
         requestId = _requestRandomness(headRerollCallbackGasLimit);
         pendingRequests[requestId] = PendingRequest({
             actionType: ActionType.HEAD_REROLL,
             requester: requester,
+            clientRequestId: clientRequestId,
             primaryId: itemTokenId,
             secondaryId: fregId,
             color: ""
         });
-        emit RandomnessRequested(requestId, ActionType.HEAD_REROLL, requester, itemTokenId, fregId);
+        pendingRequestCount += 1;
+        emit RandomnessRequested(requestId, ActionType.HEAD_REROLL, requester, clientRequestId, itemTokenId, fregId);
         _autoFulfillIfEnabled(requestId);
     }
 
-    function requestSpin(address player) external onlySpinTheWheel returns (uint256 requestId) {
+    function requestSpin(address player, uint256 clientRequestId) external onlySpinTheWheel returns (uint256 requestId) {
+        require(clientRequestId != 0, "Invalid client request");
         requestId = _requestRandomness(spinCallbackGasLimit);
         pendingRequests[requestId] = PendingRequest({
             actionType: ActionType.SPIN,
             requester: player,
+            clientRequestId: clientRequestId,
             primaryId: 0,
             secondaryId: 0,
             color: ""
         });
-        emit RandomnessRequested(requestId, ActionType.SPIN, player, 0, 0);
+        pendingRequestCount += 1;
+        emit RandomnessRequested(requestId, ActionType.SPIN, player, clientRequestId, 0, 0);
         _autoFulfillIfEnabled(requestId);
     }
 
@@ -232,10 +281,10 @@ contract FregsRandomizer is Ownable, VRFConsumerBaseV2Plus {
         }
 
         uint256 randomWord = randomWords[0];
-        bool success = _executeCallback(pending, randomWord);
+        bool success = _executeCallback(requestId, pending, randomWord);
 
         if (success) {
-            delete pendingRequests[requestId];
+            _clearRequest(requestId);
             emit RandomnessFulfilled(requestId, pending.actionType, pending.requester);
         } else {
             storedRandomWords[requestId] = randomWord;
@@ -244,54 +293,128 @@ contract FregsRandomizer is Ownable, VRFConsumerBaseV2Plus {
         }
     }
 
-    function retryFulfill(uint256 requestId) external {
+    function retryFulfill(uint256 requestId) external onlyOwner {
         require(failedRequests[requestId], "Not a failed request");
 
         PendingRequest memory pending = pendingRequests[requestId];
         require(pending.actionType != ActionType.NONE, "Request not found");
 
         uint256 randomWord = storedRandomWords[requestId];
-
-        delete failedRequests[requestId];
-        delete storedRandomWords[requestId];
-        delete pendingRequests[requestId];
-
-        _executeCallbackOrRevert(pending, randomWord);
+        _executeCallbackOrRevert(requestId, pending, randomWord);
+        _clearRequest(requestId);
 
         emit RandomnessRetried(requestId, pending.actionType, pending.requester);
     }
 
-    function _executeCallback(PendingRequest memory pending, uint256 randomWord) internal returns (bool) {
+    function cancelRequest(uint256 requestId) external {
+        PendingRequest memory pending = pendingRequests[requestId];
+        require(pending.actionType != ActionType.NONE, "Request not found");
+        require(msg.sender == owner() || _isAuthorizedController(pending, msg.sender), "Not authorized");
+
+        _clearRequest(requestId);
+        emit RandomnessCancelled(requestId, pending.actionType, pending.requester);
+    }
+
+    function _executeCallback(uint256 requestId, PendingRequest memory pending, uint256 randomWord) internal returns (bool) {
         if (pending.actionType == ActionType.MINT) {
-            try IFregsRandomMintConsumer(fregsContract).fulfillMint(pending.requester, pending.color, randomWord) {
+            try IFregsRandomMintConsumer(fregsContract).fulfillMint(
+                requestId,
+                pending.clientRequestId,
+                pending.requester,
+                pending.color,
+                randomWord
+            ) {
                 return true;
             } catch { return false; }
         } else if (pending.actionType == ActionType.CLAIM_ITEM) {
-            try IFregsItemsRandomConsumer(itemsContract).fulfillClaimItem(pending.requester, pending.primaryId, randomWord) {
+            try IFregsItemsRandomConsumer(itemsContract).fulfillClaimItem(
+                requestId,
+                pending.clientRequestId,
+                pending.requester,
+                pending.primaryId,
+                randomWord
+            ) {
                 return true;
             } catch { return false; }
         } else if (pending.actionType == ActionType.HEAD_REROLL) {
-            try IFregsItemsRandomConsumer(itemsContract).fulfillHeadReroll(pending.requester, pending.primaryId, pending.secondaryId, randomWord) {
+            try IFregsItemsRandomConsumer(itemsContract).fulfillHeadReroll(
+                requestId,
+                pending.clientRequestId,
+                pending.requester,
+                pending.primaryId,
+                pending.secondaryId,
+                randomWord
+            ) {
                 return true;
             } catch { return false; }
         } else if (pending.actionType == ActionType.SPIN) {
-            try ISpinTheWheelRandomConsumer(spinTheWheelContract).fulfillSpin(pending.requester, randomWord) {
+            try ISpinTheWheelRandomConsumer(spinTheWheelContract).fulfillSpin(
+                requestId,
+                pending.clientRequestId,
+                pending.requester,
+                randomWord
+            ) {
                 return true;
             } catch { return false; }
         }
         return false;
     }
 
-    function _executeCallbackOrRevert(PendingRequest memory pending, uint256 randomWord) internal {
+    function _executeCallbackOrRevert(uint256 requestId, PendingRequest memory pending, uint256 randomWord) internal {
         if (pending.actionType == ActionType.MINT) {
-            IFregsRandomMintConsumer(fregsContract).fulfillMint(pending.requester, pending.color, randomWord);
+            IFregsRandomMintConsumer(fregsContract).fulfillMint(
+                requestId,
+                pending.clientRequestId,
+                pending.requester,
+                pending.color,
+                randomWord
+            );
         } else if (pending.actionType == ActionType.CLAIM_ITEM) {
-            IFregsItemsRandomConsumer(itemsContract).fulfillClaimItem(pending.requester, pending.primaryId, randomWord);
+            IFregsItemsRandomConsumer(itemsContract).fulfillClaimItem(
+                requestId,
+                pending.clientRequestId,
+                pending.requester,
+                pending.primaryId,
+                randomWord
+            );
         } else if (pending.actionType == ActionType.HEAD_REROLL) {
-            IFregsItemsRandomConsumer(itemsContract).fulfillHeadReroll(pending.requester, pending.primaryId, pending.secondaryId, randomWord);
+            IFregsItemsRandomConsumer(itemsContract).fulfillHeadReroll(
+                requestId,
+                pending.clientRequestId,
+                pending.requester,
+                pending.primaryId,
+                pending.secondaryId,
+                randomWord
+            );
         } else if (pending.actionType == ActionType.SPIN) {
-            ISpinTheWheelRandomConsumer(spinTheWheelContract).fulfillSpin(pending.requester, randomWord);
+            ISpinTheWheelRandomConsumer(spinTheWheelContract).fulfillSpin(
+                requestId,
+                pending.clientRequestId,
+                pending.requester,
+                randomWord
+            );
         }
+    }
+
+    function _clearRequest(uint256 requestId) internal {
+        require(pendingRequests[requestId].actionType != ActionType.NONE, "Request not found");
+        delete failedRequests[requestId];
+        delete storedRandomWords[requestId];
+        delete pendingRequests[requestId];
+        pendingRequestCount -= 1;
+    }
+
+    function _isAuthorizedController(PendingRequest memory pending, address caller) internal view returns (bool) {
+        if (pending.actionType == ActionType.MINT) {
+            return caller == fregsContract;
+        }
+        if (pending.actionType == ActionType.CLAIM_ITEM || pending.actionType == ActionType.HEAD_REROLL) {
+            return caller == itemsContract;
+        }
+        if (pending.actionType == ActionType.SPIN) {
+            return caller == spinTheWheelContract;
+        }
+        return false;
     }
 
     function _requestRandomness(uint32 callbackGasLimit) internal returns (uint256) {
@@ -325,6 +448,7 @@ contract FregsRandomizer is Ownable, VRFConsumerBaseV2Plus {
         returns (
             ActionType actionType,
             address requester,
+            uint256 clientRequestId,
             uint256 primaryId,
             uint256 secondaryId,
             string memory color,
@@ -336,6 +460,7 @@ contract FregsRandomizer is Ownable, VRFConsumerBaseV2Plus {
         return (
             pending.actionType,
             pending.requester,
+            pending.clientRequestId,
             pending.primaryId,
             pending.secondaryId,
             pending.color,
