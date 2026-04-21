@@ -1,10 +1,12 @@
 const { ethers, network } = require("hardhat");
 const { loadDeploymentStatus } = require("./deploymentStatus");
 
-const TOTAL_SPINS = 1000;
+const TOTAL_SPINS = 100;
 const BATCH_SIZE = 5;
 const EVENT_TIMEOUT_MS = Number(process.env.VRF_EVENT_TIMEOUT_MS || 180000);
 const EVENT_POLL_MS = Number(process.env.VRF_EVENT_POLL_MS || 3000);
+const ADMIN_GAS_LIMIT = 150000n;
+const SPIN_GAS_LIMIT = 500000n;
 
 const ITEM_NAMES = {
     1: "Color Change", 2: "Head Reroll", 4: "Robot", 5: "Gold Skin",
@@ -45,6 +47,62 @@ async function sleep(ms) {
     await new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function getTxGasPrice() {
+    const feeData = await ethers.provider.getFeeData();
+    const candidates = [feeData.gasPrice, feeData.maxFeePerGas].filter(
+        (value) => typeof value === "bigint" && value > 0n
+    );
+
+    if (candidates.length === 0) {
+        return 1n;
+    }
+
+    return candidates.reduce((max, value) => value > max ? value : max);
+}
+
+async function syncNonceState(nonceState) {
+    const pendingNonce = await ethers.provider.getTransactionCount(nonceState.address, "pending");
+    if (pendingNonce > nonceState.nextNonce) {
+        nonceState.nextNonce = pendingNonce;
+    }
+    return nonceState.nextNonce;
+}
+
+async function sendTx(sendFn, txOptions, nonceState) {
+    let lastError;
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+        const nonce = await syncNonceState(nonceState);
+
+        try {
+            const tx = await sendFn({
+                ...txOptions,
+                nonce,
+            });
+            nonceState.nextNonce = nonce + 1;
+            const receipt = await tx.wait();
+            return { tx, receipt };
+        } catch (error) {
+            lastError = error;
+            const message = String(error?.message || error);
+
+            if (
+                message.includes("nonce too low") ||
+                message.includes("already known") ||
+                message.includes("replacement transaction underpriced")
+            ) {
+                nonceState.nextNonce = await ethers.provider.getTransactionCount(nonceState.address, "pending");
+                await sleep(1000);
+                continue;
+            }
+
+            throw error;
+        }
+    }
+
+    throw lastError;
+}
+
 async function waitForSpinResult(spinTheWheel, player, fromBlock) {
     const deadline = Date.now() + EVENT_TIMEOUT_MS;
     let nextFromBlock = Number(fromBlock);
@@ -67,8 +125,28 @@ async function waitForSpinResult(spinTheWheel, player, fromBlock) {
 async function main() {
     const status = loadDeploymentStatus(network.name);
     const [deployer] = await ethers.getSigners();
+    const nonceState = {
+        address: deployer.address,
+        nextNonce: await ethers.provider.getTransactionCount(deployer.address, "pending"),
+    };
 
-    const spinTheWheel = await ethers.getContractAt("SpinTheWheel", status.contracts.spinTheWheel);
+    const requestedSpinTheWheelAddress = process.env.SPIN_THE_WHEEL_ADDRESS || status.contracts.spinTheWheel;
+    if (!requestedSpinTheWheelAddress) {
+        throw new Error("SpinTheWheel address missing. Set SPIN_THE_WHEEL_ADDRESS or update deployment status.");
+    }
+
+    const spinTheWheel = await ethers.getContractAt("SpinTheWheel", requestedSpinTheWheelAddress);
+    const spinTheWheelAddress = await spinTheWheel.getAddress();
+    const spinOwner = await spinTheWheel.owner();
+
+    console.log("Network:             ", network.name);
+    console.log("SpinTheWheel address:", spinTheWheelAddress);
+    console.log("SpinTheWheel owner:  ", spinOwner);
+    console.log("Signer:              ", deployer.address);
+
+    if (spinOwner.toLowerCase() !== deployer.address.toLowerCase()) {
+        throw new Error("Current signer is not the SpinTheWheel owner, so ownerMint() will fail.");
+    }
 
     // Print current weights
     const loseWeight = Number(await spinTheWheel.loseWeight());
@@ -84,7 +162,15 @@ async function main() {
 
     // Mint spin tokens
     console.log(`\nMinting ${TOTAL_SPINS} SpinTokens to deployer...`);
-    await (await spinTheWheel.ownerMint(deployer.address, TOTAL_SPINS)).wait();
+    const gasPrice = await getTxGasPrice();
+    await sendTx(
+        (txOptions) => spinTheWheel.ownerMint(deployer.address, TOTAL_SPINS, txOptions),
+        {
+            gasLimit: ADMIN_GAS_LIMIT,
+            gasPrice,
+        },
+        nonceState
+    );
     const balance = await spinTheWheel.balanceOf(deployer.address, 1);
     console.log(`SpinToken balance: ${balance}`);
 
@@ -97,8 +183,14 @@ async function main() {
 
     for (let i = 0; i < TOTAL_SPINS; i++) {
         try {
-            const tx = await spinTheWheel.spin({ gasLimit: 500000n });
-            const receipt = await tx.wait();
+            const { receipt } = await sendTx(
+                (txOptions) => spinTheWheel.spin(txOptions),
+                {
+                    gasLimit: SPIN_GAS_LIMIT,
+                    gasPrice,
+                },
+                nonceState
+            );
 
             // Try to find SpinResult in the receipt (works on localhost with autoFulfill)
             let parsed = null;

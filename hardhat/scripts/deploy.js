@@ -459,10 +459,13 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
         svgRendererAddresses.push(rendererAddress);
         console.log(`    ${fileName} from ${source} deployed (${totalChunks} chunks) - "${traitName}"`);
 
-        // Track deployed trait
-        deployedTraits[fileName] = {
+        // Track deployed trait. Head deploys combine default/ and from_items/ files,
+        // so include the source in non-default keys to avoid filename collisions.
+        const statusKey = folderName === 'head' && source !== 'default' ? `${source}/${fileName}` : fileName;
+        deployedTraits[statusKey] = {
             routerId: useExplicitTypeIds ? fileObj.typeId : i + 1, // Explicit typeId for skin, 1-indexed for others
             name: traitName,
+            fileName: fileName,
             source: source,
             rendererAddress: rendererAddress
         };

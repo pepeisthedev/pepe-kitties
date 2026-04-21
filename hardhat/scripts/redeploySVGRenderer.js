@@ -1,6 +1,10 @@
 const { ethers, network } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 const { retryWithBackoff } = require("./deployUtils");
 const { loadDeploymentStatus, saveDeploymentStatus } = require("./deploymentStatus");
+
+const TRAITS_JSON_PATH = path.join(__dirname, "../../website/public/frogz/default/traits.json");
 
 async function sendTx(txPromise) {
     return await retryWithBackoff(async () => {
@@ -14,6 +18,23 @@ async function sendTx(txPromise) {
     }, 3, 5000);
 }
 
+function countBaseTraits(traits) {
+    return (traits || []).filter(trait => !trait.isNone).length;
+}
+
+function loadBaseTraitCounts() {
+    if (!fs.existsSync(TRAITS_JSON_PATH)) {
+        throw new Error(`Traits config not found at: ${TRAITS_JSON_PATH}`);
+    }
+
+    const traitsConfig = JSON.parse(fs.readFileSync(TRAITS_JSON_PATH, "utf8"));
+    return {
+        head: countBaseTraits(traitsConfig.head),
+        mouth: countBaseTraits(traitsConfig.mouth),
+        stomach: countBaseTraits(traitsConfig.stomach),
+    };
+}
+
 async function main() {
     console.log("=".repeat(60));
     console.log("Redeploy FregsSVGRenderer");
@@ -24,7 +45,7 @@ async function main() {
     const [deployer] = await ethers.getSigners();
     console.log("Deployer:", deployer.address);
 
-    const { contracts, routers, defaultTraits } = status;
+    const { contracts, routers } = status;
 
     if (!contracts.fregs) throw new Error("No fregs address in deployment status");
     if (!routers.background) throw new Error("No background router in deployment status");
@@ -69,14 +90,12 @@ async function main() {
     ));
     console.log("   Routers wired.");
 
-    // 3. Set base trait counts from deployment status
+    // 3. Set base trait counts from traits.json
     console.log("\n3. Setting base trait counts...");
-    const headCount = defaultTraits?.head ? Object.keys(defaultTraits.head).filter(k => {
-        const t = defaultTraits.head[k];
-        return t.source === "default";
-    }).length : 0;
-    const mouthCount = defaultTraits?.mouth ? Object.keys(defaultTraits.mouth).length : 0;
-    const stomachCount = defaultTraits?.stomach ? Object.keys(defaultTraits.stomach).length : 0;
+    const baseTraitCounts = loadBaseTraitCounts();
+    const headCount = baseTraitCounts.head;
+    const mouthCount = baseTraitCounts.mouth;
+    const stomachCount = baseTraitCounts.stomach;
 
     console.log(`   head base traits:    ${headCount}`);
     console.log(`   mouth base traits:   ${mouthCount}`);

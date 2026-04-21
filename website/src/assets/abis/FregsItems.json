@@ -191,11 +191,6 @@
   },
   {
     "inputs": [],
-    "name": "NotAuthorized",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "NotCompatibleWithSpotMints",
     "type": "error"
   },

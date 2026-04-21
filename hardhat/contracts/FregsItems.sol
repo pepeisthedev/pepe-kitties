@@ -41,7 +41,6 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     error NameRequired();
     error NoClaimWeights();
     error NoExcessCoins();
-    error NotAuthorized();
     error NotFregOwner();
     error NotItemOwner();
     error OnlyRandomizer();
@@ -440,9 +439,8 @@ contract FregsItems is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
 
     // Rescue a stuck head reroll — clears the pending flag and mints a new HEAD_REROLL
     // item to the freg owner so they can re-roll themselves. No VRF fee required.
-    function rescueHeadReroll(uint256 fregId) external nonReentrant {
+    function rescueHeadReroll(uint256 fregId) external onlyOwner nonReentrant {
         address fregOwner = fregs.ownerOf(fregId);
-        if (msg.sender != fregOwner && msg.sender != owner()) revert NotAuthorized();
 
         uint256 actionId = pendingHeadRerollActionByFregId[fregId];
         if (actionId == 0) revert MissingPendingRequest();
