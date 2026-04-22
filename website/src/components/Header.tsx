@@ -13,12 +13,12 @@ interface HeaderProps {
     featureFlags: FeatureFlags
 }
 
-const allNavItems: { id: SectionId; label: string; flagKey?: keyof FeatureFlags }[] = [
+const allNavItems: { id: SectionId; label: string; flagKey?: keyof FeatureFlags; hideWhenInactive?: boolean }[] = [
     { id: "mint", label: "Mint" },
     { id: "my-kitties", label: "My Fregs", flagKey: "mintActive" },
     { id: "treasure-chests", label: "$FREG", flagKey: "chestOpeningActive" },
     { id: "spin-wheel", label: "Spin", flagKey: "spinActive" },
-    { id: "shop", label: "Shop", flagKey: "shopActive" },
+    { id: "shop", label: "Shop", flagKey: "shopActive", hideWhenInactive: true },
 ]
 
 export default function Header({ activeSection, onSectionChange, featureFlags }: HeaderProps): React.JSX.Element {
@@ -34,8 +34,9 @@ export default function Header({ activeSection, onSectionChange, featureFlags }:
     const isLanding = activeSection === "landing"
     const isFullscreen = isLanding || activeSection === "spin-wheel"
 
-    // All nav items are always shown; feature flags only affect section behavior, not visibility
-    const navItems = allNavItems
+    const navItems = allNavItems.filter((item) => {
+        return !item.hideWhenInactive || !item.flagKey || featureFlags[item.flagKey]
+    })
     const dynamicNavItems = isOwner
         ? [...navItems, { id: "admin" as SectionId, label: "Admin" }]
         : navItems

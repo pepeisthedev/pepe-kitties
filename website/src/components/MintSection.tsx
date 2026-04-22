@@ -506,7 +506,7 @@ export default function MintSection(): React.JSX.Element {
                                 CONNECT TO MINT
                             </>
                         ) : mintPhase === 0 ? (
-                            "MINTING PAUSED"
+                            "MINTING NOT STARTED"
                         ) : mintPhase === 1 && !hasFreeMint && !hasMintPass ? (
                             "WHITELIST ONLY"
                         ) : hasFreeMint ? (

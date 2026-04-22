@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import Header from "./Header"
 import LandingSection from "./LandingSection"
 import MintSection from "./MintSection"
@@ -16,6 +16,12 @@ export default function MainPage(): React.JSX.Element {
     const { isOwner } = useIsOwner()
     const { flags, refetch: refetchFlags } = useFeatureFlags()
 
+    useEffect(() => {
+        if (activeSection === "shop" && !flags.shopActive) {
+            setActiveSection("mint")
+        }
+    }, [activeSection, flags.shopActive])
+
     const renderSection = () => {
         switch (activeSection) {
             case "landing":
@@ -29,7 +35,7 @@ export default function MainPage(): React.JSX.Element {
             case "spin-wheel":
                 return <SpinWheelSection spinActive={flags.spinActive} />
             case "shop":
-                return <ShopSection />
+                return <ShopSection shopActive={flags.shopActive} />
             case "admin":
                 return isOwner ? <AdminSection featureFlags={flags} onFeatureFlagsChange={refetchFlags} /> : <MintSection />
             default:
