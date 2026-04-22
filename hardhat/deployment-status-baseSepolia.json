@@ -1,0 +1,264 @@
+{
+  "network": "baseSepolia",
+  "lastUpdated": "2026-04-21T15:31:31.329Z",
+  "contracts": {
+    "fregs": "0xaEf8342D03a547115Ad1496954DD8E2D815de6a4",
+    "fregsItems": "0x45AD572718BeDe49CEE3565b02AA21F9a812D672",
+    "fregsMintPass": "0xF0848a7FC1fE2d0B34ec4AfC95423F7eB73168e0",
+    "fregsRandomizer": "0x78e54b2D87A5b1F59c50C709866942258761823F",
+    "fregCoin": "0xbC2db849A5Bc5eaE9F2B79BACcd50A8095e927c9",
+    "spinTheWheel": "0x26785bEB901C3Db32a81FD57cD490397A463C6bE",
+    "fregsLiquidity": "0xf64bAe682d933EfA85923B3240b064D928e592C2",
+    "fregShop": "0x50EeAf1982A72212AFE131Ca1E6dB954920e9B83",
+    "fregsAirdrop": "0xc98a5F913617593237c482ad0E2c44A9aA2BF0C2",
+    "svgRenderer": "0x6DD30A0b2c35Ab425D7Fe37DEC5b3876C338E725",
+    "vrfCoordinator": "0x5C210eF41CD1a72de73bF76eC39637bB0d3d7BEE",
+    "vrfSubscriptionId": "55598271862630847143226407304455041330031568601199114955144408906676729705221",
+    "svgPartWriter": "0x546B5083d479B81FBAF6180F673321c55C35D182"
+  },
+  "routers": {
+    "background": "0xB0d0B5c7B658C547087f6897C643A221b5aFf0aA",
+    "body": "0x425D746d9AdDE39B83D9f4BB047570846142ed76",
+    "skin": "0xeb5D810863234126bCF35311715193f8bFe4806C",
+    "head": "0xaD49E05164984109A716A2A02345353fC14e22E7",
+    "mouth": "0x20acA58fa1FF6B100d1b87B6A7C4171D367f6E57",
+    "stomach": "0xCbB091C11105f5A79b34F1Ae9e07ffD623359F2d",
+    "items": "0x0b13b420FBe1C43c22f249Cd55e2233370053d2E"
+  },
+  "defaultTraits": {
+    "background": {
+      "1.svg": {
+        "routerId": 1,
+        "name": "Default",
+        "source": "default",
+        "rendererAddress": "0x0Ce8DbC32E8807324E69F9da7469D0B991344E71"
+      }
+    },
+    "head": {
+      "1.svg": {
+        "routerId": 1,
+        "name": "Normal Eyes",
+        "source": "default",
+        "rendererAddress": "0x7891ECefdb299E7957f00A6A389f428bF2e430C4"
+      },
+      "2.svg": {
+        "routerId": 24,
+        "name": "Hoodie",
+        "source": "from_items",
+        "rendererAddress": "0x607178300C70D82901d7D28D63048EAeFCEA0419"
+      },
+      "3.svg": {
+        "routerId": 25,
+        "name": "Frogsuit",
+        "source": "from_items",
+        "rendererAddress": "0x28F92C68963376B926C4F3e0fd4e5490eED3F54D"
+      },
+      "4.svg": {
+        "routerId": 4,
+        "name": "Captain",
+        "source": "default",
+        "rendererAddress": "0xDf9f3EE12b51168aA87058061305d72D523a33bD"
+      },
+      "5.svg": {
+        "routerId": 5,
+        "name": "Commie",
+        "source": "default",
+        "rendererAddress": "0xe1061e4236FF9318EDfD488D0121645767FeC4C1"
+      },
+      "6.svg": {
+        "routerId": 6,
+        "name": "Cowboy",
+        "source": "default",
+        "rendererAddress": "0xD0A7bAfa10e6AB3A89A29b481003DC30C8Eca4D1"
+      },
+      "7.svg": {
+        "routerId": 7,
+        "name": "Crown",
+        "source": "default",
+        "rendererAddress": "0xC433EA0429f1b6Bc5f640c55578160f0ea8e5170"
+      },
+      "8.svg": {
+        "routerId": 8,
+        "name": "Cap",
+        "source": "default",
+        "rendererAddress": "0xc1F5ae16e7Ce6B738587b501a20FA19C603c35AE"
+      },
+      "9.svg": {
+        "routerId": 9,
+        "name": "Halo",
+        "source": "default",
+        "rendererAddress": "0x27F2025dBbA254C9f3619d0435F8Fd44275e4542"
+      },
+      "10.svg": {
+        "routerId": 10,
+        "name": "3D Glasses",
+        "source": "default",
+        "rendererAddress": "0x3F14B1AA125d4cBEd6A75AF958ed7c29a89251aC"
+      },
+      "11.svg": {
+        "routerId": 11,
+        "name": "Based Eyes",
+        "source": "default",
+        "rendererAddress": "0x9bA8b0736f59f0f858abb79E631E04Aa7E02F89e"
+      },
+      "12.svg": {
+        "routerId": 12,
+        "name": "WW1",
+        "source": "default",
+        "rendererAddress": "0x3A5e3eFD4c58193ab09D9Ad7334Efe05A092a717"
+      },
+      "13.svg": {
+        "routerId": 13,
+        "name": "Hoodie",
+        "source": "default",
+        "rendererAddress": "0x559a930Ee7441821e51f870c7259856Cb47AB75f"
+      },
+      "14.svg": {
+        "routerId": 14,
+        "name": "Karate Kid",
+        "source": "default",
+        "rendererAddress": "0xC25Ac86Ca506E02faFF80Cbff4eEd6a69E6da90e"
+      },
+      "15.svg": {
+        "routerId": 15,
+        "name": "Mickey D",
+        "source": "default",
+        "rendererAddress": "0x3D0CAe711e6FF5B525F9F1050Cf6172b05EdF2E8"
+      },
+      "16.svg": {
+        "routerId": 16,
+        "name": "Noggles",
+        "source": "default",
+        "rendererAddress": "0x4e9F7603D0601A30Bf61ccC6c0aB76299975Ee70"
+      },
+      "17.svg": {
+        "routerId": 17,
+        "name": "Eye Patch",
+        "source": "default",
+        "rendererAddress": "0xd9c27571c3c1C722fB2dE50B983A93bd5ce0601d"
+      },
+      "18.svg": {
+        "routerId": 18,
+        "name": "Pixel Glasses",
+        "source": "default",
+        "rendererAddress": "0x3cFdb961c3bC0756834A3451A61452f885CD76D8"
+      },
+      "19.svg": {
+        "routerId": 19,
+        "name": "Frog Suit",
+        "source": "default",
+        "rendererAddress": "0x31583bFfd52c3e4df849c62FCcD85aE84C022A78"
+      },
+      "20.svg": {
+        "routerId": 20,
+        "name": "Top Hat",
+        "source": "default",
+        "rendererAddress": "0xEa9aF54f410910189d8278668a7Ed61d7a608cB9"
+      },
+      "21.svg": {
+        "routerId": 21,
+        "name": "Weedy",
+        "source": "default",
+        "rendererAddress": "0x50153a1Fb49A3ab1e145a698379D94B418C0Ec2a"
+      },
+      "22.svg": {
+        "routerId": 22,
+        "name": "Based Glasses",
+        "source": "default",
+        "rendererAddress": "0x6cAb41CCe8A7e215DbF2457B7Dead5D6B522d4d3"
+      }
+    },
+    "mouth": {
+      "1.svg": {
+        "routerId": 1,
+        "name": "Cruella",
+        "source": "default",
+        "rendererAddress": "0x16De3914603b1dD7ae3b916a660d3C5b2fDe5378"
+      },
+      "2.svg": {
+        "routerId": 2,
+        "name": "Cigarette",
+        "source": "default",
+        "rendererAddress": "0x04B0A912dC039e7F97a501E93620472B1856E174"
+      },
+      "3.svg": {
+        "routerId": 3,
+        "name": "Pipe",
+        "source": "default",
+        "rendererAddress": "0x6bef899C89eDb2e64DaC98d0fEDF0Fb3B766A8C1"
+      },
+      "4.svg": {
+        "routerId": 4,
+        "name": "Puke",
+        "source": "default",
+        "rendererAddress": "0x9eB0C60AbFb420389a844Dfc2166d7062c5d7890"
+      },
+      "5.svg": {
+        "routerId": 5,
+        "name": "Tooth Pick",
+        "source": "default",
+        "rendererAddress": "0x7fab81a7Fd185987Cd043af2995c29140eA0DCD0"
+      },
+      "6.svg": {
+        "routerId": 6,
+        "name": "Tounge",
+        "source": "default",
+        "rendererAddress": "0xba4526B958F52bfbB884Df050Dd9799774AADdbc"
+      }
+    },
+    "stomach": {
+      "1.svg": {
+        "routerId": 1,
+        "name": "Base",
+        "source": "default",
+        "rendererAddress": "0x3B0C3bFF087Eea8Be7512a3bDF494c3f91d46D0f"
+      },
+      "2.svg": {
+        "routerId": 2,
+        "name": "ETH",
+        "source": "default",
+        "rendererAddress": "0x9C58fbADD90aabe465F705916e3D9B993629bDeC"
+      },
+      "3.svg": {
+        "routerId": 3,
+        "name": "Thug Life",
+        "source": "default",
+        "rendererAddress": "0x501EA9FFbB02c3e46C68f08b8f1cc3536a9ACB50"
+      },
+      "4.svg": {
+        "routerId": 4,
+        "name": "Zipper",
+        "source": "default",
+        "rendererAddress": "0xbDe4Ce88E7665B36285A2049E01191CB6fBa6Df1"
+      }
+    },
+    "skin": {
+      "1.svg": {
+        "routerId": 1,
+        "name": "Gold",
+        "source": "from_items",
+        "rendererAddress": "0x2AC620C74479ec2f02EdEDCF93952426E9cfa7A0"
+      },
+      "2.svg": {
+        "routerId": 2,
+        "name": "Diamond",
+        "source": "from_items",
+        "rendererAddress": "0xB5e2Ea2A1F963973121647c39a4B6810134F27DE"
+      },
+      "3.svg": {
+        "routerId": 3,
+        "name": "Robot",
+        "source": "from_items",
+        "rendererAddress": "0xf2ADC868b5Ce8D3119853E48B0EeB087719E7301"
+      },
+      "4.svg": {
+        "routerId": 4,
+        "name": "Skeleton",
+        "source": "from_items",
+        "rendererAddress": "0xC111EfF535EF52B997875d1541C032C4F7f1057f"
+      }
+    }
+  },
+  "addedTraits": {},
+  "itemTypes": {}
+}

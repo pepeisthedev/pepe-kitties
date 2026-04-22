@@ -5,6 +5,7 @@ const { loadDeploymentStatus, saveDeploymentStatus } = require("./deploymentStat
 
 // ============ CONFIGURATION ============
 // Contract addresses - set these from deployment-status.json or environment
+const FREGS_ADDRESS = process.env.VITE_FREGS_ADDRESS || "";
 const FREGS_MINTPASS_ADDRESS = process.env.VITE_FREGS_MINTPASS_ADDRESS || "";
 const FREGS_ITEMS_ADDRESS = process.env.VITE_FREGS_ITEMS_ADDRESS || "";
 
@@ -22,17 +23,60 @@ const CHEST_ITEM_TYPE = 6;
 
 // Initial SpinTokens to mint to owner for distribution
 const INITIAL_TOKENS_TO_MINT = 100;
+const VRF_CALLBACK_GAS = {
+    mint: Number(process.env.VRF_MINT_CALLBACK_GAS_LIMIT || 700000),
+    claimItem: Number(process.env.VRF_CLAIM_ITEM_CALLBACK_GAS_LIMIT || 500000),
+    headReroll: Number(process.env.VRF_HEAD_REROLL_CALLBACK_GAS_LIMIT || 350000),
+    spin: Number(process.env.VRF_SPIN_CALLBACK_GAS_LIMIT || 450000),
+};
+const VRF_REQUEST_CONFIRMATIONS = Number(process.env.VRF_REQUEST_CONFIRMATIONS || 3);
 
 // Verify contracts on block explorer
 const VERIFY_CONTRACTS = false;
 
 // Paths
 const WEBSITE_ABI_PATH = path.join(__dirname, "../../website/src/assets/abis");
+const DEFAULT_VRF_COORDINATOR_ADDRESSES = {
+    baseSepolia: "0x5C210eF41CD1a72de73bF76eC39637bB0d3d7BEE",
+    base: "0xd5D517aBE5cF79B7e95eC98dB0f0277788aFF634",
+};
+
+const DEFAULT_VRF_KEY_HASHES = {
+    baseSepolia: "0x9e1344a1247c8a1785d0a4681a27152bffdb43666ae5bf7d14d24a5efd44bf71",
+    base: "0x00b81b5a830cb0a4009fbd8904de511e28631e62ce5ad231373d3cdad373ccab",
+};
+
+function getVrfConfig() {
+    if (network.name === "localhost" || network.name === "hardhat") {
+        return { coordinator: null, subscriptionId: 0, keyHash: ethers.ZeroHash };
+    }
+    if (network.name === "baseSepolia") {
+        return {
+            coordinator: process.env.BASE_SEPOLIA_VRF_COORDINATOR || DEFAULT_VRF_COORDINATOR_ADDRESSES.baseSepolia,
+            subscriptionId: BigInt(process.env.BASE_SEPOLIA_VRF_SUBSCRIPTION_ID || 0),
+            keyHash: process.env.BASE_SEPOLIA_VRF_KEY_HASH || DEFAULT_VRF_KEY_HASHES.baseSepolia,
+        };
+    }
+    if (network.name === "base") {
+        return {
+            coordinator: process.env.BASE_VRF_COORDINATOR || DEFAULT_VRF_COORDINATOR_ADDRESSES.base,
+            subscriptionId: BigInt(process.env.BASE_VRF_SUBSCRIPTION_ID || 0),
+            keyHash: process.env.BASE_VRF_KEY_HASH || DEFAULT_VRF_KEY_HASHES.base,
+        };
+    }
+    return {
+        coordinator: process.env.VRF_COORDINATOR || "",
+        subscriptionId: BigInt(process.env.VRF_SUBSCRIPTION_ID || 0),
+        keyHash: process.env.VRF_KEY_HASH || ethers.ZeroHash,
+    };
+}
 
 // ============ HELPERS ============
 
-async function sendTx(txPromise, confirmations = 1) {
-    const tx = await txPromise;
+async function sendTx(txFactoryOrPromise, confirmations = 1) {
+    const tx = typeof txFactoryOrPromise === "function"
+        ? await txFactoryOrPromise()
+        : await txFactoryOrPromise;
     const receipt = await tx.wait(confirmations);
     if (network.name !== "localhost" && network.name !== "hardhat") {
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -97,8 +141,16 @@ async function main() {
     const deploymentStatus = loadDeploymentStatus(network.name);
 
     // Get existing contract addresses
+    const fregsAddress = FREGS_ADDRESS || deploymentStatus.contracts?.fregs;
     const mintPassAddress = FREGS_MINTPASS_ADDRESS || deploymentStatus.contracts?.fregsMintPass;
     const itemsAddress = FREGS_ITEMS_ADDRESS || deploymentStatus.contracts?.fregsItems;
+    const existingRandomizerAddress = deploymentStatus.contracts?.fregsRandomizer || "";
+
+    if (!fregsAddress) {
+        console.error("\n❌ Error: Fregs address not found!");
+        console.error("Run deploy.js first or set VITE_FREGS_ADDRESS in environment");
+        process.exit(1);
+    }
 
     if (!mintPassAddress) {
         console.error("\n❌ Error: FregsMintPass address not found!");
@@ -113,8 +165,67 @@ async function main() {
     }
 
     console.log("\nExisting Contracts:");
+    console.log("  Fregs:", fregsAddress);
     console.log("  FregsMintPass:", mintPassAddress);
     console.log("  FregsItems:", itemsAddress);
+    if (existingRandomizerAddress) {
+        console.log("  FregsRandomizer:", existingRandomizerAddress);
+    }
+
+    const isLocalhost = network.name === "localhost" || network.name === "hardhat";
+    const vrfConfig = getVrfConfig();
+    let vrfCoordinatorAddress = vrfConfig.coordinator;
+    let vrfSubscriptionId = vrfConfig.subscriptionId;
+    let vrfKeyHash = vrfConfig.keyHash;
+
+    if (!isLocalhost && !existingRandomizerAddress) {
+        if (!vrfCoordinatorAddress) {
+            console.error(`\n❌ Error: Missing VRF coordinator for ${network.name}.`);
+            console.error("Set BASE_SEPOLIA_VRF_COORDINATOR or BASE_VRF_COORDINATOR.");
+            process.exit(1);
+        }
+        if (!vrfSubscriptionId || vrfSubscriptionId === 0n) {
+            console.error(`\n❌ Error: Missing VRF subscription ID for ${network.name}.`);
+            console.error("Set BASE_SEPOLIA_VRF_SUBSCRIPTION_ID or BASE_VRF_SUBSCRIPTION_ID.");
+            process.exit(1);
+        }
+    }
+
+    if (vrfCoordinatorAddress) {
+        console.log("VRF Coordinator:", vrfCoordinatorAddress);
+    }
+    if (vrfSubscriptionId) {
+        console.log("VRF Subscription:", vrfSubscriptionId.toString());
+    }
+
+    if (!isLocalhost && !vrfCoordinatorAddress && !existingRandomizerAddress) {
+        process.exit(1);
+    }
+
+    let fregsRandomizer;
+    let fregsRandomizerAddress = existingRandomizerAddress;
+    if (existingRandomizerAddress) {
+        console.log("\n--- Reusing Existing FregsRandomizer ---");
+        fregsRandomizer = await ethers.getContractAt("FregsRandomizer", existingRandomizerAddress);
+    } else {
+        if (isLocalhost) {
+            console.log("\n--- Deploying MockVRFV2PlusWrapper ---");
+            const MockVRFV2PlusWrapper = await ethers.getContractFactory("MockVRFV2PlusWrapper");
+            const mockWrapper = await deployContract(MockVRFV2PlusWrapper, [], "MockVRFV2PlusWrapper");
+            vrfCoordinatorAddress = await mockWrapper.getAddress();
+            vrfSubscriptionId = 1;
+            vrfKeyHash = ethers.ZeroHash;
+        }
+
+        console.log("\n--- Deploying FregsRandomizer ---");
+        const FregsRandomizer = await ethers.getContractFactory("FregsRandomizer");
+        fregsRandomizer = await deployContract(
+            FregsRandomizer,
+            [vrfCoordinatorAddress, vrfSubscriptionId, vrfKeyHash],
+            "FregsRandomizer"
+        );
+        fregsRandomizerAddress = await fregsRandomizer.getAddress();
+    }
 
     // ============ Deploy SpinTheWheel ============
     console.log("\n--- Deploying SpinTheWheel ---");
@@ -126,37 +237,72 @@ async function main() {
     console.log("\n--- Configuring SpinTheWheel ---");
 
     console.log("Setting MintPass contract...");
-    await sendTx(spinTheWheel.setMintPassContract(mintPassAddress));
+    await sendTx(() => spinTheWheel.setMintPassContract(mintPassAddress));
 
     console.log("Setting Items contract...");
-    await sendTx(spinTheWheel.setItemsContract(itemsAddress));
+    await sendTx(() => spinTheWheel.setItemsContract(itemsAddress));
+
+    console.log("Setting randomizer...");
+    await sendTx(() => spinTheWheel.setRandomizer(fregsRandomizerAddress));
+
+    console.log("\n--- Configuring FregsRandomizer ---");
+    await sendTx(() => fregsRandomizer.setContracts(fregsAddress, itemsAddress, spinTheWheelAddress));
+    await sendTx(() => 
+        fregsRandomizer.setCallbackGasLimits(
+            VRF_CALLBACK_GAS.mint,
+            VRF_CALLBACK_GAS.claimItem,
+            VRF_CALLBACK_GAS.headReroll,
+            VRF_CALLBACK_GAS.spin
+        )
+    );
+    await sendTx(() => fregsRandomizer.setRequestConfirmations(VRF_REQUEST_CONFIRMATIONS));
+    if (isLocalhost) {
+        await sendTx(() => fregsRandomizer.setAutoFulfill(true));
+    } else if (!existingRandomizerAddress) {
+        console.log("Adding FregsRandomizer as VRF subscription consumer...");
+        const coordinator = await ethers.getContractAt("IVRFCoordinatorV2Plus", vrfCoordinatorAddress);
+        await sendTx(() => coordinator.addConsumer(vrfSubscriptionId, fregsRandomizerAddress));
+        console.log("  FregsRandomizer added as consumer!");
+    }
 
     console.log("Setting lose weight:", LOSE_WEIGHT, "(", LOSE_WEIGHT / 100, "%)");
-    await sendTx(spinTheWheel.setLoseWeight(LOSE_WEIGHT));
+    await sendTx(() => spinTheWheel.setLoseWeight(LOSE_WEIGHT));
 
     console.log("Setting MintPass weight:", MINTPASS_WEIGHT, "(", MINTPASS_WEIGHT / 100, "%)");
-    await sendTx(spinTheWheel.setMintPassWeight(MINTPASS_WEIGHT));
+    await sendTx(() => spinTheWheel.setMintPassWeight(MINTPASS_WEIGHT));
 
     console.log("Adding Hoodie prize (type", HOODIE_ITEM_TYPE, ") with weight:", HOODIE_WEIGHT, "(", HOODIE_WEIGHT / 100, "%)");
-    await sendTx(spinTheWheel.addItemPrize(HOODIE_ITEM_TYPE, HOODIE_WEIGHT));
+    await sendTx(() => spinTheWheel.addItemPrize(HOODIE_ITEM_TYPE, HOODIE_WEIGHT));
 
     console.log("Adding Frogsuit prize (type", FROGSUIT_ITEM_TYPE, ") with weight:", FROGSUIT_WEIGHT, "(", FROGSUIT_WEIGHT / 100, "%)");
-    await sendTx(spinTheWheel.addItemPrize(FROGSUIT_ITEM_TYPE, FROGSUIT_WEIGHT));
+    await sendTx(() => spinTheWheel.addItemPrize(FROGSUIT_ITEM_TYPE, FROGSUIT_WEIGHT));
 
     console.log("Adding Treasure Chest prize (type", CHEST_ITEM_TYPE, ") with weight:", CHEST_WEIGHT, "(", CHEST_WEIGHT / 100, "%)");
-    await sendTx(spinTheWheel.addItemPrize(CHEST_ITEM_TYPE, CHEST_WEIGHT));
+    await sendTx(() => spinTheWheel.addItemPrize(CHEST_ITEM_TYPE, CHEST_WEIGHT));
+
+    console.log("Setting max supply for Treasure Chest (type", CHEST_ITEM_TYPE, ") to 700...");
+    await sendTx(() => spinTheWheel.setItemMaxSupply(CHEST_ITEM_TYPE, 700));
 
     // ============ Configure Existing Contracts ============
     console.log("\n--- Configuring Existing Contracts ---");
 
+    const fregs = await ethers.getContractAt("Fregs", fregsAddress);
     const fregsMintPass = await ethers.getContractAt("FregsMintPass", mintPassAddress);
     const fregsItems = await ethers.getContractAt("FregsItems", itemsAddress);
 
     console.log("Setting SpinTheWheel on FregsMintPass...");
-    await sendTx(fregsMintPass.setSpinTheWheelContract(spinTheWheelAddress));
+    await sendTx(() => fregsMintPass.setSpinTheWheelContract(spinTheWheelAddress));
 
     console.log("Setting SpinTheWheel on FregsItems...");
-    await sendTx(fregsItems.setSpinTheWheelContract(spinTheWheelAddress));
+    await sendTx(() => fregsItems.setSpinTheWheelContract(spinTheWheelAddress));
+
+    if (!existingRandomizerAddress) {
+        console.log("Setting randomizer on Fregs...");
+        await sendTx(() => fregs.setRandomizer(fregsRandomizerAddress));
+
+        console.log("Setting randomizer on FregsItems...");
+        await sendTx(() => fregsItems.setRandomizer(fregsRandomizerAddress));
+    }
 
     // ============ Ensure Prize Item Types Are Configured ============
     // SpinTheWheel.spin() calls FregsItems.mintFromCoin() which requires
@@ -164,9 +310,9 @@ async function main() {
     console.log("\n--- Ensuring Prize Item Types Are Configured ---");
 
     const prizeItems = [
-        { id: HOODIE_ITEM_TYPE, name: "Hoodie", desc: "A cozy hoodie for your Freg - exclusive spin wheel prize" },
-        { id: FROGSUIT_ITEM_TYPE, name: "Frogsuit", desc: "Transform your Freg into a frog - exclusive spin wheel prize" },
-        { id: CHEST_ITEM_TYPE, name: "Treasure Chest", desc: "Burn this chest to claim ETH rewards" },
+        { id: HOODIE_ITEM_TYPE, name: "Hoodie", desc: "A cozy hoodie for your Freg" },
+        { id: FROGSUIT_ITEM_TYPE, name: "Frogsuit", desc: "A cool frogsuit for your Freg" },
+        { id: CHEST_ITEM_TYPE, name: "Treasure Chest", desc: "Burn this chest to claim $FREG rewards" },
     ];
 
     for (const item of prizeItems) {
@@ -180,15 +326,14 @@ async function main() {
             // Not configured yet
         }
         console.log(`  Configuring ${item.name} (type ${item.id})...`);
-        await sendTx(fregsItems.setBuiltInItemConfig(item.id, item.name, item.desc));
+        await sendTx(() => fregsItems.setBuiltInItemConfig(item.id, item.name, item.desc));
     }
 
     // ============ Mint Initial SpinTokens ============
-    const isLocalhost = network.name === "localhost" || network.name === "hardhat";
     if (isLocalhost && INITIAL_TOKENS_TO_MINT > 0) {
         console.log("\n--- Minting Initial SpinTokens ---");
         console.log(`Minting ${INITIAL_TOKENS_TO_MINT} SpinTokens to deployer...`);
-        await sendTx(spinTheWheel.ownerMint(deployerAddress, INITIAL_TOKENS_TO_MINT));
+        await sendTx(() => spinTheWheel.ownerMint(deployerAddress, INITIAL_TOKENS_TO_MINT));
         const balance = await spinTheWheel.balanceOf(deployerAddress, 1);
         console.log(`Deployer SpinToken balance: ${balance}`);
     }
@@ -196,6 +341,13 @@ async function main() {
     // ============ Save Deployment Status ============
     console.log("\n--- Saving Deployment Status ---");
     deploymentStatus.contracts.spinTheWheel = spinTheWheelAddress;
+    deploymentStatus.contracts.fregsRandomizer = fregsRandomizerAddress;
+    if (vrfCoordinatorAddress) {
+        deploymentStatus.contracts.vrfCoordinator = vrfCoordinatorAddress;
+    }
+    if (vrfSubscriptionId) {
+        deploymentStatus.contracts.vrfSubscriptionId = vrfSubscriptionId.toString();
+    }
     saveDeploymentStatus(deploymentStatus, network.name);
 
     // ============ Copy ABI ============
@@ -204,12 +356,26 @@ async function main() {
         fs.mkdirSync(WEBSITE_ABI_PATH, { recursive: true });
     }
     copyABI("SpinTheWheel", "SpinTheWheel");
+    copyABI("FregsRandomizer", "FregsRandomizer");
 
     // ============ Verify Contract ============
     if (VERIFY_CONTRACTS && network.name !== "localhost" && network.name !== "hardhat") {
         console.log("\n--- Verifying Contract on Block Explorer ---");
         console.log("Waiting 30s for indexing...");
         await new Promise(resolve => setTimeout(resolve, 30000));
+
+        if (!existingRandomizerAddress) {
+            try {
+                console.log("Verifying FregsRandomizer...");
+                await run("verify:verify", {
+                    address: fregsRandomizerAddress,
+                    constructorArguments: [vrfCoordinatorAddress, vrfSubscriptionId, vrfKeyHash]
+                });
+                console.log("FregsRandomizer verified!");
+            } catch (error) {
+                console.log("FregsRandomizer verification failed:", error.message);
+            }
+        }
 
         try {
             console.log("Verifying SpinTheWheel...");
@@ -230,6 +396,13 @@ async function main() {
     console.log("\nNetwork:", network.name);
     console.log("\nContract Address:");
     console.log("  SpinTheWheel:", spinTheWheelAddress);
+    console.log("  FregsRandomizer:", fregsRandomizerAddress);
+    if (vrfCoordinatorAddress) {
+        console.log("  VRF Coordinator:", vrfCoordinatorAddress);
+    }
+    if (vrfSubscriptionId) {
+        console.log("  VRF Subscription:", vrfSubscriptionId.toString());
+    }
     console.log("\nPrize Configuration:");
     console.log("  Total Weight:", LOSE_WEIGHT + MINTPASS_WEIGHT + HOODIE_WEIGHT + FROGSUIT_WEIGHT + CHEST_WEIGHT);
     console.log("  Lose:", LOSE_WEIGHT / 100, "%");
@@ -238,6 +411,7 @@ async function main() {
     console.log("  Frogsuit:", FROGSUIT_WEIGHT / 100, "%");
     console.log("  Treasure Chest:", CHEST_WEIGHT / 100, "%");
     console.log("\nLinked Contracts:");
+    console.log("  Fregs:", fregsAddress);
     console.log("  FregsMintPass:", mintPassAddress);
     console.log("  FregsItems:", itemsAddress);
 

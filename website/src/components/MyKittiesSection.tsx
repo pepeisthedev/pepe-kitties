@@ -11,7 +11,8 @@ import LoadingSpinner from "./LoadingSpinner"
 import KittyRenderer from "./KittyRenderer"
 import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
-import { ITEM_TYPE_NAMES, ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, ITEMS, checkItemIncompatibility } from "../config/contracts"
+import { waitForEvent } from "../lib/waitForEvent"
+import { ITEM_TYPE_NAMES, ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, ITEMS, checkItemIncompatibility, BASE_HEAD_COUNT, BASE_STOMACH_COUNT, BASE_MOUTH_COUNT } from "../config/contracts"
 import { Gift, LayoutGrid, Rows, Flame, AlertTriangle, Wand2, Palette, Backpack } from "lucide-react"
 import {
     Dialog,
@@ -39,17 +40,29 @@ interface TraitsConfig {
 
 // Get trait name by index (1-indexed in contract)
 const getTraitName = (traitsConfig: TraitsConfig | null, traitType: keyof TraitsConfig, index: number): string => {
-    if (!traitsConfig || index === 0) return "None"
+    if (!traitsConfig || index === 0) return "Normal"
     const traits = traitsConfig[traitType]
     if (!traits || index > traits.length) {
         // Check from_items for special traits
-        if (traitType === 'head' && index > 22) {
-            const itemHead = ITEMS.find(item => item.category === 'head' && item.traitFileName === `${index - 22}.svg`)
-            return itemHead?.name || `Special #${index - 22}`
+        if (traitType === 'head' && index > BASE_HEAD_COUNT) {
+            const itemHead = ITEMS.find(item => item.category === 'head' && item.traitFileName === `${index - BASE_HEAD_COUNT}.svg`)
+            return itemHead?.name || `Special #${index - BASE_HEAD_COUNT}`
         }
         if (traitType === 'skin' && index > 1) {
             const itemSkin = ITEMS.find(item => item.category === 'skin' && item.traitFileName === `${index}.svg`)
             return itemSkin?.name || `Special #${index}`
+        }
+        if (traitType === 'stomach' && index > BASE_STOMACH_COUNT) {
+            const itemStomach = ITEMS.find(item => item.category === 'stomach' && item.traitFileName === `${index - BASE_STOMACH_COUNT}.svg`)
+            return itemStomach?.name || `Special #${index - BASE_STOMACH_COUNT}`
+        }
+        if (traitType === 'mouth' && index > BASE_MOUTH_COUNT) {
+            const itemMouth = ITEMS.find(item => item.category === 'mouth' && item.traitFileName === `${index - BASE_MOUTH_COUNT}.svg`)
+            return itemMouth?.name || `Special #${index - BASE_MOUTH_COUNT}`
+        }
+        if (traitType === 'background' && index > 0) {
+            const itemBg = ITEMS.find(item => item.category === 'background' && item.traitFileName === `${index}.svg`)
+            return itemBg?.name || `Special #${index}`
         }
         return `#${index}`
     }
@@ -79,8 +92,12 @@ const generatePalette = (hue: number): string[] => {
     return variations.map(v => hslToHex(hue, v.s, v.l))
 }
 
-const isSkinItem = (itemType: number): boolean => getItemConfig(itemType)?.category === 'skin'
-const isHeadItem = (itemType: number): boolean => getItemConfig(itemType)?.category === 'head'
+
+
+// Built-in skin/head items use legacy contract functions (useSpecialSkinItem/useHeadTraitItem).
+// Dynamic items (ID >= 100) use useDynamicTraitItem instead.
+const isSkinItem = (itemType: number): boolean => itemType < 100 && getItemConfig(itemType)?.category === 'skin'
+const isHeadItem = (itemType: number): boolean => itemType < 100 && getItemConfig(itemType)?.category === 'head'
 
 const isDynamicTraitItem = (item: Item): boolean => {
     const config = getItemConfig(item.itemType)
@@ -97,25 +114,71 @@ const getItemDescription = (item: Item): string => {
 
 const isValidHexColor = (color: string): boolean => /^#[0-9A-Fa-f]{6}$/.test(color)
 
+const traitTypeToKittyKey = (traitType: number): keyof Kitty | null => {
+    if (traitType === TRAIT_TYPES.BODY) return 'body'
+    if (traitType === TRAIT_TYPES.HEAD) return 'head'
+    if (traitType === TRAIT_TYPES.STOMACH) return 'stomach'
+    if (traitType === TRAIT_TYPES.MOUTH) return 'mouth'
+    if (traitType === TRAIT_TYPES.BACKGROUND) return 'background'
+    return null
+}
+
+const getPreviewProps = (kitty: Kitty, item: Item): Partial<Kitty> | null => {
+    const config = getItemConfig(item.itemType)
+    if (!config || !config.traitFileName) {
+        if (isDynamicTraitItem(item) && item.targetTraitType !== undefined && item.traitValue !== undefined) {
+            const traitKey = traitTypeToKittyKey(item.targetTraitType)
+            return traitKey ? { [traitKey]: item.traitValue } : null
+        }
+        return null
+    }
+    const fileNum = parseInt(config.traitFileName.replace('.svg', ''))
+    if (config.category === 'skin') return { body: fileNum }
+    if (config.category === 'head') return { head: BASE_HEAD_COUNT + fileNum }
+    if (config.category === 'stomach') return { stomach: BASE_STOMACH_COUNT + fileNum }
+    if (config.category === 'mouth') return { mouth: BASE_MOUTH_COUNT + fileNum }
+    if (config.category === 'background') return { background: fileNum }
+    return null
+}
+
+const CLAIM_MESSAGES = [
+    "Reaching into the loot bag...",
+    "The item is materializing...",
+    "Randomness in progress...",
+    "Something stirs in the swamp...",
+    "The gods of RNG are deciding...",
+    "Almost... almost...",
+]
+
+const REROLL_MESSAGES = [
+    "Consulting the freg gods...",
+    "Rolling the dice...",
+    "A new head is forming...",
+    "The RNG oracle is thinking...",
+    "Could be anything...",
+    "Almoooooost...",
+]
+
 // Carousel Card component with flip support
 interface CarouselCardProps {
     kitty: Kitty
-    isSelected: boolean
     isFlipped: boolean
     hasClaimable: boolean
+    isExpanded: boolean
+    claimingTokenIds: Set<number>
     onClick: () => void
     traitsConfig: TraitsConfig | null
     redeemETH: string | null
     redeemCoin: string | null
+    liquidityActive: boolean
     onBurn: (tokenId: number) => void
+    onClaim: (tokenId: number) => void
 }
 
-function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, traitsConfig, redeemETH, redeemCoin, onBurn }: CarouselCardProps) {
+function CarouselCard({ kitty, isFlipped, hasClaimable, isExpanded, claimingTokenIds, onClick, traitsConfig, redeemETH, redeemCoin, liquidityActive, onBurn, onClaim }: CarouselCardProps) {
     return (
         <div
-            className={`flex-shrink-0 w-40 cursor-pointer transition-transform ${
-                isSelected ? "scale-105" : "hover:scale-105"
-            }`}
+            className="flex-shrink-0 w-40 cursor-pointer transition-transform hover:scale-105"
             onClick={onClick}
         >
             {/* Flip container - only wraps the image area */}
@@ -132,9 +195,7 @@ function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, tra
                 >
                     {/* Front - Freg Image */}
                     <div
-                        className={`overflow-hidden rounded-xl bg-white ${
-                            isSelected ? "ring-2 ring-theme" : ""
-                        }`}
+                        className="overflow-hidden rounded-xl bg-white relative"
                         style={{
                             aspectRatio: '617.49 / 644.18',
                             backfaceVisibility: 'hidden'
@@ -207,45 +268,62 @@ function CarouselCard({ kitty, isSelected, isFlipped, hasClaimable, onClick, tra
                             <div className="border-t border-theme-muted/30 pt-0.5 mt-0.5">
                                 <p className="text-[8px] text-theme-muted font-righteous text-center">Burn value:</p>
                                 <p className="text-[8px] text-theme-primary font-bangers text-center truncate">
-                                    {redeemETH} ETH + {redeemCoin} FROG
+                                    {redeemETH} ETH{redeemCoin && redeemCoin !== "0" ? ` + ${redeemCoin} $FREG` : ""}
                                 </p>
                             </div>
                         )}
                         <button
-                            className="mt-auto w-full text-[8px] bg-red-500/80 hover:bg-red-500 text-white rounded py-0.5 font-bangers transition-colors cursor-pointer"
+                            className={`mt-auto w-full text-[8px] text-white rounded py-0.5 font-bangers transition-colors ${
+                                liquidityActive ? "bg-red-500/80 hover:bg-red-500 cursor-pointer" : "bg-gray-500/50 cursor-not-allowed opacity-50"
+                            }`}
+                            disabled={!liquidityActive}
                             onClick={(e) => { e.stopPropagation(); onBurn(kitty.tokenId) }}
                         >
-                            <Flame className="w-2.5 h-2.5 inline mr-0.5" />Burn & Redeem
+                            <Flame className="w-2.5 h-2.5 inline mr-0.5" />{liquidityActive ? "Burn & Redeem" : "Redeem Inactive"}
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Token ID - outside flip area */}
+            {/* Token ID + claim button - outside flip area */}
             <p className="font-bangers text-sm text-theme-primary text-center mt-1">
                 #{kitty.tokenId}
             </p>
+            {(isExpanded || claimingTokenIds.has(kitty.tokenId)) && (
+                <div className="overflow-hidden">
+                    <button
+                        disabled={claimingTokenIds.has(kitty.tokenId)}
+                        className={`mt-1 w-full text-[10px] rounded-lg py-1 font-bangers transition-colors flex items-center justify-center gap-1 animate-slide-down ${
+                            claimingTokenIds.has(kitty.tokenId) ? "bg-theme-primary/50 cursor-not-allowed text-white/60" : "bg-theme-primary hover:brightness-110 cursor-pointer text-theme-button-text"
+                        }`}
+                        onClick={(e) => { e.stopPropagation(); onClaim(kitty.tokenId) }}
+                    >
+                        <Gift className="w-3 h-3" />
+                        {claimingTokenIds.has(kitty.tokenId) ? "Claiming..." : "Claim Item"}
+                    </button>
+                </div>
+            )}
         </div>
     )
 }
 
 export default function MyKittiesSection(): React.JSX.Element {
-    const { isConnected } = useAppKitAccount()
+    const { address, isConnected } = useAppKitAccount()
     const contracts = useContracts()
-    const { kitties, isLoading, error, refetch: refetchKitties } = useOwnedKitties()
+    const { kitties, isLoading, error, refetch: refetchKitties, updateKitty } = useOwnedKitties()
     const { unclaimedIds, refetch: refetchUnclaimed } = useUnclaimedKitties()
     const { items, isLoading: itemsLoading, refetch: refetchItems } = useOwnedItems()
 
     const [tab, setTab] = useState<'fregs' | 'items'>('fregs')
-    const [selectedKittyId, setSelectedKittyId] = useState<number | null>(null)
-    const [isClaiming, setIsClaiming] = useState(false)
+    const [selectedCard, setSelectedCard] = useState<number | null>(null)
+    const [claimingTokenIds, setClaimingTokenIds] = useState<Set<number>>(new Set())
     const [showModal, setShowModal] = useState(false)
     const [modalData, setModalData] = useState<{ success: boolean; message: string; itemType?: number; itemTokenId?: number; isBurn?: boolean }>({ success: false, message: "" })
     const [viewMode, setViewMode] = useState<'grid' | 'carousel'>('grid')
-    const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set())
     const [traitsConfig, setTraitsConfig] = useState<TraitsConfig | null>(null)
     const [redeemETH, setRedeemETH] = useState<string | null>(null)
     const [redeemCoin, setRedeemCoin] = useState<string | null>(null)
+    const [liquidityActive, setLiquidityActive] = useState(false)
     const [burnConfirmTokenId, setBurnConfirmTokenId] = useState<number | null>(null)
 
     // Items tab state (separate selection from fregs tab)
@@ -253,14 +331,17 @@ export default function MyKittiesSection(): React.JSX.Element {
     const [selectedItem, setSelectedItem] = useState<Item | null>(null)
     const [newColor, setNewColor] = useState<string>("#7CB342")
     const [hue, setHue] = useState<number>(120)
+    const [greyscale, setGreyscale] = useState<number>(50)
     const [isApplying, setIsApplying] = useState(false)
     const [showItemResultModal, setShowItemResultModal] = useState(false)
     const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [itemModalData, setItemModalData] = useState<{ success: boolean; message: string }>({ success: false, message: "" })
     const [resultKitty, setResultKitty] = useState<Kitty | null>(null)
+    const [resultWasRandom, setResultWasRandom] = useState(false)
 
     const paletteColors = generatePalette(hue)
     const usableItems = items.filter(item => item.itemType !== ITEM_TYPES.TREASURE_CHEST)
+
 
     // Derive selectedKitty object from items tab's own selection
     const selectedKitty = useMemo(() => {
@@ -276,9 +357,12 @@ export default function MyKittiesSection(): React.JSX.Element {
             .catch(err => console.error('Failed to load traits config:', err))
     }, [])
 
-    // Fetch redeem amounts from liquidity contract
+    // Fetch redeem amounts and active state from liquidity contract
     useEffect(() => {
         if (!contracts?.liquidity) return
+        contracts.liquidity.read.active().then((isActive: boolean) => {
+            setLiquidityActive(isActive)
+        }).catch(() => setLiquidityActive(false))
         contracts.liquidity.read.getRedeemAmount().then(([eth, coin]: [bigint, bigint]) => {
             setRedeemETH(parseFloat(formatEther(eth)).toFixed(6))
             setRedeemCoin(parseFloat(formatEther(coin)).toFixed(0))
@@ -287,9 +371,6 @@ export default function MyKittiesSection(): React.JSX.Element {
 
     // Check if a kitty can claim an item
     const canClaim = (tokenId: number) => unclaimedIds.includes(tokenId)
-
-    // Check if selected kitty can claim
-    const selectedCanClaim = selectedKittyId !== null && canClaim(selectedKittyId)
 
     const parseItemClaimedEvent = (receipt: any) => {
         if (!contracts) return null
@@ -316,14 +397,44 @@ export default function MyKittiesSection(): React.JSX.Element {
     }
 
     const [isModalLoading, setIsModalLoading] = useState(false)
+    const [claimTxSubmitted, setClaimTxSubmitted] = useState(false)
+    const claimSessionRef = React.useRef(0)
+    const [claimMessageIndex, setClaimMessageIndex] = useState(0)
+    const [rerollMessageIndex, setRerollMessageIndex] = useState(0)
 
-    const handleClaim = useCallback(async () => {
-        if (!contracts || selectedKittyId === null || !selectedCanClaim) return
+    useEffect(() => {
+        if (!isModalLoading || modalData.isBurn) {
+            setClaimMessageIndex(0)
+            return
+        }
+        const interval = window.setInterval(() => {
+            setClaimMessageIndex(i => (i + 1) % CLAIM_MESSAGES.length)
+        }, 3000)
+        return () => window.clearInterval(interval)
+    }, [isModalLoading, modalData.isBurn])
 
-        // Use flushSync to ensure modal renders immediately before wallet popup
+    useEffect(() => {
+        if (!isApplying || !resultWasRandom) {
+            setRerollMessageIndex(0)
+            return
+        }
+        const interval = window.setInterval(() => {
+            setRerollMessageIndex(i => (i + 1) % REROLL_MESSAGES.length)
+        }, 3000)
+        return () => window.clearInterval(interval)
+    }, [isApplying, resultWasRandom])
+
+    const handleClaim = useCallback(async (tokenId: number) => {
+        if (!contracts || !address) return
+
+        const session = ++claimSessionRef.current
+        const isCurrent = () => claimSessionRef.current === session
+
         flushSync(() => {
-            setIsClaiming(true)
+            setClaimingTokenIds(prev => new Set(prev).add(tokenId))
+            setSelectedCard(null)
             setIsModalLoading(true)
+            setClaimTxSubmitted(false)
             setModalData({ success: false, message: "" })
             setShowModal(true)
         })
@@ -331,18 +442,35 @@ export default function MyKittiesSection(): React.JSX.Element {
         try {
             const contract = await contracts.items.write()
             // Manually specify gas to avoid MetaMask gas estimation issues on localhost
-            const tx = await contract.claimItem(selectedKittyId, { gasLimit: 1000000n })
+            const tx = await contract.claimItem(tokenId, { gasLimit: 1000000n })
+            if (isCurrent()) setClaimTxSubmitted(true)
             const receipt = await tx.wait()
 
-            const claimedItem = parseItemClaimedEvent(receipt)
+            let claimedItem = parseItemClaimedEvent(receipt)
+            if (!claimedItem) {
+                const claimEvent = await waitForEvent({
+                    contract: contracts.items.read,
+                    filter: contracts.items.read.filters.ItemClaimed(tokenId, null, address),
+                    fromBlock: receipt.blockNumber,
+                })
+
+                claimedItem = {
+                    fregId: Number(claimEvent.args.fregId ?? claimEvent.args[0]),
+                    itemTokenId: Number(claimEvent.args.itemTokenId ?? claimEvent.args[1]),
+                    itemType: Number(claimEvent.args.itemType ?? claimEvent.args[3]),
+                }
+            }
+
             const itemName = claimedItem ? (ITEM_TYPE_NAMES[claimedItem.itemType] || "Item") : "Item"
 
-            setModalData({
-                success: true,
-                message: `You got a ${itemName}!`,
-                itemType: claimedItem?.itemType,
-                itemTokenId: claimedItem?.itemTokenId
-            })
+            if (isCurrent()) {
+                setModalData({
+                    success: true,
+                    message: `You got a ${itemName}!`,
+                    itemType: claimedItem?.itemType,
+                    itemTokenId: claimedItem?.itemTokenId
+                })
+            }
 
             // Refresh all relevant data - await to ensure completion
             await Promise.all([
@@ -350,33 +478,18 @@ export default function MyKittiesSection(): React.JSX.Element {
                 refetchUnclaimed(),
                 refetchItems()
             ])
-            setSelectedKittyId(null)
         } catch (err: any) {
-            setModalData({ success: false, message: err.message || "Claim failed" })
+            if (isCurrent()) setModalData({ success: false, message: err.message || "Claim failed" })
         } finally {
-            setIsClaiming(false)
-            setIsModalLoading(false)
+            setClaimingTokenIds(prev => { const next = new Set(prev); next.delete(tokenId); return next })
+            if (isCurrent()) {
+                setIsModalLoading(false)
+            }
         }
-    }, [contracts, selectedKittyId, selectedCanClaim, refetchKitties, refetchUnclaimed, refetchItems])
+    }, [address, contracts, refetchKitties, refetchUnclaimed, refetchItems])
 
     const handleKittyClick = (tokenId: number) => {
-        const canClaimItem = canClaim(tokenId)
-
-        if (canClaimItem) {
-            // Unclaimed: select for claiming
-            setSelectedKittyId(selectedKittyId === tokenId ? null : tokenId)
-        } else {
-            // Already claimed: flip the card to show metadata
-            setFlippedCards(prev => {
-                const newSet = new Set(prev)
-                if (newSet.has(tokenId)) {
-                    newSet.delete(tokenId)
-                } else {
-                    newSet.add(tokenId)
-                }
-                return newSet
-            })
-        }
+        setSelectedCard(prev => prev === tokenId ? null : tokenId)
     }
 
     const handleBurn = useCallback((tokenId: number) => {
@@ -402,7 +515,7 @@ export default function MyKittiesSection(): React.JSX.Element {
 
             setModalData({
                 success: true,
-                message: `Freg #${tokenId} burned! You received ${redeemETH} ETH + ${redeemCoin} FREGCOIN.`,
+                message: `Freg #${tokenId} burned! You received ${redeemETH} ETH${redeemCoin && redeemCoin !== "0" ? ` + ${redeemCoin} FREGCOIN` : ""}.`,
                 isBurn: true,
             })
 
@@ -419,11 +532,10 @@ export default function MyKittiesSection(): React.JSX.Element {
     const getConfirmMessage = () => {
         if (!selectedItem) return ""
         const config = getItemConfig(selectedItem.itemType)
-        if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) return "Are you sure you want to change the color of this Pepe?"
-        if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) return "Are you sure you want to re-roll the head trait? This will randomly change the head."
-        if (selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE) return "Are you sure you want to roll the Special Dice? This will randomly apply a special trait!"
+        if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) return "Are you sure you want to change the Fregs color?"
+        if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) return "Are you sure you want to re-roll the head trait? Your current head trait will be permanently lost."
         if (config?.category === 'skin') return `Are you sure you want to apply ${selectedItem.name}? This will apply a special body skin.`
-        if (config?.category === 'head') return `Are you sure you want to apply ${selectedItem.name}? This will change your Freg's head.`
+        if (config?.category === 'head') return `Are you sure you want to apply ${selectedItem.name}? Your current head trait will be permanently lost.`
         return `Are you sure you want to use ${selectedItem.name}?`
     }
 
@@ -431,6 +543,11 @@ export default function MyKittiesSection(): React.JSX.Element {
         if (!selectedKitty || !selectedItem) return
         if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE && !isValidHexColor(newColor)) return
         setShowConfirmModal(true)
+    }
+
+    const handleGreyscaleChange = (value: number) => {
+        setGreyscale(value)
+        setNewColor(hslToHex(hue, 80, value))
     }
 
     const parseHeadRerolledEvent = (receipt: any): number | null => {
@@ -454,7 +571,7 @@ export default function MyKittiesSection(): React.JSX.Element {
             } catch { /* Not this event */ }
             try {
                 const parsed = itemsContract.interface.parseLog({ topics: log.topics as string[], data: log.data })
-                if (parsed?.name === "SpecialDiceUsed") return { traitType: Number(parsed.args.traitType), traitValue: Number(parsed.args.traitValue) }
+                if (parsed?.name === "TraitSet") return { traitType: Number(parsed.args.traitType), traitValue: Number(parsed.args.traitValue) }
             } catch { /* Not this event */ }
         }
         return null
@@ -463,11 +580,14 @@ export default function MyKittiesSection(): React.JSX.Element {
     const handleConfirmApply = useCallback(async () => {
         if (!contracts || !selectedKitty || !selectedItem) return
 
+        const isRandom = selectedItem.itemType === ITEM_TYPES.HEAD_REROLL
+
         flushSync(() => {
             setShowConfirmModal(false)
             setIsApplying(true)
             setItemModalData({ success: false, message: "" })
             setResultKitty(null)
+            setResultWasRandom(isRandom)
             setShowItemResultModal(true)
         })
 
@@ -475,19 +595,19 @@ export default function MyKittiesSection(): React.JSX.Element {
             const contract = await contracts.items.write()
             let tx
 
+            const gasOpts = { gasLimit: 500000n }
+
             if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) {
                 if (!isValidHexColor(newColor)) throw new Error("Invalid hex color")
-                tx = await contract.useColorChange(selectedItem.tokenId, selectedKitty.tokenId, newColor)
+                tx = await contract.useColorChange(selectedItem.tokenId, selectedKitty.tokenId, newColor, gasOpts)
             } else if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) {
-                tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId)
-            } else if (selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE) {
-                tx = await contract.useSpecialDice(selectedItem.tokenId, selectedKitty.tokenId)
+                tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (isSkinItem(selectedItem.itemType)) {
-                tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId)
+                tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (isHeadItem(selectedItem.itemType)) {
-                tx = await contract.useHeadTraitItem(selectedItem.tokenId, selectedKitty.tokenId)
+                tx = await contract.useHeadTraitItem(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (isDynamicTraitItem(selectedItem)) {
-                tx = await contract.useDynamicTraitItem(selectedItem.tokenId, selectedKitty.tokenId)
+                tx = await contract.useDynamicTraitItem(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else {
                 throw new Error(`Unknown item type: ${selectedItem.itemType}`)
             }
@@ -498,10 +618,18 @@ export default function MyKittiesSection(): React.JSX.Element {
             if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) {
                 updatedKitty.bodyColor = newColor
             } else if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) {
-                const newHead = parseHeadRerolledEvent(receipt)
+                let newHead = parseHeadRerolledEvent(receipt)
+                if (newHead === null) {
+                    const rerollEvent = await waitForEvent({
+                        contract: contracts.fregs.read,
+                        filter: contracts.fregs.read.filters.TraitSet(selectedKitty.tokenId),
+                        fromBlock: receipt.blockNumber,
+                        match: (log) => Number(log.args.traitType) === TRAIT_TYPES.HEAD,
+                    })
+                    newHead = Number(rerollEvent.args.traitValue)
+                }
                 if (newHead !== null) updatedKitty.head = newHead
             } else if (
-                selectedItem.itemType === ITEM_TYPES.SPECIAL_DICE ||
                 isSkinItem(selectedItem.itemType) || isHeadItem(selectedItem.itemType) || isDynamicTraitItem(selectedItem)
             ) {
                 const traitResult = parseTraitEvent(receipt)
@@ -511,21 +639,28 @@ export default function MyKittiesSection(): React.JSX.Element {
                     else if (traitResult.traitType === TRAIT_TYPES.HEAD) updatedKitty.head = traitResult.traitValue
                     else if (traitResult.traitType === TRAIT_TYPES.MOUTH) updatedKitty.mouth = traitResult.traitValue
                     else if (traitResult.traitType === TRAIT_TYPES.STOMACH) updatedKitty.stomach = traitResult.traitValue
+                } else {
+                    const previewProps = getPreviewProps(selectedKitty, selectedItem)
+                    if (previewProps) {
+                        updatedKitty = { ...updatedKitty, ...previewProps }
+                    }
                 }
             }
 
+            updateKitty(updatedKitty)
             setResultKitty(updatedKitty)
             setItemModalData({ success: true, message: `${selectedItem.name} applied to Freg #${selectedKitty.tokenId}!` })
             setSelectedItem(null)
 
             await Promise.all([refetchKitties(), refetchItems()])
+            updateKitty(updatedKitty)
         } catch (err: any) {
             setResultKitty(null)
             setItemModalData({ success: false, message: err.message || "Failed to apply item" })
         } finally {
             setIsApplying(false)
         }
-    }, [contracts, selectedKitty, selectedItem, newColor, refetchKitties, refetchItems])
+    }, [contracts, selectedKitty, selectedItem, newColor, refetchKitties, refetchItems, updateKitty])
 
     const incompatibility = useMemo(() => {
         if (!selectedKitty || !selectedItem) return { incompatible: false, reason: "" }
@@ -577,34 +712,19 @@ export default function MyKittiesSection(): React.JSX.Element {
                 <>
                     {/* Claim Item Banner */}
                     {claimableCount > 0 && (
-                        <div className="mb-8 pb-6 border-b border-theme-muted/20">
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-full bg-theme-primary/20">
-                                        <Gift className="w-6 h-6 text-theme-primary" />
-                                    </div>
-                                    <p className="font-bangers text-xl text-theme-primary">
-                                        {claimableCount} {claimableCount === 1 ? 'Freg' : 'Fregs'} can claim items
+                        <div className="mb-8 rounded-2xl bg-theme-primary/15 border-2 border-theme-primary/40 p-4 animate-pulse-slow">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-full bg-theme-primary/30 animate-bounce-slow">
+                                    <Gift className="w-7 h-7 text-theme-primary" />
+                                </div>
+                                <div>
+                                    <p className="font-bangers text-2xl text-theme-primary">
+                                        {claimableCount} {claimableCount === 1 ? 'Freg' : 'Fregs'} can claim items!
+                                    </p>
+                                    <p className="font-righteous text-sm text-theme-muted">
+                                        Click a Freg below to claim a random item
                                     </p>
                                 </div>
-                                <Button
-                                    onClick={handleClaim}
-                                    disabled={!selectedCanClaim || isClaiming}
-                                    className={`px-6 py-3 rounded-xl font-bangers text-lg transition-all ${
-                                        selectedCanClaim
-                                            ? "btn-theme-primary"
-                                            : "bg-theme-card text-theme-subtle cursor-not-allowed"
-                                    }`}
-                                >
-                                    {isClaiming ? (
-                                        <LoadingSpinner size="sm" />
-                                    ) : (
-                                        <>
-                                            <Gift className="w-5 h-5 mr-2" />
-                                            {selectedCanClaim ? `Claim for #${selectedKittyId}` : "Select a Freg"}
-                                        </>
-                                    )}
-                                </Button>
                             </div>
                         </div>
                     )}
@@ -672,17 +792,29 @@ export default function MyKittiesSection(): React.JSX.Element {
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                             {kitties.map((kitty) => {
                                 const hasClaimable = canClaim(kitty.tokenId)
-                                const isSelected = selectedKittyId === kitty.tokenId
-                                const isFlipped = flippedCards.has(kitty.tokenId)
+                                const isSelected = selectedCard === kitty.tokenId && hasClaimable
+                                const isFlipped = selectedCard === kitty.tokenId && !hasClaimable
 
                                 return (
                                     <div
                                         key={kitty.tokenId}
-                                        className={`cursor-pointer transition-transform ${
-                                            isSelected ? "scale-105" : "hover:scale-102"
-                                        }`}
+                                        className="cursor-pointer transition-all duration-300 relative"
+                                        style={isSelected ? {
+                                            transform: 'scale(1.06)',
+                                            filter: `drop-shadow(0 0 10px ${kitty.bodyColor}99) drop-shadow(0 0 20px ${kitty.bodyColor}55)`,
+                                        } : {}}
                                         onClick={() => handleKittyClick(kitty.tokenId)}
                                     >
+                                        {/* Pokemon-card pop-out background */}
+                                        {isSelected && (
+                                            <div
+                                                className="absolute inset-0 rounded-2xl -z-10 -m-2"
+                                                style={{
+                                                    background: `radial-gradient(ellipse at 50% 40%, ${kitty.bodyColor}55 0%, ${kitty.bodyColor}22 50%, transparent 80%)`,
+                                                    border: `2px solid ${kitty.bodyColor}88`,
+                                                }}
+                                            />
+                                        )}
                                         {/* Flip container - only wraps the image area */}
                                         <div
                                             className="relative"
@@ -697,16 +829,13 @@ export default function MyKittiesSection(): React.JSX.Element {
                                             >
                                                 {/* Front - Freg Image */}
                                                 <div
-                                                    className={`overflow-hidden rounded-xl bg-white ${
-                                                        isSelected ? "ring-2 ring-theme" : ""
-                                                    }`}
+                                                    className="overflow-hidden rounded-xl bg-white relative"
                                                     style={{
                                                         aspectRatio: '617.49 / 644.18',
                                                         backfaceVisibility: 'hidden'
                                                     }}
                                                 >
                                                     <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
-                                                    {/* Claimable indicator */}
                                                     {hasClaimable && (
                                                         <div className="absolute top-2 right-2 z-10">
                                                             <div className="bg-theme-primary rounded-full p-1.5 animate-pulse">
@@ -773,24 +902,41 @@ export default function MyKittiesSection(): React.JSX.Element {
                                                         <div className="border-t border-theme-muted/30 pt-1 mt-1">
                                                             <p className="text-[9px] text-theme-muted font-righteous text-center">Burn value:</p>
                                                             <p className="text-[10px] text-theme-primary font-bangers text-center truncate">
-                                                                {redeemETH} ETH + {redeemCoin} FROG
+                                                                {redeemETH} ETH{redeemCoin && redeemCoin !== "0" ? ` + ${redeemCoin} $FREG` : ""}
                                                             </p>
                                                         </div>
                                                     )}
                                                     <button
-                                                        className="mt-auto w-full text-[10px] bg-red-500/80 hover:bg-red-500 text-white rounded py-1 font-bangers transition-colors cursor-pointer"
+                                                        className={`mt-auto w-full text-[10px] text-white rounded py-1 font-bangers transition-colors ${
+                                                            liquidityActive ? "bg-red-500/80 hover:bg-red-500 cursor-pointer" : "bg-gray-500/50 cursor-not-allowed opacity-50"
+                                                        }`}
+                                                        disabled={!liquidityActive}
                                                         onClick={(e) => { e.stopPropagation(); handleBurn(kitty.tokenId) }}
                                                     >
-                                                        <Flame className="w-3 h-3 inline mr-0.5" />Burn & Redeem
+                                                        <Flame className="w-3 h-3 inline mr-0.5" />{liquidityActive ? "Burn & Redeem" : "Redeem Inactive"}
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Token ID - outside flip area */}
+                                        {/* Token ID + claim button - outside flip area */}
                                         <p className="font-bangers text-lg text-theme-primary text-center mt-2">
                                             #{kitty.tokenId}
                                         </p>
+                                        {((isSelected && hasClaimable) || claimingTokenIds.has(kitty.tokenId)) && (
+                                            <div className="overflow-hidden">
+                                                <button
+                                                    disabled={claimingTokenIds.has(kitty.tokenId)}
+                                                    className={`mt-1 w-full text-[11px] rounded-lg py-1.5 font-bangers transition-colors flex items-center justify-center gap-1 animate-slide-down ${
+                                                        claimingTokenIds.has(kitty.tokenId) ? "bg-theme-primary/50 cursor-not-allowed text-white/60" : "bg-theme-primary hover:brightness-110 cursor-pointer text-theme-button-text"
+                                                    }`}
+                                                    onClick={(e) => { e.stopPropagation(); handleClaim(kitty.tokenId) }}
+                                                >
+                                                    <Gift className="w-3 h-3" />
+                                                    {claimingTokenIds.has(kitty.tokenId) ? "Claiming..." : "Claim Item"}
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 )
                             })}
@@ -814,14 +960,17 @@ export default function MyKittiesSection(): React.JSX.Element {
                                         <CarouselCard
                                             key={`row1-${kitty.tokenId}-${index}`}
                                             kitty={kitty}
-                                            isSelected={selectedKittyId === kitty.tokenId}
-                                            isFlipped={flippedCards.has(kitty.tokenId)}
+                                            isFlipped={selectedCard === kitty.tokenId && !canClaim(kitty.tokenId)}
                                             hasClaimable={canClaim(kitty.tokenId)}
+                                            isExpanded={selectedCard === kitty.tokenId && canClaim(kitty.tokenId)}
                                             onClick={() => handleKittyClick(kitty.tokenId)}
                                             traitsConfig={traitsConfig}
                                             redeemETH={redeemETH}
                                             redeemCoin={redeemCoin}
+                                            liquidityActive={liquidityActive}
                                             onBurn={handleBurn}
+                                            onClaim={handleClaim}
+                                            claimingTokenIds={claimingTokenIds}
                                         />
                                     ))}
                                 </div>
@@ -841,14 +990,17 @@ export default function MyKittiesSection(): React.JSX.Element {
                                         <CarouselCard
                                             key={`row2-${kitty.tokenId}-${index}`}
                                             kitty={kitty}
-                                            isSelected={selectedKittyId === kitty.tokenId}
-                                            isFlipped={flippedCards.has(kitty.tokenId)}
+                                            isFlipped={selectedCard === kitty.tokenId && !canClaim(kitty.tokenId)}
                                             hasClaimable={canClaim(kitty.tokenId)}
+                                            isExpanded={selectedCard === kitty.tokenId && canClaim(kitty.tokenId)}
                                             onClick={() => handleKittyClick(kitty.tokenId)}
                                             traitsConfig={traitsConfig}
                                             redeemETH={redeemETH}
                                             redeemCoin={redeemCoin}
+                                            liquidityActive={liquidityActive}
                                             onBurn={handleBurn}
+                                            onClaim={handleClaim}
+                                            claimingTokenIds={claimingTokenIds}
                                         />
                                     ))}
                                 </div>
@@ -973,7 +1125,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                         <div className="mb-4">
                                             <input
                                                 type="range" min="0" max="360" value={hue}
-                                                onChange={(e) => setHue(Number(e.target.value))}
+                                                onChange={(e) => { const newHue = Number(e.target.value); setHue(newHue); setNewColor(hslToHex(newHue, 80, greyscale)) }}
                                                 className="w-full h-4 rounded-full appearance-none cursor-pointer"
                                                 style={{
                                                     background: `linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))`,
@@ -984,12 +1136,26 @@ export default function MyKittiesSection(): React.JSX.Element {
                                                 input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: white; border: 3px solid #000; box-shadow: 0 2px 6px rgba(0,0,0,0.3); cursor: pointer; }
                                             `}</style>
                                         </div>
+                                        <div className="mb-4">
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="100"
+                                                value={greyscale}
+                                                onChange={(e) => handleGreyscaleChange(Number(e.target.value))}
+                                                className="w-full h-4 rounded-full appearance-none cursor-pointer"
+                                                style={{
+                                                    background: `linear-gradient(to right, #000000, hsl(${hue}, 80%, 50%), #FFFFFF)`,
+                                                }}
+                                                aria-label="Greyscale slider"
+                                            />
+                                        </div>
                                         <div className="grid grid-cols-6 gap-2 mb-4">
                                             {paletteColors.map((hex, index) => (
                                                 <button
                                                     key={`${hue}-${index}`}
                                                     onClick={() => setNewColor(hex)}
-                                                    className={`w-full aspect-square rounded-lg transition-all duration-200 hover:scale-110 hover:z-10 relative ${
+                                                    className={`w-full aspect-square rounded-lg cursor-pointer transition-all duration-200 hover:scale-110 hover:z-10 relative ${
                                                         newColor === hex ? "ring-4 ring-white ring-offset-2 ring-offset-black/40 scale-110 z-10" : "ring-1 ring-white/20"
                                                     }`}
                                                     style={{ backgroundColor: hex }}
@@ -1054,7 +1220,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                     <div className="bg-theme-card/50 border border-theme-muted/30 rounded-xl p-3 my-2">
                         <p className="font-righteous text-xs text-theme-muted text-center mb-1">You will receive:</p>
                         <p className="font-bangers text-lg text-theme-primary text-center">
-                            {redeemETH} ETH + {redeemCoin} FREGCOIN
+                            {redeemETH} ETH{redeemCoin && redeemCoin !== "0" ? ` + ${redeemCoin} $FREG` : ""}
                         </p>
                     </div>
                     <DialogFooter className="flex gap-3 sm:justify-center">
@@ -1080,9 +1246,10 @@ export default function MyKittiesSection(): React.JSX.Element {
                 isOpen={showModal}
                 onClose={() => setShowModal(false)}
                 title={isModalLoading ? (modalData.isBurn ? "Burning..." : "Claiming...") : modalData.success ? (modalData.isBurn ? "Burned!" : "Item Claimed!") : "Error"}
-                description={isModalLoading ? (modalData.isBurn ? "Please wait while your Freg is being burned" : "Please wait while your item is being claimed") : modalData.message}
+                description={isModalLoading ? (modalData.isBurn ? "Please wait while your Freg is being burned" : CLAIM_MESSAGES[claimMessageIndex]) : modalData.message}
                 success={modalData.success}
                 loading={isModalLoading}
+                canSkip={claimTxSubmitted && !modalData.isBurn}
             >
                 {!isModalLoading && modalData.success && modalData.itemType !== undefined && modalData.itemTokenId !== undefined && (
                     <div className="flex flex-col items-center gap-2">
@@ -1101,35 +1268,93 @@ export default function MyKittiesSection(): React.JSX.Element {
                     <Card className="bg-black/95 border-2 border-yellow-400 rounded-2xl max-w-lg w-full">
                         <CardContent className="p-6">
                             <p className="font-bangers text-2xl text-yellow-400 text-center mb-4">Confirm Action</p>
-                            {selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE ? (
-                                <>
-                                    <p className="font-righteous text-white/70 text-center mb-6">{getConfirmMessage()}</p>
-                                    <div className="flex items-center justify-center gap-6 mb-6">
-                                        <div className="text-center">
-                                            <p className="font-righteous text-white/50 text-sm mb-2">Before</p>
-                                            <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                                <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
+                            {(() => {
+                                const previewProps = selectedItem.itemType !== ITEM_TYPES.COLOR_CHANGE ? getPreviewProps(selectedKitty, selectedItem) : null
+                                const isRandomItem = selectedItem.itemType === ITEM_TYPES.HEAD_REROLL
+
+                                if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) {
+                                    // Branch A: Color Change — before/after with new color
+                                    return (
+                                        <>
+                                            <p className="font-righteous text-white/70 text-center mb-6">{getConfirmMessage()}</p>
+                                            <div className="flex items-center justify-center gap-6 mb-6">
+                                                <div className="text-center">
+                                                    <p className="font-righteous text-white/50 text-sm mb-2">Before</p>
+                                                    <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                        <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
+                                                    </div>
+                                                </div>
+                                                <div className="text-3xl text-yellow-400">&rarr;</div>
+                                                <div className="text-center">
+                                                    <p className="font-righteous text-lime-400 text-sm mb-2">After</p>
+                                                    <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                        <KittyRenderer {...selectedKitty} bodyColor={newColor} size="sm" className="w-full h-full" />
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className="text-3xl text-yellow-400">&rarr;</div>
-                                        <div className="text-center">
-                                            <p className="font-righteous text-lime-400 text-sm mb-2">After</p>
-                                            <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                                <KittyRenderer {...selectedKitty} bodyColor={newColor} size="sm" className="w-full h-full" />
+                                        </>
+                                    )
+                                } else if (previewProps) {
+                                    // Branch B: Deterministic items — before/after with trait preview
+                                    return (
+                                        <>
+                                            <p className="font-righteous text-white/70 text-center mb-6">{getConfirmMessage()}</p>
+                                            <div className="flex items-center justify-center gap-6 mb-6">
+                                                <div className="text-center">
+                                                    <p className="font-righteous text-white/50 text-sm mb-2">Before</p>
+                                                    <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                        <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
+                                                    </div>
+                                                </div>
+                                                <div className="text-3xl text-yellow-400">&rarr;</div>
+                                                <div className="text-center">
+                                                    <p className="font-righteous text-lime-400 text-sm mb-2">After</p>
+                                                    <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                        <KittyRenderer {...selectedKitty} {...previewProps} size="sm" className="w-full h-full" />
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="flex justify-center mb-4">
-                                        <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
-                                            <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
-                                        </div>
-                                    </div>
-                                    <p className="font-righteous text-white/70 text-center mb-6">{getConfirmMessage()}</p>
-                                </>
-                            )}
+                                        </>
+                                    )
+                                } else if (isRandomItem) {
+                                    // Branch C: Random items — show the affected trait before + dice mystery after
+                                    const headSrc = selectedKitty.head > 22
+                                        ? `/frogz/from_items/head/${selectedKitty.head - 22}.svg`
+                                        : `/frogz/default/head/${selectedKitty.head}.svg`
+                                    return (
+                                        <>
+                                            <p className="font-righteous text-white/70 text-center mb-6">{getConfirmMessage()}</p>
+                                            <div className="flex items-center justify-center gap-6 mb-6">
+                                                <div className="text-center">
+                                                    <p className="font-righteous text-white/50 text-sm mb-2">Before</p>
+                                                    <div className="overflow-hidden rounded-lg bg-black w-32 flex items-center justify-center" style={{ aspectRatio: '1' }}>
+                                                        <img src={headSrc} alt="Current head trait" className="w-full h-full object-contain" />
+                                                    </div>
+                                                </div>
+                                                <div className="text-3xl text-yellow-400">&rarr;</div>
+                                                <div className="text-center">
+                                                    <p className="font-righteous text-white/50 text-sm mb-2">After</p>
+                                                    <div className="overflow-hidden rounded-lg bg-black w-32 flex items-center justify-center" style={{ aspectRatio: '1' }}>
+                                                        <span className="text-4xl font-bangers text-yellow-500">?</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )
+                                } else {
+                                    // Branch D: Fallback — single frog + text
+                                    return (
+                                        <>
+                                            <div className="flex justify-center mb-4">
+                                                <div className="overflow-hidden rounded-lg bg-white w-32" style={{ aspectRatio: '617.49 / 644.18' }}>
+                                                    <KittyRenderer {...selectedKitty} size="sm" className="w-full h-full" />
+                                                </div>
+                                            </div>
+                                            <p className="font-righteous text-white/70 text-center mb-6">{getConfirmMessage()}</p>
+                                        </>
+                                    )
+                                }
+                            })()}
                             <div className="flex gap-4">
                                 <Button onClick={() => setShowConfirmModal(false)} className="flex-1 py-3 rounded-xl font-bangers text-lg bg-gray-600 hover:bg-gray-500 text-white">Cancel</Button>
                                 <Button onClick={handleConfirmApply} className="flex-1 py-3 rounded-xl font-bangers text-lg btn-theme-primary">Confirm</Button>
@@ -1143,14 +1368,16 @@ export default function MyKittiesSection(): React.JSX.Element {
             <ResultModal
                 isOpen={showItemResultModal}
                 onClose={() => { setShowItemResultModal(false); setResultKitty(null) }}
-                title={isApplying ? "Applying..." : itemModalData.success ? "Item Applied!" : "Error"}
-                description={isApplying ? "Please wait while your item is being applied" : itemModalData.success ? undefined : itemModalData.message}
+                title={isApplying ? (resultWasRandom ? "Rolling..." : "Applying...") : itemModalData.success ? "Item Applied!" : "Error"}
+                description={isApplying ? (resultWasRandom ? REROLL_MESSAGES[rerollMessageIndex] : "Please wait while your item is being applied") : itemModalData.success ? undefined : itemModalData.message}
                 success={itemModalData.success}
                 loading={isApplying}
+                reveal={resultWasRandom}
+                revealColor={resultKitty?.bodyColor}
             >
                 {!isApplying && itemModalData.success && resultKitty && (
                     <div className="flex justify-center">
-                        <div className="overflow-hidden rounded-xl bg-white" style={{ aspectRatio: '617.49 / 644.18', width: '256px' }}>
+                        <div className={`overflow-hidden rounded-xl bg-white ${resultWasRandom ? 'animate-reveal-glow' : ''}`} style={{ aspectRatio: '617.49 / 644.18', width: '256px', ...(resultWasRandom ? { '--glow-color': resultKitty.bodyColor } as React.CSSProperties : {}) }}>
                             <KittyRenderer
                                 bodyColor={resultKitty.bodyColor}
                                 background={resultKitty.background}

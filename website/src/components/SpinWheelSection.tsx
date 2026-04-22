@@ -2,14 +2,70 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { useAppKitAccount } from "@reown/appkit/react"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog"
 import { useContracts, useOwnedItems, useSpinTokenBalance } from "../hooks"
+import { waitForEvent } from "../lib/waitForEvent"
 import ItemCard from "./ItemCard"
-import { SPIN_THE_WHEEL_ADDRESS } from "../config/contracts"
-import { Coins, RotateCw, X, Sparkles } from "lucide-react"
+import { ITEM_TYPE_NAMES, ITEM_TYPES, SPIN_THE_WHEEL_ADDRESS } from "../config/contracts"
+import { CircleHelp, RotateCw, X, Lock } from "lucide-react"
 
 // Prize types from contract
 const PRIZE_MINTPASS = 1
 const PRIZE_ITEM = 2
+const SPIN_COST = 1
+
+const SPINNING_MESSAGES = [
+    "What happens in Freg Vegas, stays in Freg vegas...",
+    "The wheel is turning...",
+    "Round and round she goes...",
+    "Where it stops, nobody knows...",
+    "Too weird to live, and too rare to die",
+    "Gud Tek, Not fast Tek...",
+    "Feeling lucky today?",
+    "Come on, big money!",
+    "The house always... wait.",
+    "Stars aligning...",
+]
+
+type PrizeInfoEntry = {
+  key: string
+  label: string
+  percentage: number
+  description: string
+}
+
+const FALLBACK_PRIZE_INFO: PrizeInfoEntry[] = [
+{
+  key: "mintpass",
+  label: "Mint Pass",
+  percentage: 78,
+  description: "An ERC1155 token that grants access to mint a Freg in the whitelist phase."
+},
+{
+  key: "chest",
+  label: "Treasure Chest",
+  percentage: 20,
+  description: "Can be burned later to claim $FREG tokens."
+},
+{
+  key: "hoodie",
+  label: "Hoodie",
+  percentage: 1,
+  description: "Lets you equip a hoodie trait on your Freg."
+},
+{
+  key: "frogsuit",
+  label: "Frogsuit",
+  percentage: 1,
+  description: "Lets you equip a frog suit trait on your Freg."
+}
+]
 
 // Wheel segment mapping — measured from the actual wheel image (clockwise from top).
 // Segments are NOT equal-sized. The pointer is at 0° (top).
@@ -38,6 +94,83 @@ interface SpinResult {
   won: boolean
   prizeType: number
   itemType: number
+}
+
+function formatPercentage(value: number): string {
+  return Number.isInteger(value) ? `${value}%` : `${value.toFixed(1)}%`
+}
+
+function buildPrizeInfoEntries(
+  loseWeight: number,
+  mintPassWeight: number,
+  itemWeights: Map<number, number>
+): PrizeInfoEntry[] {
+  const totalWeight = loseWeight + mintPassWeight + Array.from(itemWeights.values()).reduce((sum, value) => sum + value, 0)
+  if (totalWeight <= 0) {
+    return FALLBACK_PRIZE_INFO
+  }
+
+  const toPercentage = (weight: number) => (weight * 100) / totalWeight
+  const entries: PrizeInfoEntry[] = []
+
+  if (mintPassWeight > 0) {
+    entries.push({
+      key: "mintpass",
+      label: "Mint Pass",
+      percentage: toPercentage(mintPassWeight),
+      description: "An ERC1155 token that grants access to mint a Freg in the whitelist phase."
+    })
+  }
+
+  const preferredItemOrder = [
+    ITEM_TYPES.TREASURE_CHEST,
+    ITEM_TYPES.HOODIE,
+    ITEM_TYPES.FROGSUIT
+  ]
+
+  const itemDescriptions: Record<number, string> = {
+    [ITEM_TYPES.TREASURE_CHEST]: "Can be burned later to claim $FREG tokens.",
+    [ITEM_TYPES.HOODIE]: "Lets you equip a hoodie trait on your Freg.",
+    [ITEM_TYPES.FROGSUIT]: "Lets you equip a frog suit trait on your Freg."
+  }
+
+  for (const itemType of preferredItemOrder) {
+    const weight = itemWeights.get(itemType) || 0
+    if (weight <= 0) {
+      continue
+    }
+
+    entries.push({
+      key: `item-${itemType}`,
+      label: ITEM_TYPE_NAMES[itemType] || `Item ${itemType}`,
+      percentage: toPercentage(weight),
+      description: itemDescriptions[itemType] || "A prize item from the wheel."
+    })
+  }
+
+  for (const [itemType, weight] of itemWeights.entries()) {
+    if (preferredItemOrder.includes(itemType) || weight <= 0) {
+      continue
+    }
+
+    entries.push({
+      key: `item-${itemType}`,
+      label: ITEM_TYPE_NAMES[itemType] || `Item ${itemType}`,
+      percentage: toPercentage(weight),
+      description: "A prize item from the wheel."
+    })
+  }
+
+  if (loseWeight > 0) {
+    entries.push({
+      key: "lose",
+      label: "No Prize",
+      percentage: toPercentage(loseWeight),
+      description: "A losing spin."
+    })
+  }
+
+  return entries
 }
 
 function randomAngleInSegment(segment: typeof WHEEL_SEGMENTS[number]): number {
@@ -125,14 +258,34 @@ function StarBurst() {
   )
 }
 
-export default function SpinWheelSection(): React.JSX.Element | null {
-  const { isConnected } = useAppKitAccount()
+interface SpinWheelProps {
+  spinActive: boolean
+}
+
+export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.JSX.Element | null {
+  const { address, isConnected } = useAppKitAccount()
   const contracts = useContracts()
   const { balance, isLoading: balanceLoading, refetch: refetchBalance } = useSpinTokenBalance()
   const { refetch: refetchItems } = useOwnedItems()
 
   const [spinPhase, setSpinPhase] = useState<SpinPhase>("idle")
   const [spinResult, setSpinResult] = useState<SpinResult | null>(null)
+  const [spinError, setSpinError] = useState<string | null>(null)
+  const [isInfoOpen, setIsInfoOpen] = useState(false)
+  const [prizeInfo, setPrizeInfo] = useState<PrizeInfoEntry[]>(FALLBACK_PRIZE_INFO)
+  const [isPrizeInfoLoading, setIsPrizeInfoLoading] = useState(false)
+  const [spinningMessageIndex, setSpinningMessageIndex] = useState(0)
+
+  useEffect(() => {
+    if (spinPhase !== "spinning") {
+      setSpinningMessageIndex(0)
+      return
+    }
+    const interval = window.setInterval(() => {
+      setSpinningMessageIndex(i => (i + 1) % SPINNING_MESSAGES.length)
+    }, 3000)
+    return () => window.clearInterval(interval)
+  }, [spinPhase])
 
   // Wheel animation refs (decoupled from React render cycle for smooth 60fps)
   const wheelImgRef = useRef<HTMLImageElement>(null)
@@ -254,11 +407,63 @@ export default function SpinWheelSection(): React.JSX.Element | null {
     return () => stopAnimation()
   }, [stopAnimation])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadPrizeInfo() {
+      if (!contracts?.spinTheWheel?.read) {
+        setPrizeInfo(FALLBACK_PRIZE_INFO)
+        return
+      }
+
+      setIsPrizeInfoLoading(true)
+
+      try {
+        const [loseWeightRaw, mintPassWeightRaw, itemPrizeResult] = await Promise.all([
+          contracts.spinTheWheel.read.loseWeight(),
+          contracts.spinTheWheel.read.mintPassWeight(),
+          contracts.spinTheWheel.read.getAllItemPrizes()
+        ])
+
+        if (cancelled) {
+          return
+        }
+
+        const loseWeight = Number(loseWeightRaw)
+        const mintPassWeight = Number(mintPassWeightRaw)
+        const itemTypes = itemPrizeResult[0].map((value: bigint) => Number(value))
+        const itemWeights = itemPrizeResult[1].map((value: bigint) => Number(value))
+        const weightMap = new Map<number, number>()
+
+        for (let index = 0; index < itemTypes.length; index += 1) {
+          weightMap.set(itemTypes[index], itemWeights[index])
+        }
+
+        setPrizeInfo(buildPrizeInfoEntries(loseWeight, mintPassWeight, weightMap))
+      } catch (error) {
+        if (!cancelled) {
+          setPrizeInfo(FALLBACK_PRIZE_INFO)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsPrizeInfoLoading(false)
+        }
+      }
+    }
+
+    void loadPrizeInfo()
+
+    return () => {
+      cancelled = true
+    }
+  }, [contracts])
+
   const handleSpin = useCallback(async () => {
-    if (!contracts || !contracts.spinTheWheel || balance < 1) return
+    if (!contracts || !contracts.spinTheWheel || !address || balance < SPIN_COST) return
 
     setSpinPhase("confirming")
     setSpinResult(null)
+    setSpinError(null)
 
     try {
       const contract = await contracts.spinTheWheel.write()
@@ -269,33 +474,45 @@ export default function SpinWheelSection(): React.JSX.Element | null {
       startSpinLoop()
 
       const receipt = await tx.wait()
-      const result = parseSpinResultEvent(receipt)
+      let result = parseSpinResultEvent(receipt)
 
-      setSpinResult(result)
+      if (!result) {
+        const spinEvent = await waitForEvent({
+          contract: contracts.spinTheWheel.read,
+          filter: contracts.spinTheWheel.read.filters.SpinResult(address),
+          fromBlock: receipt.blockNumber,
+        })
 
-      // Trigger the slowdown — the rAF loop handles the rest
-      // and will set phase to "revealing" when done
-      setSpinPhase("decelerating")
-      if (result) {
-        triggerDeceleration(result)
+        result = {
+          won: Boolean(spinEvent.args.won),
+          prizeType: Number(spinEvent.args.prizeType),
+          itemType: Number(spinEvent.args.itemType),
+        }
       }
 
+      setSpinResult(result)
+      setSpinPhase("decelerating")
+      triggerDeceleration(result)
+
       // Refresh balance and items in the background
-      Promise.all([refetchBalance(), refetchItems()])
+      void Promise.all([refetchBalance(), refetchItems()])
     } catch (err: any) {
       stopAnimation()
       if (err.code === 4001 || err.code === "ACTION_REJECTED") {
         setSpinPhase("idle")
       } else {
+        const message = err.reason || err.shortMessage || err.message || "Transaction failed"
+        setSpinError(message)
         setSpinResult(null)
         setSpinPhase("result")
       }
     }
-  }, [contracts, balance, refetchBalance, refetchItems, startSpinLoop, triggerDeceleration, stopAnimation])
+  }, [address, contracts, balance, refetchBalance, refetchItems, startSpinLoop, triggerDeceleration, stopAnimation])
 
   const handleCloseResult = () => {
     setSpinPhase("idle")
     setSpinResult(null)
+    setSpinError(null)
   }
 
   // Transition from "revealing" (wheel stopped) to "result" (modal appears)
@@ -307,6 +524,8 @@ export default function SpinWheelSection(): React.JSX.Element | null {
   }, [spinPhase])
 
   const isSpinning = spinPhase === "confirming" || spinPhase === "spinning" || spinPhase === "decelerating"
+  const canSpin = balance >= SPIN_COST
+  const displayedBalance = balanceLoading ? "..." : String(balance)
 
   return (
     <section
@@ -318,73 +537,206 @@ export default function SpinWheelSection(): React.JSX.Element | null {
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: "url('/vegas-bg.png')" }}
       />
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 pt-24 pb-8">
-        <div className="mx-auto relative z-10 max-w-6xl">
-
-      {!isConnected ? (
-        <Card className="bg-black/40 border-4 border-purple-400 rounded-3xl">
-          <CardContent className="p-12 text-center">
-            <p className="font-righteous text-xl text-white/70">
-              Connect your wallet to spin the wheel
+      {/* Spinning message banner — slides down from top, covers top of wheel only */}
+      <div
+        className={`absolute left-0 right-0 z-30 transition-all duration-500 ease-out ${
+          isSpinning ? "top-16 opacity-100" : "-top-20 opacity-0 pointer-events-none"
+        }`}
+      >
+        <div className="mx-auto max-w-sm px-4">
+          <div className="rounded-b-2xl px-6 py-3 text-center"
+            style={{
+              background: "linear-gradient(180deg, #1a0a2e 0%, #2b1237 80%, #2b1237cc 100%)",
+              border: "2px solid rgba(245,200,66,0.6)",
+              borderTop: "none",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+            }}
+          >
+            <p className="font-bangers text-xl md:text-2xl text-yellow-300 leading-snug">
+              {spinPhase === "confirming"
+                ? "Confirm in wallet..."
+                : SPINNING_MESSAGES[spinningMessageIndex]}
             </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="flex flex-col items-center gap-8 relative">
+          </div>
+        </div>
+      </div>
 
-          {/* Spin Wheel: rotating disc + static frame overlay */}
-          <div className="relative w-80 h-80 md:w-140 md:h-140 2xl:w-[44rem] 2xl:h-[44rem] mt-40 md:mt-0 2xl:mt-60">
-            {/* Rotating wheel disc (behind the frame) */}
-            <div
-              ref={wheelImgRef}
-              className="absolute inset-0 w-full h-full"
-              style={{
-                transform: `rotate(${currentAngleRef.current}deg)`,
-                transformOrigin: "50% 45%",
-              }}
-            >
+      {/* Wheel area — scrollable, centered */}
+      <div className="flex-1 overflow-y-auto flex items-center justify-center px-4 pt-20 pb-2 relative z-10">
+        {!spinActive ? (
+          <Card className="bg-black/80 border-4 border-yellow-400 rounded-3xl">
+            <CardContent className="p-12 text-center">
+              <Lock className="w-12 h-12 mx-auto mb-4 text-yellow-300 opacity-80" />
+              <p className="font-bangers text-3xl text-yellow-300 mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                Spin not available yet
+              </p>
+              <p className="font-righteous text-lg text-white/80 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                The wheel is coming soon — check back later!
+              </p>
+            </CardContent>
+          </Card>
+        ) : !isConnected ? (
+          <Card className="bg-black/80 border-4 border-purple-400 rounded-3xl">
+            <CardContent className="p-12 text-center">
+              <p className="font-righteous text-xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                Connect your wallet to spin the wheel
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="flex flex-col items-center gap-4">
+            {/* Spin Wheel: rotating disc + static frame overlay */}
+            <div className="relative w-72 h-72 sm:w-96 sm:h-96 md:w-[30rem] md:h-[30rem] lg:w-[36rem] lg:h-[36rem]">
+              {/* Rotating wheel disc (behind the frame) */}
+              <div
+                ref={wheelImgRef}
+                className="absolute inset-0 w-full h-full"
+                style={{
+                  transform: `rotate(${currentAngleRef.current}deg)`,
+                  transformOrigin: "50% 45%",
+                }}
+              >
+                <img
+                  src="/wheel14x.png"
+                  alt="Spin wheel disc"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              {/* Static frame overlay (pointer, border, center hub, stand) */}
               <img
-                src="/wheel14x.png"
-                alt="Spin wheel disc"
-                className="w-full h-full object-contain"
+                src="/wheel-frame.png"
+                alt="Wheel frame"
+                className="absolute inset-0 w-full h-full object-contain z-10 pointer-events-none"
               />
             </div>
-            {/* Static frame overlay (pointer, border, center hub, stand) */}
-            <img
-              src="/wheel-frame.png"
-              alt="Wheel frame"
-              className="absolute inset-0 w-full h-full object-contain z-10 pointer-events-none"
-            />
+
+          </div>
+        )}
+      </div>
+
+      {/* Slot machine control bar */}
+      <div className="relative z-20 flex-shrink-0"
+        style={{
+          background: "linear-gradient(180deg, #3d1a00 0%, #7c3a00 30%, #c47a00 60%, #e8a800 80%, #f5c842 100%)",
+          borderTop: "4px solid #f5c842",
+          boxShadow: "0 -6px 24px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.15)",
+        }}
+      >
+        {/* Inner ridge line */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/20" />
+
+        <div className="flex items-center justify-between gap-2 px-4 py-3 md:px-8 md:py-4 max-w-4xl mx-auto">
+
+          {/* Left: Info button */}
+          <button
+            type="button"
+            onClick={() => setIsInfoOpen(true)}
+            className="flex items-center justify-center w-11 h-11 md:w-13 md:h-13 rounded-full border-2 border-[#3d1a00]/60 bg-[#2b1237] shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.4)] hover:bg-[#3a1849] transition-colors cursor-pointer"
+            aria-label="Wheel info"
+          >
+            <CircleHelp className="h-5 w-5 md:h-6 md:w-6 text-yellow-200" />
+          </button>
+
+          {/* Center: Big spin button — always visible */}
+          <div className="flex flex-col items-center -mt-8 md:-mt-10">
+            <button
+              onClick={spinPhase === "result" ? handleCloseResult : handleSpin}
+              disabled={!spinActive || isSpinning || spinPhase === "revealing" || !isConnected || (!canSpin && spinPhase !== "result")}
+              className="relative cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Spin the wheel"
+            >
+              {/* Outer ring */}
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center relative"
+                style={{
+                  background: "linear-gradient(135deg, #ff9a00 0%, #ff4500 50%, #cc2200 100%)",
+                  boxShadow: "0 0 0 4px #f5c842, 0 0 0 7px #c47a00, 0 8px 24px rgba(0,0,0,0.6), inset 0 2px 6px rgba(255,255,255,0.3)",
+                }}
+              >
+                {/* Orbiting glow dot */}
+                {isSpinning && (
+                  <span
+                    className="absolute w-3 h-3 rounded-full"
+                    style={{
+                      background: "radial-gradient(circle, #fff 0%, #ffe066 50%, transparent 100%)",
+                      boxShadow: "0 0 6px 3px #ffe066, 0 0 12px 5px #ff9900",
+                      top: "50%",
+                      left: "50%",
+                      marginTop: "-6px",
+                      marginLeft: "-6px",
+                      "--orbit-r": "36px",
+                      animation: "spin-orbit 1.2s linear infinite",
+                    } as React.CSSProperties}
+                  />
+                )}
+                {/* Inner button face */}
+                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center relative z-10"
+                  style={{
+                    background: "linear-gradient(135deg, #ff6030 0%, #cc2200 60%, #991500 100%)",
+                    boxShadow: "inset 0 3px 8px rgba(255,255,255,0.25), inset 0 -3px 6px rgba(0,0,0,0.4)",
+                  }}
+                >
+                  <span className={`font-bangers text-white leading-tight tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] ${
+                    !isSpinning && !canSpin && spinPhase !== "result" ? "text-xs md:text-sm" : "text-lg md:text-xl"
+                  }`}>
+                    {isSpinning
+                      ? (spinPhase === "confirming" ? "CONFIRM" : "SPINNING")
+                      : spinPhase === "result"
+                        ? (canSpin ? "SPIN AGAIN" : "CLOSE")
+                        : !canSpin
+                          ? "NO SPIN TOKENS"
+                          : "SPIN"}
+                  </span>
+                </div>
+              </div>
+            </button>
           </div>
 
-          {/* Spin Button */}
-          <Button
-            onClick={spinPhase === "result" ? handleCloseResult : handleSpin}
-            disabled={isSpinning || spinPhase === "revealing" || (spinPhase !== "result" && balance < 1)}
-            className="px-12 py-6 rounded-2xl font-bangers text-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSpinning ? (
-              <>
-                <RotateCw className="w-6 h-6 mr-2 animate-spin" />
-                {spinPhase === "confirming" ? "Confirm..." : "Spinning..."}
-              </>
-            ) : spinPhase === "result" ? (
-              balance > 0 ? "Spin Again!" : "Close"
-            ) : balance < 1 ? (
-              "No SpinTokens"
-            ) : (
-              <>
-      
-                Spin (1 SpinToken)
-              </>
-            )}
-          </Button>
-
-        </div>
-      )}
+          {/* Right: Coins display */}
+          <div className="flex items-center gap-1.5 rounded-full border-2 border-[#3d1a00]/60 bg-[#2b1237] px-3 py-1.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.4)]">
+            <img src="/spincoin.png" alt="SpinToken" className="h-6 w-6 md:h-8 md:w-8 object-contain" />
+            <span className="font-bangers text-xl md:text-3xl text-lime-300 leading-none tabular-nums">
+              {isConnected ? displayedBalance : "—"}
+            </span>
+          </div>
 
         </div>
       </div>
+
+      {/* Error Modal - appears when transaction fails */}
+      {spinPhase === "result" && !spinResult && spinError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center animate-backdrop-fade"
+          style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+          onClick={handleCloseResult}
+        >
+          <div
+            className="relative z-10 animate-spiral-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative rounded-3xl p-8 md:p-10 text-center max-w-sm mx-4"
+              style={{
+                background: "linear-gradient(135deg, #1e0533 0%, #2d1054 40%, #1a0a2e 100%)",
+                border: "3px solid rgba(239, 68, 68, 0.7)",
+              }}
+            >
+              <button
+                onClick={handleCloseResult}
+                className="absolute top-3 right-3 text-white/50 hover:text-white transition-colors z-20"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <p className="font-bangers text-4xl text-red-400 mb-4">Spin Failed</p>
+              <p className="font-righteous text-base text-white/75 mb-6">{spinError}</p>
+              <Button
+                onClick={handleCloseResult}
+                variant="ghost"
+                className="w-full px-8 py-3 rounded-2xl font-righteous text-base text-white/70 hover:text-white hover:bg-white/10"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Result Modal - appears after reveal delay */}
       {spinPhase === "result" && spinResult && (
@@ -458,7 +810,7 @@ export default function SpinWheelSection(): React.JSX.Element | null {
 
               {/* Action buttons */}
               <div className="relative z-10 flex flex-col gap-3">
-                {balance > 0 && (
+                {canSpin && (
                   <Button
                     onClick={() => { handleCloseResult(); setTimeout(handleSpin, 100) }}
                     className="w-full px-8 py-4 rounded-2xl font-bangers text-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
@@ -479,6 +831,46 @@ export default function SpinWheelSection(): React.JSX.Element | null {
           </div>
         </div>
       )}
+
+      <Dialog open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+        <DialogContent className="bg-[#12051f] border-2 border-yellow-300/60 text-white sm:max-w-xl">
+          <DialogHeader className="text-left">
+            <DialogTitle className="font-bangers text-4xl text-yellow-300">
+              Spin The Wheel
+            </DialogTitle>
+            <DialogDescription className="font-righteous text-white/75 text-base leading-relaxed">
+              Spin the wheel for a chance to win prizes. It costs {SPIN_COST} SpinToken to play.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+      
+
+            <div>
+              <div className="rounded-2xl border border-cyan-300/30 bg-black/25 p-4">
+                <div className="mb-3 flex items-center justify-between border-b border-cyan-300/20 pb-2">
+                  <p className="font-righteous text-xs uppercase tracking-[0.24em] text-cyan-100/70">Prizes</p>
+                  <p className="font-righteous text-xs uppercase tracking-[0.24em] text-cyan-100/70">Odds</p>
+                </div>
+                <div className="space-y-3">
+                  {prizeInfo.map((entry) => (
+                    <div key={entry.key} className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-bangers text-xl text-white">{entry.label}</p>
+                        <p className="font-righteous text-sm text-white/65">{entry.description}</p>
+                      </div>
+                      <div className="font-righteous text-2xl text-cyan-200 whitespace-nowrap tabular-nums">
+                        {formatPercentage(entry.percentage)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+       
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }

@@ -4,11 +4,17 @@ pragma solidity ^0.8.9;
 import {ERC721AC} from "@limitbreak/creator-token-standards/src/erc721c/ERC721AC.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./utils/BasicRoyalties.sol";
+import "./interfaces/IFregsRandomizer.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 interface IFregsMintPass {
     function burnForMint(address holder) external;
+    function refundMintPass(address holder) external;
+}
+
+interface IFregsItemsReader {
+    function hasClaimed(uint256 fregId) external view returns (bool);
 }
 
 interface ISVGRenderer {
@@ -38,9 +44,28 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     using Strings for uint256;
 
     ISVGRenderer public svgRenderer;
+    ISVGRenderer public mutationRenderer;
+    IFregsRandomizer public randomizer;
+    mapping(uint256 => bool) public isMutated;
+    mapping(uint256 => bool) public pendingHeadReroll;
+    mapping(uint256 => uint256) public pendingHeadRerollActionByTokenId;
+
+    struct PendingMint {
+        address minter;
+        bytes32 colorHash;
+        uint256 payment;
+        bool usedFreeMint;
+        bool usedMintPass;
+        bool active;
+    }
+
+    mapping(uint256 => PendingMint) private pendingMints;
+    mapping(uint256 => uint256) public mintActionByRequestId;
 
     uint256 private _tokenIdCounter;
-    uint256 private randomNonce;
+    uint256 public nextMintActionId;
+    uint256 public pendingMintCount;
+    uint256 public pendingHeadRerollCount;
 
     uint256 public mintPrice = 0.001 ether;
     uint256 public supply = 3000;
@@ -96,7 +121,21 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     );
 
     event TraitSet(uint256 indexed tokenId, uint256 traitType, uint256 traitValue);
+    event Mutated(uint256 indexed tokenId, address indexed owner);
     event BodyColorChanged(uint256 indexed tokenId, string oldColor, string newColor);
+    event MintRequested(uint256 indexed requestId, uint256 indexed actionId, address indexed owner, string bodyColor);
+    event HeadRerollRequested(
+        uint256 indexed requestId,
+        uint256 indexed actionId,
+        uint256 indexed tokenId,
+        address owner,
+        uint256 itemTokenId
+    );
+
+    modifier onlyRandomizer() {
+        require(address(randomizer) != address(0) && msg.sender == address(randomizer), "Only randomizer");
+        _;
+    }
 
     constructor(
         address royaltyReceiver_,
@@ -112,7 +151,10 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(_exists(tokenId), "Token does not exist");
 
-        string memory svg = svgRenderer.render(
+        bool mutated = isMutated[tokenId] && address(mutationRenderer) != address(0);
+        ISVGRenderer renderer = mutated ? mutationRenderer : svgRenderer;
+
+        string memory svg = renderer.render(
             bodyColor[tokenId],
             background[tokenId],
             body[tokenId],
@@ -122,7 +164,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         );
 
         // Build attributes
-        string memory attributes = _buildAttributes(tokenId);
+        string memory attributes = _buildAttributes(tokenId, mutated);
 
         // Build JSON with embedded SVG (no base64 encoding)
         // SVG uses single quotes so it can be embedded in JSON double-quoted strings
@@ -139,7 +181,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         );
     }
 
-    function _buildAttributes(uint256 tokenId) internal view returns (string memory) {
+    function _buildAttributes(uint256 tokenId, bool mutated) internal view returns (string memory) {
         // Background: 0=use color, >0=special background
         string memory attrs;
         if (background[tokenId] > 0) {
@@ -185,7 +227,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         attrs = string(abi.encodePacked(
             attrs,
             ',{"trait_type": "Mouth","value": "',
-            mouth[tokenId] == NONE_TRAIT ? "None" : svgRenderer.meta(TRAIT_MOUTH, mouth[tokenId]),
+            mouth[tokenId] == NONE_TRAIT ? "Normal" : svgRenderer.meta(TRAIT_MOUTH, mouth[tokenId]),
             '"}'
         ));
 
@@ -194,7 +236,21 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             attrs = string(abi.encodePacked(
                 attrs,
                 ',{"trait_type": "Belly","value": "',
-                belly[tokenId] == NONE_TRAIT ? "None" : svgRenderer.meta(TRAIT_BELLY, belly[tokenId]),
+                belly[tokenId] == NONE_TRAIT ? "Normal" : svgRenderer.meta(TRAIT_BELLY, belly[tokenId]),
+                '"}'
+            ));
+        }
+
+        if (mutated) {
+            attrs = string(abi.encodePacked(attrs, ',{"trait_type": "Mutated","value": "Yes"}'));
+        }
+
+        if (itemsContract != address(0)) {
+            bool claimed = IFregsItemsReader(itemsContract).hasClaimed(tokenId);
+            attrs = string(abi.encodePacked(
+                attrs,
+                ',{"trait_type": "Item Claimed","value": "',
+                claimed ? "Yes" : "No",
                 '"}'
             ));
         }
@@ -202,10 +258,26 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         return attrs;
     }
 
+    function _validateHexColor(string memory color) internal pure {
+        bytes memory b = bytes(color);
+        require(b.length == 7, "Color must be #RRGGBB");
+        require(b[0] == '#', "Color must start with #");
+        for (uint256 i = 1; i < 7; i++) {
+            bytes1 c = b[i];
+            require(
+                (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'),
+                "Invalid hex character"
+            );
+        }
+    }
+
     function mint(string memory _color) public payable nonReentrant {
-        require(_tokenIdCounter < supply, "Max supply reached");
+        _validateHexColor(_color);
+        require(address(randomizer) != address(0), "Randomizer not set");
+        require(_tokenIdCounter + pendingMintCount < supply, "Max supply reached");
 
         bool isFree = freeMints[msg.sender] > 0;
+        uint256 requiredPayment = 0;
 
         if (mintPhase == 0) {
             // Paused: only owner can mint
@@ -215,13 +287,15 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             if (!isFree) {
                 // Must have a mint pass — burn it, still pay ETH
                 require(mintPassContract != address(0), "Mint pass not configured");
+                requiredPayment = mintPrice;
+                require(msg.value >= requiredPayment, "Insufficient funds");
                 IFregsMintPass(mintPassContract).burnForMint(msg.sender);
-                require(msg.value >= mintPrice, "Insufficient funds");
             }
         } else {
             // Public: anyone can mint, free mint wallets still free
             if (!isFree) {
-                require(msg.value >= mintPrice, "Insufficient funds");
+                requiredPayment = mintPrice;
+                require(msg.value >= requiredPayment, "Insufficient funds");
             }
         }
 
@@ -229,75 +303,75 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             freeMints[msg.sender] -= 1;
         }
 
+        uint256 actionId = ++nextMintActionId;
+        pendingMints[actionId] = PendingMint({
+            minter: msg.sender,
+            colorHash: keccak256(bytes(_color)),
+            payment: requiredPayment,
+            usedFreeMint: isFree,
+            usedMintPass: mintPhase == 1 && !isFree,
+            active: true
+        });
+        pendingMintCount += 1;
+
+        uint256 requestId = randomizer.requestMint(msg.sender, _color, actionId);
+        if (pendingMints[actionId].active) {
+            mintActionByRequestId[requestId] = actionId;
+        }
+        emit MintRequested(requestId, actionId, msg.sender, _color);
+
+        uint256 refund = msg.value - requiredPayment;
+        if (refund > 0) {
+            payable(msg.sender).transfer(refund);
+        }
+    }
+
+    // Intentionally not nonReentrant so localhost mock VRF auto-fulfill can settle in the same tx.
+    function fulfillMint(
+        uint256 requestId,
+        uint256 actionId,
+        address minter,
+        string calldata _color,
+        uint256 randomWord
+    ) external onlyRandomizer {
+        PendingMint memory pending = pendingMints[actionId];
+        require(pending.active, "Unknown mint request");
+        require(pending.minter == minter, "Mint requester mismatch");
+        require(pending.colorHash == keccak256(bytes(_color)), "Mint color mismatch");
+
+        uint256 trackedActionId = mintActionByRequestId[requestId];
+        require(trackedActionId == 0 || trackedActionId == actionId, "Mint request mismatch");
+
+        delete pendingMints[actionId];
+        delete mintActionByRequestId[requestId];
+        pendingMintCount -= 1;
+
         uint256 newTokenId = _tokenIdCounter;
-        _safeMint(msg.sender, 1);
+        _mint(minter, 1);
         _tokenIdCounter += 1;
 
-        // Store body color (used for body and background when trait is 0)
         bodyColor[newTokenId] = _color;
-
-        // Background and body default to 0 (use color)
         background[newTokenId] = 0;
         body[newTokenId] = 0;
 
-        // Assign random base traits using weighted selection
-        head[newTokenId] = _getWeightedTrait(TRAIT_HEAD);
-        uint256 mouthRoll = _getWeightedTrait(TRAIT_MOUTH);
+        head[newTokenId] = _getWeightedTraitFromRandom(TRAIT_HEAD, _deriveRandom(randomWord, 0));
+        uint256 mouthRoll = _getWeightedTraitFromRandom(TRAIT_MOUTH, _deriveRandom(randomWord, 1));
         mouth[newTokenId] = mouthRoll == 0 ? NONE_TRAIT : mouthRoll;
-        uint256 bellyRoll = _getWeightedTrait(TRAIT_BELLY);
+        uint256 bellyRoll = _getWeightedTraitFromRandom(TRAIT_BELLY, _deriveRandom(randomWord, 2));
         belly[newTokenId] = bellyRoll == 0 ? NONE_TRAIT : bellyRoll;
 
-        emit FregMinted(
-            newTokenId,
-            msg.sender,
-            _color,
-            head[newTokenId],
-            mouth[newTokenId],
-            belly[newTokenId]
-        );
-    }
-
-    function _getRandom(uint256 max) internal returns (uint256) {
-        randomNonce++;
-        return
-            uint256(
-                keccak256(
-                    abi.encodePacked(
-                        block.timestamp,
-                        block.prevrandao,
-                        msg.sender,
-                        randomNonce,
-                        _tokenIdCounter
-                    )
-                )
-            ) % max;
-    }
-
-    function _getRandomForAddress(uint256 max, address _addr) internal returns (uint256) {
-        randomNonce++;
-        return
-            uint256(
-                keccak256(
-                    abi.encodePacked(
-                        block.timestamp,
-                        block.prevrandao,
-                        _addr,
-                        randomNonce,
-                        _tokenIdCounter
-                    )
-                )
-            ) % max;
+        emit FregMinted(newTokenId, minter, _color, head[newTokenId], mouth[newTokenId], belly[newTokenId]);
     }
 
     // Weighted trait selection using cumulative weights.
     // Returns trait ID (1-based). If the selected trait is the "none" trait for
     // this type, returns 0 instead.
-    function _getWeightedTrait(uint256 traitType) internal returns (uint256) {
+    function _getWeightedTraitFromRandom(uint256 traitType, uint256 randomValue) internal view returns (uint256) {
         uint256[] storage cumWeights = traitCumulativeWeights[traitType];
         uint256 len = cumWeights.length;
         require(len > 0, "No weights set");
         uint256 totalWeight = cumWeights[len - 1];
-        uint256 roll = _getRandom(totalWeight);
+        uint256 roll = randomValue % totalWeight;
         for (uint256 i = 0; i < len; i++) {
             if (roll < cumWeights[i]) {
                 uint256 traitId = i + 1;
@@ -307,27 +381,31 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         return len; // Fallback to last trait
     }
 
-    function _getWeightedTraitForAddress(uint256 traitType, address _addr) internal returns (uint256) {
-        uint256[] storage cumWeights = traitCumulativeWeights[traitType];
-        uint256 len = cumWeights.length;
-        require(len > 0, "No weights set");
-        uint256 totalWeight = cumWeights[len - 1];
-        uint256 roll = _getRandomForAddress(totalWeight, _addr);
-        for (uint256 i = 0; i < len; i++) {
-            if (roll < cumWeights[i]) {
-                uint256 traitId = i + 1;
-                return traitId == noneTraitId[traitType] ? 0 : traitId;
-            }
-        }
-        return len; // Fallback to last trait
+    function _deriveRandom(uint256 randomWord, uint256 salt) internal pure returns (uint256) {
+        return uint256(keccak256(abi.encode(randomWord, salt)));
     }
 
-    // Called by items contract to reroll head trait (uses weighted selection)
-    function rerollHead(uint256 tokenId, address sender) external {
+    function prepareHeadReroll(uint256 tokenId, address sender, uint256 actionId) external {
         require(msg.sender == itemsContract, "Only items contract");
+        require(actionId != 0, "Invalid action");
+        require(ownerOf(tokenId) == sender, "Not token owner");
+        require(pendingHeadRerollActionByTokenId[tokenId] == 0, "Head reroll pending");
+
+        pendingHeadReroll[tokenId] = true;
+        pendingHeadRerollActionByTokenId[tokenId] = actionId;
+        pendingHeadRerollCount += 1;
+    }
+
+    function fulfillHeadReroll(uint256 actionId, address sender, uint256 tokenId, uint256 randomWord) external {
+        require(msg.sender == itemsContract, "Only items contract");
+        require(pendingHeadReroll[tokenId], "No pending head reroll");
+        require(pendingHeadRerollActionByTokenId[tokenId] == actionId, "Head reroll request mismatch");
         require(ownerOf(tokenId) == sender, "Not token owner");
 
-        head[tokenId] = _getWeightedTraitForAddress(TRAIT_HEAD, sender);
+        delete pendingHeadReroll[tokenId];
+        delete pendingHeadRerollActionByTokenId[tokenId];
+        pendingHeadRerollCount -= 1;
+        head[tokenId] = _getWeightedTraitFromRandom(TRAIT_HEAD, randomWord);
 
         emit TraitSet(tokenId, TRAIT_HEAD, head[tokenId]);
     }
@@ -357,10 +435,20 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         emit TraitSet(tokenId, traitType, traitValue);
     }
 
+    // Called by items contract to permanently mutate a Freg
+    function setMutated(uint256 tokenId, address sender) external {
+        require(msg.sender == itemsContract, "Only items contract");
+        require(ownerOf(tokenId) == sender, "Not token owner");
+        require(!isMutated[tokenId], "Already mutated");
+        isMutated[tokenId] = true;
+        emit Mutated(tokenId, sender);
+    }
+
     // Called by items contract to change body color
     function setBodyColor(uint256 tokenId, string memory _color, address sender) external {
         require(msg.sender == itemsContract, "Only items contract");
         require(ownerOf(tokenId) == sender, "Not token owner");
+        _validateHexColor(_color);
 
         string memory oldColor = bodyColor[tokenId];
         bodyColor[tokenId] = _color;
@@ -382,16 +470,27 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
         svgRenderer = ISVGRenderer(_svgRenderer);
     }
 
+    function setMutationRenderer(address _mutationRenderer) public onlyOwner {
+        mutationRenderer = ISVGRenderer(_mutationRenderer);
+    }
+
     function setItemsContract(address _itemsContract) public onlyOwner {
+        require(pendingHeadRerollCount == 0, "Head rerolls pending");
         itemsContract = _itemsContract;
     }
 
     function setMintPassContract(address _mintPassContract) public onlyOwner {
+        require(pendingMintCount == 0, "Mint requests pending");
         mintPassContract = _mintPassContract;
     }
 
     function setLiquidityContract(address _liquidityContract) public onlyOwner {
         liquidityContract = _liquidityContract;
+    }
+
+    function setRandomizer(address _randomizer) public onlyOwner {
+        require(pendingMintCount == 0 && pendingHeadRerollCount == 0, "Random requests pending");
+        randomizer = IFregsRandomizer(_randomizer);
     }
 
     function setMintPhase(uint256 _phase) public onlyOwner {
@@ -417,6 +516,7 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     }
 
     function setSupply(uint256 _supply) public onlyOwner {
+        require(_supply >= _tokenIdCounter + pendingMintCount, "Below reserved supply");
         supply = _supply;
     }
 
@@ -424,7 +524,9 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
     // weights: array of per-trait weights (index 0 = trait 1, etc.)
     // _noneTraitId: which trait ID means "none" (0 = no none option)
     function setTraitWeights(uint256 traitType, uint256[] calldata weights, uint256 _noneTraitId) public onlyOwner {
+        require(pendingMintCount == 0 && pendingHeadRerollCount == 0, "Random requests pending");
         require(weights.length > 0, "Empty weights");
+        require(_noneTraitId <= weights.length, "Invalid none trait");
         uint256[] storage cumWeights = traitCumulativeWeights[traitType];
 
         // Clear existing
@@ -435,21 +537,210 @@ contract Fregs is Ownable, ERC721AC, BasicRoyalties, ReentrancyGuard {
             cumulative += weights[i];
             cumWeights.push(cumulative);
         }
-        require(cumulative > 0, "Total weight must be > 0");
+        require(cumulative == 100, "Weights must sum to 100");
         noneTraitId[traitType] = _noneTraitId;
     }
 
     // Trait counts are now determined dynamically from svgRenderer.getTraitCount()
     // No setters needed - just deploy new traits to the SVGRouter
 
+    function rescuePendingMintCount(uint256) external pure {
+        revert("Use request-specific rescue");
+    }
+
+    function rescuePendingMints(uint256[] calldata requestIds) external onlyOwner {
+        for (uint256 i = 0; i < requestIds.length; i++) {
+            uint256 requestId = requestIds[i];
+            uint256 actionId = mintActionByRequestId[requestId];
+            require(actionId != 0, "Unknown mint request");
+
+            PendingMint memory pending = pendingMints[actionId];
+            require(pending.active, "Mint not pending");
+
+            delete mintActionByRequestId[requestId];
+            delete pendingMints[actionId];
+            pendingMintCount -= 1;
+
+            randomizer.cancelRequest(requestId);
+
+            if (pending.usedFreeMint) {
+                freeMints[pending.minter] += 1;
+            }
+            if (pending.usedMintPass) {
+                require(mintPassContract != address(0), "Mint pass not configured");
+                IFregsMintPass(mintPassContract).refundMintPass(pending.minter);
+            }
+            if (pending.payment > 0) {
+                payable(pending.minter).transfer(pending.payment);
+            }
+        }
+    }
+
+    function rescuePendingHeadRerollCount(uint256) external pure {
+        revert("Use request-specific rescue");
+    }
+
+    function rescuePendingHeadRerollTokens(uint256[] calldata) external pure {
+        revert("Use item contract rescue");
+    }
+
+    // Single-token variant called by FregsItems.rescueHeadReroll — avoids array allocation in items contract
+    function clearPendingHeadReroll(uint256 tokenId, uint256 actionId) external {
+        require(msg.sender == itemsContract, "Only items contract");
+        require(pendingHeadReroll[tokenId], "No pending head reroll");
+        require(pendingHeadRerollActionByTokenId[tokenId] == actionId, "Head reroll request mismatch");
+        delete pendingHeadReroll[tokenId];
+        delete pendingHeadRerollActionByTokenId[tokenId];
+        pendingHeadRerollCount -= 1;
+    }
+
     function withdraw(uint256 _amount) external onlyOwner {
         payable(owner()).transfer(_amount);
+    }
+
+    function _beforeTokenTransfers(
+        address from,
+        address to,
+        uint256 startTokenId,
+        uint256 quantity
+    ) internal virtual override {
+        if (from != address(0)) {
+            for (uint256 i = 0; i < quantity; i++) {
+                require(!pendingHeadReroll[startTokenId + i], "Pending head reroll");
+            }
+        }
+
+        super._beforeTokenTransfers(from, to, startTokenId, quantity);
     }
 
     // ============ View Functions ============
 
     function totalMinted() public view returns (uint256) {
         return _tokenIdCounter;
+    }
+
+    function getTokenPage(uint256 cursor, uint256 limit, bool includeBurned)
+        external
+        view
+        returns (
+            uint256[] memory tokenIds,
+            bool[] memory existsFlags,
+            uint256 nextCursor,
+            uint256 liveSupply,
+            uint256 totalMinted_
+        )
+    {
+        totalMinted_ = _tokenIdCounter;
+        liveSupply = totalSupply();
+
+        if (cursor >= totalMinted_ || limit == 0) {
+            return (
+                new uint256[](0),
+                new bool[](0),
+                totalMinted_,
+                liveSupply,
+                totalMinted_
+            );
+        }
+
+        uint256 maxResultSize = totalMinted_ - cursor;
+        if (maxResultSize > limit) {
+            maxResultSize = limit;
+        }
+
+        tokenIds = new uint256[](maxResultSize);
+        existsFlags = new bool[](maxResultSize);
+
+        uint256 count = 0;
+        uint256 index = cursor;
+
+        while (index < totalMinted_ && count < limit) {
+            bool exists_ = _exists(index);
+            if (exists_ || includeBurned) {
+                tokenIds[count] = index;
+                existsFlags[count] = exists_;
+                count++;
+            }
+            index++;
+        }
+
+        assembly {
+            mstore(tokenIds, count)
+            mstore(existsFlags, count)
+        }
+
+        nextCursor = index;
+    }
+
+    function getAllTokenIds() external view returns (uint256[] memory tokenIds) {
+        uint256 totalMinted_ = _tokenIdCounter;
+        uint256 liveSupply = totalSupply();
+
+        tokenIds = new uint256[](liveSupply);
+        uint256 count = 0;
+
+        for (uint256 i = 0; i < totalMinted_; i++) {
+            if (_exists(i)) {
+                tokenIds[count] = i;
+                count++;
+            }
+        }
+
+        assembly {
+            mstore(tokenIds, count)
+        }
+    }
+
+    function getBurnedTokenIds() external view returns (uint256[] memory tokenIds) {
+        uint256 totalMinted_ = _tokenIdCounter;
+        uint256 burnedCount = totalMinted_ - totalSupply();
+
+        tokenIds = new uint256[](burnedCount);
+        uint256 count = 0;
+
+        for (uint256 i = 0; i < totalMinted_; i++) {
+            if (!_exists(i)) {
+                tokenIds[count] = i;
+                count++;
+            }
+        }
+
+        assembly {
+            mstore(tokenIds, count)
+        }
+    }
+
+    function getFregDataBatch(uint256[] calldata tokenIds_)
+        external
+        view
+        returns (
+            string[] memory bodyColors,
+            uint256[] memory backgrounds,
+            uint256[] memory bodies,
+            uint256[] memory heads,
+            uint256[] memory mouths,
+            uint256[] memory bellies
+        )
+    {
+        uint256 length = tokenIds_.length;
+        bodyColors = new string[](length);
+        backgrounds = new uint256[](length);
+        bodies = new uint256[](length);
+        heads = new uint256[](length);
+        mouths = new uint256[](length);
+        bellies = new uint256[](length);
+
+        for (uint256 i = 0; i < length; i++) {
+            uint256 tokenId = tokenIds_[i];
+            require(_exists(tokenId), "Token does not exist");
+
+            bodyColors[i] = bodyColor[tokenId];
+            backgrounds[i] = background[tokenId];
+            bodies[i] = body[tokenId];
+            heads[i] = head[tokenId];
+            mouths[i] = mouth[tokenId] == NONE_TRAIT ? 0 : mouth[tokenId];
+            bellies[i] = belly[tokenId] == NONE_TRAIT ? 0 : belly[tokenId];
+        }
     }
 
     function getOwnedFregs(address owner)

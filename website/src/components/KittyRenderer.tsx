@@ -16,8 +16,10 @@ interface KittyRendererProps {
 const FROGZ_PATH = "/frogz/default"
 const FROM_ITEMS_PATH = "/frogz/from_items"
 
-// Base trait counts - heads with IDs above this are item heads (stored in added/head folder)
+// Base trait counts - IDs above these are item traits (stored in from_items/ folder)
 const BASE_HEAD_COUNT = 22
+const BASE_STOMACH_COUNT = 4
+const BASE_MOUTH_COUNT = 6
 
 
 // Cache for original SVG content to avoid repeated fetches
@@ -69,7 +71,7 @@ export default function KittyRenderer({
         }
 
         // Replace the default green color with the kitty's body color
-        const coloredSvg = svgCache.body.replace(/#65b449/gi, bodyColor)
+        const coloredSvg = svgCache.body.replace(/#469935/gi, bodyColor)
 
         // Create a blob URL for the modified SVG
         const blob = new Blob([coloredSvg], { type: "image/svg+xml" })
@@ -83,8 +85,13 @@ export default function KittyRenderer({
     loadBody()
   }, [bodyColor, hasSpecialBody])
 
-  // Fetch background SVG and replace color
+  // Fetch background SVG and replace color (only for default background)
   useEffect(() => {
+    if (background > 0) {
+      setBackgroundSvgUrl(null)
+      return
+    }
+
     const loadBackground = async () => {
       try {
         // Fetch and cache the original SVG if not already cached
@@ -94,7 +101,7 @@ export default function KittyRenderer({
         }
 
         // Replace the default green color with the kitty's body color
-        const coloredSvg = svgCache.background.replace(/#65b449/gi, bodyColor)
+        const coloredSvg = svgCache.background.replace(/#916034/gi, bodyColor)
 
         // Create a blob URL for the modified SVG
         const blob = new Blob([coloredSvg], { type: "image/svg+xml" })
@@ -106,17 +113,17 @@ export default function KittyRenderer({
     }
 
     loadBackground()
-  }, [bodyColor])
+  }, [bodyColor, background])
 
   // Track loading state
   useEffect(() => {
-    const bgReady = backgroundSvgUrl !== null
+    const bgReady = background > 0 || backgroundSvgUrl !== null
     const bodyReady = hasSpecialBody || bodySvgUrl !== null
     setIsLoading(!bgReady || !bodyReady)
-  }, [backgroundSvgUrl, bodySvgUrl, hasSpecialBody])
+  }, [backgroundSvgUrl, bodySvgUrl, hasSpecialBody, background])
 
   return (
-    <div className={`relative ${sizeClasses[size]} ${className}`}>
+    <div className={`relative bg-white ${sizeClasses[size]} ${className}`}>
       {/* Loading placeholder */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-200 animate-pulse rounded-lg">
@@ -125,12 +132,20 @@ export default function KittyRenderer({
       )}
 
       {/* Background - always rendered first */}
-      {backgroundSvgUrl && (
+      {background > 0 ? (
         <img
-          src={backgroundSvgUrl}
-          alt="Background"
+          src={`${FROM_ITEMS_PATH}/background/${background}.svg`}
+          alt={`Background ${background}`}
           className="absolute inset-0 w-full h-full object-contain"
         />
+      ) : (
+        backgroundSvgUrl && (
+          <img
+            src={backgroundSvgUrl}
+            alt="Background"
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        )
       )}
 
       {/* Body - special skin or color-based */}
@@ -150,13 +165,22 @@ export default function KittyRenderer({
         )
       )}
 
-      {/* Stomach - only renders for default body (special skins cover the belly), 0 = None */}
+      {/* Stomach - only renders for default body (special skins cover the belly), 0 = None
+          Base stomachs (1-4) are in default/stomach/, item stomachs (5+) are in from_items/stomach/ */}
       {!hideTraits && !hasSpecialBody && stomach > 0 && (
-        <img
-          src={`${FROGZ_PATH}/stomach/${stomach}.svg`}
-          alt={`Stomach ${stomach}`}
-          className="absolute inset-0 w-full h-full object-contain"
-        />
+        stomach > BASE_STOMACH_COUNT ? (
+          <img
+            src={`${FROM_ITEMS_PATH}/stomach/${stomach - BASE_STOMACH_COUNT}.svg`}
+            alt={`Stomach ${stomach}`}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        ) : (
+          <img
+            src={`${FROGZ_PATH}/stomach/${stomach}.svg`}
+            alt={`Stomach ${stomach}`}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        )
       )}
 
       {/* Head - each head trait includes eyes in its SVG
@@ -175,13 +199,22 @@ export default function KittyRenderer({
         />
       )}
 
-      {/* Mouth - hidden in preview mode, 0 = None */}
+      {/* Mouth - hidden in preview mode, 0 = None
+          Base mouths (1-6) are in default/mouth/, item mouths (7+) are in from_items/mouth/ */}
       {!hideTraits && mouth > 0 && (
-        <img
-          src={`${FROGZ_PATH}/mouth/${mouth}.svg`}
-          alt={`Mouth ${mouth}`}
-          className="absolute inset-0 w-full h-full object-contain"
-        />
+        mouth > BASE_MOUTH_COUNT ? (
+          <img
+            src={`${FROM_ITEMS_PATH}/mouth/${mouth - BASE_MOUTH_COUNT}.svg`}
+            alt={`Mouth ${mouth}`}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        ) : (
+          <img
+            src={`${FROGZ_PATH}/mouth/${mouth}.svg`}
+            alt={`Mouth ${mouth}`}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        )
       )}
     </div>
   )

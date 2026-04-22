@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 617.49 644.18">
+  <defs><style>.tophat-body{fill:#1a1a1a;}.tophat-band{fill:#8b0000;}.tophat-rim{fill:#2a2a2a;}</style></defs>
+  <ellipse class="tophat-rim" cx="308" cy="145" rx="100" ry="18"/>
+  <rect class="tophat-body" x="238" y="45" width="140" height="100" rx="5"/>
+  <rect class="tophat-band" x="238" y="115" width="140" height="15"/>
+  <ellipse class="tophat-body" cx="308" cy="48" rx="68" ry="12"/>
+</svg>

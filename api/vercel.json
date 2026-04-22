@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/**/*.js": {
+      "includeFiles": "assets/**",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/fregs",
+      "destination": "/api/fregs-handler"
+    },
+    {
+      "source": "/fregs/:route*",
+      "destination": "/api/fregs-handler"
+    }
+  ]
+}

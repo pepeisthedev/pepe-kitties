@@ -1,0 +1,48 @@
+{
+  "background": [
+    { "fileName": "1.svg", "name": "Default" }
+  ],
+  "head": [
+    { "fileName": "1.svg", "name": "Normal Eyes", "rarity": 11 },
+    { "fileName": "2.svg", "name": "Beanie", "rarity": 1 },
+    { "fileName": "3.svg", "name": "Bored Eyes", "rarity": 11 },
+    { "fileName": "4.svg", "name": "Captain", "rarity": 2 },
+    { "fileName": "5.svg", "name": "Commie", "rarity": 2 },
+    { "fileName": "6.svg", "name": "Cowboy", "rarity": 5 },
+    { "fileName": "7.svg", "name": "Crown", "rarity": 1 },
+    { "fileName": "8.svg", "name": "Cap", "rarity": 5 },
+    { "fileName": "9.svg", "name": "Halo", "rarity": 5 },
+    { "fileName": "10.svg", "name": "3D Glasses", "rarity": 5 },
+    { "fileName": "11.svg", "name": "Based Eyes", "rarity": 5 },
+    { "fileName": "12.svg", "name": "WW1", "rarity": 2 },
+    { "fileName": "13.svg", "name": "Hoodie", "rarity": 0 },
+    { "fileName": "14.svg", "name": "Karate Kid", "rarity": 5 },
+    { "fileName": "15.svg", "name": "Mickey D", "rarity": 5 },
+    { "fileName": "16.svg", "name": "Noggles", "rarity": 5 },
+    { "fileName": "17.svg", "name": "Eye Patch", "rarity": 5 },
+    { "fileName": "18.svg", "name": "Pixel Glasses", "rarity": 5 },
+    { "fileName": "19.svg", "name": "Frog Suit", "rarity": 0 },
+    { "fileName": "20.svg", "name": "Top Hat", "rarity": 5 },
+    { "fileName": "21.svg", "name": "Weedy", "rarity": 10 },
+    { "fileName": "22.svg", "name": "Based Glasses", "rarity": 5 }
+  ],
+  "mouth": [
+    { "fileName": "1.svg", "name": "Cruella", "rarity": 10 },
+    { "fileName": "2.svg", "name": "Cigarette", "rarity": 10 },
+    { "fileName": "3.svg", "name": "Pipe", "rarity": 10 },
+    { "fileName": "4.svg", "name": "Puke", "rarity": 5 },
+    { "fileName": "5.svg", "name": "Tooth Pick", "rarity": 10 },
+    { "fileName": "6.svg", "name": "Tounge", "rarity": 10 },
+    { "name": "Normal", "rarity": 45, "isNone": true }
+  ],
+  "skin": [
+    { "fileName": "1.svg", "name": "Base" }
+  ],
+  "stomach": [
+    { "fileName": "1.svg", "name": "Base", "rarity": 10 },
+    { "fileName": "2.svg", "name": "ETH", "rarity": 10 },
+    { "fileName": "3.svg", "name": "Thug Life", "rarity": 5 },
+    { "fileName": "4.svg", "name": "Zipper", "rarity": 5 },
+    { "name": "Normal", "rarity": 70, "isNone": true }
+  ]
+}

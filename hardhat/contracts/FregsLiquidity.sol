@@ -57,9 +57,11 @@ contract FregsLiquidity is Ownable, ReentrancyGuard {
     // ============ View ============
 
     function getRedeemAmount() external view returns (uint256 ethAmount, uint256 coinAmount) {
-        ethAmount = address(this).balance / fregs.totalSupply();
+        uint256 supply = fregs.totalSupply();
+        if (supply == 0) return (0, 0);
+        ethAmount = address(this).balance / supply;
         coinAmount = address(fregCoin) != address(0)
-            ? fregCoin.balanceOf(address(this)) / fregs.totalSupply()
+            ? fregCoin.balanceOf(address(this)) / supply
             : 0;
     }
 

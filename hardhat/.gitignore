@@ -25,5 +25,5 @@ typechain-types
 .env
 
 # Deployment status (per-network) and history
-deployment-status*.json
+deployment-status-localhost.json
 /deployment-history

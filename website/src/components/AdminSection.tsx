@@ -4,11 +4,12 @@ import Section from "./Section"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
-import { Settings, Package, Plus, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users, Dices, Droplets } from "lucide-react"
+import { Settings, Package, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users, Dices, Droplets, Power, Gem, Coins } from "lucide-react"
 import { useContractData, useContracts } from "../hooks"
+import type { FeatureFlags } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog"
-import { TRAIT_TYPES, ITEM_TYPES, ITEM_TYPE_NAMES } from "../config/contracts"
+import { ITEM_TYPES, FREG_COIN_ADDRESS } from "../config/contracts"
 
 type TxStatus = 'idle' | 'pending' | 'confirming' | 'success' | 'error'
 
@@ -17,7 +18,12 @@ interface ItemType {
   name: string
 }
 
-export default function AdminSection(): React.JSX.Element {
+interface AdminSectionProps {
+  featureFlags: FeatureFlags
+  onFeatureFlagsChange: () => void
+}
+
+export default function AdminSection({ featureFlags, onFeatureFlagsChange }: AdminSectionProps): React.JSX.Element {
   const contracts = useContracts()
   const { data: contractData, refetch } = useContractData()
 
@@ -26,8 +32,8 @@ export default function AdminSection(): React.JSX.Element {
   const [showFreeMints, setShowFreeMints] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showMintItems, setShowMintItems] = useState(false)
-  const [showCreateItem, setShowCreateItem] = useState(false)
   const [showMintPass, setShowMintPass] = useState(false)
+  const [showFeatureToggles, setShowFeatureToggles] = useState(true)
 
   // Settings form
   const [mintPrice, setMintPrice] = useState("")
@@ -36,20 +42,11 @@ export default function AdminSection(): React.JSX.Element {
   const [contractBalance, setContractBalance] = useState("0")
 
   // Mint items form
-  const [selectedItemType, setSelectedItemType] = useState<number>(ITEM_TYPES.COLOR_CHANGE)
+  const [selectedItemType, setSelectedItemType] = useState<number>(101)
   const [addressesInput, setAddressesInput] = useState("")
   const [mintAmount, setMintAmount] = useState("1")
   const [mintProgress, setMintProgress] = useState({ current: 0, total: 0 })
   const [itemTypes, setItemTypes] = useState<ItemType[]>([])
-
-  // Create item type form
-  const [newItemName, setNewItemName] = useState("")
-  const [newItemDescription, setNewItemDescription] = useState("")
-  const [newItemTraitType, setNewItemTraitType] = useState<number>(TRAIT_TYPES.HEAD)
-  const [newItemTraitValue, setNewItemTraitValue] = useState("")
-  const [newItemOwnerMintable, setNewItemOwnerMintable] = useState(true)
-  const [newItemClaimable, setNewItemClaimable] = useState(false)
-  const [newItemClaimWeight, setNewItemClaimWeight] = useState("0")
 
   // Free mint wallets form
   const [freeMintAddresses, setFreeMintAddresses] = useState("")
@@ -69,9 +66,48 @@ export default function AdminSection(): React.JSX.Element {
   const [spinAddresses, setSpinAddresses] = useState("")
   const [spinAmount, setSpinAmount] = useState("1")
 
+  // Chest funding panel
+  const [showChestFunding, setShowChestFunding] = useState(false)
+  const [chestCoinBalance, setChestCoinBalance] = useState("0")
+  const [chestDepositAmount, setChestDepositAmount] = useState("")
+  const [chestRewardAmount, setChestRewardAmount] = useState("")
+  const [chestPercentage, setChestPercentage] = useState("")
+
+  // Airdrop panel
+  const [showFregAirdrop, setShowFregAirdrop] = useState(false)
+  const [airdropCoinBalance, setAirdropCoinBalance] = useState("0")
+  const [airdropPercentage, setAirdropPercentage] = useState("60")
+  const [airdropDepositAmount, setAirdropDepositAmount] = useState(() => {
+    const TOTAL_SUPPLY = 1_337_000_000_000
+    return String(Math.floor(TOTAL_SUPPLY * 60 / 100))
+  })
+
+
+  // Rescue pending head reroll panel
+  const [showRescueHeadReroll, setShowRescueHeadReroll] = useState(false)
+  const [rescueTokenIds, setRescueTokenIds] = useState("")
+  const [pendingCounts, setPendingCounts] = useState<{ mintCount: number; headRerollCount: number } | null>(null)
+  const [pendingRerollTokenIds, setPendingRerollTokenIds] = useState<number[] | null>(null)
+  const [scanning, setScanning] = useState(false)
+
+  // VRF request confirmations panel
+  const [showVrfConfirmations, setShowVrfConfirmations] = useState(false)
+  const [vrfConfirmations, setVrfConfirmations] = useState("3")
+
+  // VRF gas limits panel
+  const [showVrfGasLimits, setShowVrfGasLimits] = useState(false)
+  const [vrfMintGas, setVrfMintGas] = useState("700000")
+  const [vrfClaimItemGas, setVrfClaimItemGas] = useState("500000")
+  const [vrfHeadRerollGas, setVrfHeadRerollGas] = useState("350000")
+  const [vrfSpinGas, setVrfSpinGas] = useState("450000")
+
+  // Chainlink subscription panel
+  const [showChainlinkSubscription, setShowChainlinkSubscription] = useState(false)
+  const [chainlinkSubId, setChainlinkSubId] = useState("19315363693436507623175268498583628439514801257397111320347610079663840815576")
+  const [chainlinkGasLane, setChainlinkGasLane] = useState("2gwei")
+
   // Liquidity panel
   const [showLiquidity, setShowLiquidity] = useState(false)
-  const [liquidityActive, setLiquidityActive] = useState(false)
   const [liquidityEthBalance, setLiquidityEthBalance] = useState("0")
   const [liquidityDepositAmount, setLiquidityDepositAmount] = useState("")
   const [liquidityWithdrawAmount, setLiquidityWithdrawAmount] = useState("")
@@ -101,11 +137,8 @@ export default function AdminSection(): React.JSX.Element {
         const balance = await contracts.provider.getBalance(await contracts.fregs.read.getAddress())
         setContractBalance(formatEther(balance))
 
-        // Fetch built-in item types
-        const types: ItemType[] = Object.entries(ITEM_TYPE_NAMES).map(([id, name]) => ({
-          id: Number(id),
-          name,
-        }))
+        // Only fetch dynamic item types (101+) - built-in items cannot be owner-minted
+        const types: ItemType[] = []
 
         // Fetch dynamic item types (starting from 101)
         for (let id = 101; id < 200; id++) {
@@ -127,14 +160,21 @@ export default function AdminSection(): React.JSX.Element {
         const totalMinted = await contracts.mintPass.read.totalMinted()
         setMintPassData({ totalMinted: Number(totalMinted) })
 
+        // Fetch chest FREG balance
+        try {
+          const itemsAddress = await contracts.items.read.getAddress()
+          const fregCoinAddr = await contracts.items.read.fregCoinContract()
+          if (fregCoinAddr !== "0x0000000000000000000000000000000000000000") {
+            const fregCoinContract = new Contract(fregCoinAddr, ["function balanceOf(address) view returns (uint256)"], contracts.provider)
+            const coinBal = await fregCoinContract.balanceOf(itemsAddress)
+            setChestCoinBalance(formatEther(coinBal))
+          }
+        } catch {}
+
         // Fetch liquidity data
         if (contracts.liquidity) {
           const liqAddress = await contracts.liquidity.read.getAddress()
-          const [active, liqBalance] = await Promise.all([
-            contracts.liquidity.read.active(),
-            contracts.provider.getBalance(liqAddress),
-          ])
-          setLiquidityActive(active)
+          const liqBalance = await contracts.provider.getBalance(liqAddress)
           setLiquidityEthBalance(formatEther(liqBalance))
 
           // Fetch FregCoin balance if set
@@ -145,6 +185,14 @@ export default function AdminSection(): React.JSX.Element {
               const coinBal = await fregCoinContract.balanceOf(liqAddress)
               setLiquidityCoinBalance(formatEther(coinBal))
             }
+          } catch {}
+        }
+
+        // Fetch airdrop data
+        if (contracts.fregAirdrop) {
+          try {
+            const bal = await contracts.fregAirdrop.read.coinBalance()
+            setAirdropCoinBalance(formatEther(bal))
           } catch {}
         }
       } catch (err) {
@@ -253,42 +301,108 @@ export default function AdminSection(): React.JSX.Element {
     }
   }
 
-  const handleCreateItemType = async () => {
-    if (!contracts) return
+  const handleSetVrfConfirmations = async () => {
+    if (!contracts?.fregsRandomizer) return
     setTxStatus('pending')
-    setTxMessage("Creating new item type...")
-
+    setTxMessage('Updating VRF request confirmations...')
     try {
-      const contract = await contracts.items.write()
-      const tx = await contract.addItemType(
-        newItemName,
-        newItemDescription,
-        newItemTraitType,
-        Number(newItemTraitValue),
-        newItemOwnerMintable,
-        newItemClaimable,
-        Number(newItemClaimWeight)
+      const contract = await contracts.fregsRandomizer.write()
+      const tx = await contract.setRequestConfirmations(Number(vrfConfirmations))
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxMessage('Request confirmations updated!')
+      setTxStatus('success')
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to update request confirmations')
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetVrfGasLimits = async () => {
+    if (!contracts?.fregsRandomizer) return
+    setTxStatus('pending')
+    setTxMessage('Updating VRF callback gas limits...')
+    try {
+      const contract = await contracts.fregsRandomizer.write()
+      const tx = await contract.setCallbackGasLimits(
+        Number(vrfMintGas),
+        Number(vrfClaimItemGas),
+        Number(vrfHeadRerollGas),
+        Number(vrfSpinGas)
       )
       setTxStatus('confirming')
       await tx.wait()
+      setTxMessage('VRF gas limits updated!')
       setTxStatus('success')
-      setTxMessage(`Item type "${newItemName}" created!`)
-
-      // Reset form
-      setNewItemName("")
-      setNewItemDescription("")
-      setNewItemTraitValue("")
-      setNewItemOwnerMintable(true)
-      setNewItemClaimable(false)
-      setNewItemClaimWeight("0")
-
-      // Refresh item types
-      const types: ItemType[] = [...itemTypes]
-      const newId = types.length > 0 ? Math.max(...types.map(t => t.id)) + 1 : 101
-      types.push({ id: newId, name: newItemName })
-      setItemTypes(types)
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to create item type")
+      setErrorMessage(err.message || 'Failed to update VRF gas limits')
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetChainlinkSubscription = async () => {
+    if (!contracts?.fregsRandomizer) return
+    setTxStatus('pending')
+    setTxMessage('Updating Chainlink subscription...')
+    try {
+      const KEY_HASHES: Record<string, string> = {
+        "2gwei":  "0x00b81b5a830cb0a4009fbd8904de511e28631e62ce5ad231373d3cdad373ccab",
+        "30gwei": "0x3fd2fec10d06ee8f65e7f2e95f5c56511359ece3f33960ad8a866ae24a8ff10b",
+      }
+      const keyHash = KEY_HASHES[chainlinkGasLane]
+      const contract = await contracts.fregsRandomizer.write()
+      const tx = await contract.setSubscription(BigInt(chainlinkSubId), keyHash)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxMessage('Chainlink subscription updated!')
+      setTxStatus('success')
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to update Chainlink subscription')
+      setTxStatus('error')
+    }
+  }
+
+  const handleToggleFeature = async (feature: string) => {
+    if (!contracts) return
+    setTxStatus('pending')
+    setTxMessage(`Toggling ${feature}...`)
+
+    try {
+      let tx: any
+      switch (feature) {
+        case 'spin': {
+          if (!contracts.spinTheWheel) throw new Error("SpinTheWheel contract not configured")
+          const contract = await contracts.spinTheWheel.write()
+          tx = await contract.setActive(!featureFlags.spinActive)
+          break
+        }
+        case 'chestOpening': {
+          const contract = await contracts.items.write()
+          tx = await contract.setChestOpeningActive(!featureFlags.chestOpeningActive)
+          break
+        }
+        case 'liquidity': {
+          if (!contracts.liquidity) throw new Error("Liquidity contract not configured")
+          const contract = await contracts.liquidity.write()
+          tx = await contract.setActive(!featureFlags.liquidityActive)
+          break
+        }
+        case 'shop': {
+          if (!contracts.fregShop) throw new Error("Shop contract not configured")
+          const contract = await contracts.fregShop.write()
+          tx = await contract.setShopActive(!featureFlags.shopActive)
+          break
+        }
+        default:
+          throw new Error(`Unknown feature: ${feature}`)
+      }
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`${feature} toggled!`)
+      onFeatureFlagsChange()
+    } catch (err: any) {
+      setErrorMessage(err.message || `Failed to toggle ${feature}`)
       setTxStatus('error')
     }
   }
@@ -441,23 +555,7 @@ export default function AdminSection(): React.JSX.Element {
   }
 
   const handleToggleLiquidity = async () => {
-    if (!contracts?.liquidity) return
-    const newActive = !liquidityActive
-    setTxStatus('pending')
-    setTxMessage(`${newActive ? 'Activating' : 'Deactivating'} liquidity contract...`)
-
-    try {
-      const contract = await contracts.liquidity.write()
-      const tx = await contract.setActive(newActive)
-      setTxStatus('confirming')
-      await tx.wait()
-      setLiquidityActive(newActive)
-      setTxStatus('success')
-      setTxMessage(`Liquidity contract ${newActive ? 'activated' : 'deactivated'}!`)
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to toggle liquidity")
-      setTxStatus('error')
-    }
+    await handleToggleFeature('liquidity')
   }
 
   const handleLiquidityDeposit = async () => {
@@ -557,6 +655,224 @@ export default function AdminSection(): React.JSX.Element {
     }
   }
 
+  const handleChestDeposit = async () => {
+    if (!contracts || !chestDepositAmount) return
+    setTxStatus('pending')
+    setTxMessage(`Depositing ${chestDepositAmount} FREG for chest rewards...`)
+
+    try {
+      const itemsAddress = await contracts.items.read.getAddress()
+      const fregCoinAddr = await contracts.items.read.fregCoinContract()
+      const signer = await contracts.getSigner()
+      const fregCoin = new Contract(fregCoinAddr, [
+        "function approve(address, uint256) returns (bool)",
+        "function balanceOf(address) view returns (uint256)",
+      ], signer)
+
+      const amount = parseEther(chestDepositAmount)
+
+      // Approve first
+      const approveTx = await fregCoin.approve(itemsAddress, amount)
+      setTxMessage("Approving FREG spend...")
+      await approveTx.wait()
+
+      // Then deposit
+      setTxMessage("Depositing FREG...")
+      const contract = await contracts.items.write()
+      const tx = await contract.depositCoins(amount)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Deposited ${chestDepositAmount} FREG!`)
+      setChestDepositAmount("")
+
+      const coinBal = await fregCoin.balanceOf(itemsAddress)
+      setChestCoinBalance(formatEther(coinBal))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to deposit FREG")
+      setTxStatus('error')
+    }
+  }
+
+  const handleChestWithdrawExcess = async () => {
+    if (!contracts) return
+    setTxStatus('pending')
+    setTxMessage("Withdrawing excess FREG...")
+
+    try {
+      const contract = await contracts.items.write()
+      const tx = await contract.withdrawExcess()
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage("Withdrew excess FREG!")
+
+      const itemsAddress = await contracts.items.read.getAddress()
+      const fregCoinAddr = await contracts.items.read.fregCoinContract()
+      const fregCoin = new Contract(fregCoinAddr, ["function balanceOf(address) view returns (uint256)"], contracts.provider)
+      const coinBal = await fregCoin.balanceOf(itemsAddress)
+      setChestCoinBalance(formatEther(coinBal))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to withdraw excess FREG")
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetChestReward = async () => {
+    if (!contracts || !chestRewardAmount) return
+    setTxStatus('pending')
+    setTxMessage("Updating chest reward amount...")
+
+    try {
+      const contract = await contracts.items.write()
+      const tx = await contract.setChestCoinReward(parseEther(chestRewardAmount))
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Chest reward set to ${chestRewardAmount} FREG!`)
+      setChestRewardAmount("")
+      refetch()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to update chest reward")
+      setTxStatus('error')
+    }
+  }
+
+  const handleAirdropDeposit = async () => {
+    if (!contracts?.fregAirdrop || !airdropDepositAmount) return
+    setTxStatus('pending')
+    setTxMessage(`Approving ${airdropDepositAmount} FREG...`)
+
+    try {
+      const airdropAddress = await contracts.fregAirdrop.read.getAddress()
+      const signer = await contracts.getSigner()
+      const fregCoin = new Contract(FREG_COIN_ADDRESS, [
+        "function approve(address, uint256) returns (bool)",
+      ], signer)
+
+      const amount = parseEther(airdropDepositAmount)
+      const approveTx = await fregCoin.approve(airdropAddress, amount)
+      setTxMessage("Approving FREG spend...")
+      await approveTx.wait()
+
+      setTxMessage("Funding airdrop contract...")
+      const contract = await contracts.fregAirdrop.write()
+      const tx = await contract.fundAirdrop(amount)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Deposited ${airdropDepositAmount} FREG into airdrop contract!`)
+      setAirdropDepositAmount("")
+
+      const bal = await contracts.fregAirdrop.read.coinBalance()
+      setAirdropCoinBalance(formatEther(bal))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to fund airdrop")
+      setTxStatus('error')
+    }
+  }
+
+  const handleWithdrawRemainder = async () => {
+    if (!contracts?.fregAirdrop) return
+    setTxStatus('pending')
+    setTxMessage("Withdrawing remaining FREG...")
+
+    try {
+      const signer = await contracts.getSigner()
+      const signerAddress = await signer.getAddress()
+      const contract = await contracts.fregAirdrop.write()
+      const tx = await contract.withdrawRemainder(signerAddress)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage("Withdrew remaining FREG!")
+
+      const bal = await contracts.fregAirdrop.read.coinBalance()
+      setAirdropCoinBalance(formatEther(bal))
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to withdraw remainder")
+      setTxStatus('error')
+    }
+  }
+
+
+  const handleScanPending = async () => {
+    if (!contracts || !contractData) return
+    setScanning(true)
+    setPendingRerollTokenIds(null)
+    setPendingCounts(null)
+    try {
+      const fregs = contracts.fregs.read
+      const [mintCount, headRerollCount] = await Promise.all([
+        fregs.pendingMintCount(),
+        fregs.pendingHeadRerollCount(),
+      ])
+      setPendingCounts({ mintCount: Number(mintCount), headRerollCount: Number(headRerollCount) })
+
+      if (Number(headRerollCount) > 0) {
+        const stuck: number[] = []
+        const total = contractData.totalMinted
+        for (let tokenId = 0; tokenId < total; tokenId++) {
+          const isPending = await fregs.pendingHeadReroll(tokenId)
+          if (isPending) {
+            stuck.push(tokenId)
+            if (stuck.length >= Number(headRerollCount)) break
+          }
+        }
+        setPendingRerollTokenIds(stuck)
+        setRescueTokenIds(stuck.join('\n'))
+      } else {
+        setPendingRerollTokenIds([])
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to scan pending state")
+      setTxStatus('error')
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const handleRescueHeadReroll = async () => {
+    if (!contracts) return
+    const tokenIds = Array.from(new Set(rescueTokenIds
+      .split(/[\n,\s]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+      .map(Number)
+      .filter(n => !isNaN(n))))
+
+    if (tokenIds.length === 0) {
+      setErrorMessage("No valid token IDs provided")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Rescuing pending head reroll for token${tokenIds.length > 1 ? 's' : ''} ${tokenIds.join(', ')}...`)
+    try {
+      const contract = await contracts.items.write()
+
+      for (let i = 0; i < tokenIds.length; i++) {
+        setTxMessage(`Rescuing token ${i + 1} of ${tokenIds.length}...`)
+        const tx = await contract.rescueHeadReroll(tokenIds[i])
+        setTxStatus('confirming')
+        await tx.wait()
+        if (i < tokenIds.length - 1) {
+          setTxStatus('pending')
+        }
+      }
+
+      setTxStatus('success')
+      setTxMessage(`Rescued ${tokenIds.length} pending head reroll${tokenIds.length > 1 ? 's' : ''}! A new Head Reroll item was minted back to each owner.`)
+      setRescueTokenIds("")
+      setPendingRerollTokenIds(null)
+      setPendingCounts(null)
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to rescue pending head reroll")
+      setTxStatus('error')
+    }
+  }
+
   const closeModal = () => {
     setTxStatus('idle')
     setTxMessage("")
@@ -593,6 +909,54 @@ export default function AdminSection(): React.JSX.Element {
       </div>
 
       <div className="space-y-4">
+        {/* Feature Toggles Panel */}
+        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+          <button
+            onClick={() => setShowFeatureToggles(!showFeatureToggles)}
+            className="w-full p-4 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Power className="w-6 h-6 text-orange-400" />
+              <span className="font-bangers text-2xl text-orange-400">Feature Toggles</span>
+            </div>
+            {showFeatureToggles ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+          </button>
+
+          {showFeatureToggles && (
+            <CardContent className="p-6 pt-0 space-y-3">
+              {[
+                { key: 'spin', label: 'Spin the Wheel', active: featureFlags.spinActive, disabled: !contracts?.spinTheWheel },
+                { key: 'chestOpening', label: 'Open Chests', active: featureFlags.chestOpeningActive },
+                { key: 'liquidity', label: 'Liquidity', active: featureFlags.liquidityActive, disabled: !contracts?.liquidity },
+                { key: 'shop', label: 'Shop', active: featureFlags.shopActive, disabled: !contracts?.fregShop },
+              ].map(({ key, label, active, disabled }) => (
+                <div key={key} className="flex items-center justify-between bg-black/30 rounded-lg p-3">
+                  <div className="flex items-center gap-3">
+                    <span className={`w-3 h-3 rounded-full ${active ? 'bg-green-400' : 'bg-red-400'}`} />
+                    <span className="font-righteous text-white/80">{label}</span>
+                    <span className={`font-righteous text-xs px-2 py-0.5 rounded-full ${
+                      active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                    }`}>
+                      {active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <Button
+                    onClick={() => handleToggleFeature(key)}
+                    disabled={disabled}
+                    className={`font-bangers text-sm px-4 py-1 rounded-lg ${
+                      active
+                        ? "bg-red-500 hover:bg-red-400 text-white"
+                        : "bg-green-500 hover:bg-green-400 text-black"
+                    } disabled:opacity-30`}
+                  >
+                    {active ? 'Deactivate' : 'Activate'}
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          )}
+        </Card>
+
         {/* Mint Phase Panel */}
         <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
           <button
@@ -863,122 +1227,6 @@ export default function AdminSection(): React.JSX.Element {
           )}
         </Card>
 
-        {/* Create Item Type Panel */}
-        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
-          <button
-            onClick={() => setShowCreateItem(!showCreateItem)}
-            className="w-full p-4 flex items-center justify-between text-left"
-          >
-            <div className="flex items-center gap-3">
-              <Plus className="w-6 h-6 text-orange-400" />
-              <span className="font-bangers text-2xl text-orange-400">Create New Item Type</span>
-            </div>
-            {showCreateItem ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
-          </button>
-
-          {showCreateItem && (
-            <CardContent className="p-6 pt-0 space-y-4">
-              {/* Name */}
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Name:</label>
-                <Input
-                  type="text"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                  placeholder="Crown"
-                />
-              </div>
-
-              {/* Description */}
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Description:</label>
-                <Input
-                  type="text"
-                  value={newItemDescription}
-                  onChange={(e) => setNewItemDescription(e.target.value)}
-                  className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                  placeholder="A royal crown for your Freg"
-                />
-              </div>
-
-              {/* Trait Type */}
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Trait Type:</label>
-                <select
-                  value={newItemTraitType}
-                  onChange={(e) => setNewItemTraitType(Number(e.target.value))}
-                  className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono p-2 rounded-md"
-                >
-                  {Object.entries(TRAIT_TYPES).map(([name, id]) => (
-                    <option key={id} value={id}>
-                      {name} (ID: {id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Trait Value */}
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Trait Value:</label>
-                <Input
-                  type="number"
-                  value={newItemTraitValue}
-                  onChange={(e) => setNewItemTraitValue(e.target.value)}
-                  className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                  placeholder="ID in router"
-                />
-              </div>
-
-              {/* Checkboxes */}
-              <div className="flex items-center gap-8">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newItemOwnerMintable}
-                    onChange={(e) => setNewItemOwnerMintable(e.target.checked)}
-                    className="w-5 h-5 accent-orange-400"
-                  />
-                  <span className="font-righteous text-white/70">Owner Mintable</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newItemClaimable}
-                    onChange={(e) => setNewItemClaimable(e.target.checked)}
-                    className="w-5 h-5 accent-orange-400"
-                  />
-                  <span className="font-righteous text-white/70">Claimable</span>
-                </label>
-              </div>
-
-              {/* Claim Weight (only if claimable) */}
-              {newItemClaimable && (
-                <div className="flex items-center gap-4">
-                  <label className="font-righteous text-white/70 w-32">Claim Weight:</label>
-                  <Input
-                    type="number"
-                    value={newItemClaimWeight}
-                    onChange={(e) => setNewItemClaimWeight(e.target.value)}
-                    className="w-32 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                    placeholder="0"
-                  />
-                </div>
-              )}
-
-              {/* Create Button */}
-              <Button
-                onClick={handleCreateItemType}
-                disabled={!newItemName || !newItemTraitValue}
-                className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4 disabled:opacity-50"
-              >
-                Create Item Type
-              </Button>
-            </CardContent>
-          )}
-        </Card>
-
         {/* Mint Pass Airdrop Panel */}
         <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
           <button
@@ -1111,6 +1359,115 @@ export default function AdminSection(): React.JSX.Element {
             </CardContent>
           )}
         </Card>
+        {/* Chest Funding Panel */}
+        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+          <button
+            onClick={() => setShowChestFunding(!showChestFunding)}
+            className="w-full p-4 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Gem className="w-6 h-6 text-orange-400" />
+              <span className="font-bangers text-2xl text-orange-400">Chest Rewards</span>
+            </div>
+            {showChestFunding ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+          </button>
+
+          {showChestFunding && (
+            <CardContent className="p-6 pt-0 space-y-4">
+              {/* Current balance and stats */}
+              <div className="bg-black/30 rounded-lg p-3 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-righteous text-white/70">FREG in contract:</span>
+                  <span className="font-mono text-orange-400">{Number(chestCoinBalance).toLocaleString()} FREG</span>
+                </div>
+                {contractData && (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="font-righteous text-white/70">Active chests:</span>
+                      <span className="font-mono text-orange-400">{contractData.activeChestSupply}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-righteous text-white/70">Reward per chest:</span>
+                      <span className="font-mono text-orange-400">{Number(contractData.chestCoinReward).toLocaleString()} FREG</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-righteous text-white/70">Reserved for chests:</span>
+                      <span className="font-mono text-orange-400">{(contractData.activeChestSupply * Number(contractData.chestCoinReward)).toLocaleString()} FREG</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Percentage-based reward calculator */}
+              <div className="border-t border-white/20 pt-4 space-y-3">
+                <div className="flex items-center gap-4">
+                  <label className="font-righteous text-white/70 w-32">Percentage:</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={chestPercentage}
+                    onChange={(e) => {
+                      const pct = e.target.value
+                      setChestPercentage(pct)
+                      const TOTAL_SUPPLY = 1_337_000_000_000
+                      const TOTAL_CHESTS = 1000
+                      const parsed = parseFloat(pct)
+                      if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+                        const perChest = Math.floor(TOTAL_SUPPLY * parsed / 100 / TOTAL_CHESTS)
+                        setChestRewardAmount(String(perChest))
+                        setChestDepositAmount(String(perChest * TOTAL_CHESTS))
+                      }
+                    }}
+                    className="w-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="10"
+                  />
+                  <span className="text-white/70 font-righteous">%</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="font-righteous text-white/70 w-32">Per chest:</label>
+                  <Input
+                    type="text"
+                    value={chestRewardAmount}
+                    onChange={(e) => setChestRewardAmount(e.target.value)}
+                    className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="0"
+                  />
+                  <span className="text-white/70 font-righteous">FREG</span>
+                  <Button onClick={handleSetChestReward} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
+                    Set
+                  </Button>
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="font-righteous text-white/70 w-32">Total deposit:</label>
+                  <Input
+                    type="text"
+                    value={chestDepositAmount}
+                    onChange={(e) => setChestDepositAmount(e.target.value)}
+                    className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="0"
+                  />
+                  <span className="text-white/70 font-righteous">FREG</span>
+                  <Button onClick={handleChestDeposit} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
+                    Deposit
+                  </Button>
+                </div>
+              </div>
+
+              {/* Withdraw excess */}
+              <div className="flex items-center justify-between">
+                <span className="font-righteous text-white/70">Withdraw unreserved FREG:</span>
+                <Button
+                  onClick={handleChestWithdrawExcess}
+                  className="bg-orange-500 hover:bg-orange-400 text-black font-bangers"
+                >
+                  Withdraw Excess
+                </Button>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
         {/* Liquidity Panel */}
         {contracts?.liquidity && (
         <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
@@ -1122,9 +1479,9 @@ export default function AdminSection(): React.JSX.Element {
               <Droplets className="w-6 h-6 text-orange-400" />
               <span className="font-bangers text-2xl text-orange-400">Liquidity</span>
               <span className={`font-righteous text-xs px-2 py-0.5 rounded-full ${
-                liquidityActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                featureFlags.liquidityActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
               }`}>
-                {liquidityActive ? 'Active' : 'Inactive'}
+                {featureFlags.liquidityActive ? 'Active' : 'Inactive'}
               </span>
             </div>
             {showLiquidity ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
@@ -1138,12 +1495,12 @@ export default function AdminSection(): React.JSX.Element {
                 <Button
                   onClick={handleToggleLiquidity}
                   className={`font-bangers text-lg px-6 py-2 rounded-xl ${
-                    liquidityActive
+                    featureFlags.liquidityActive
                       ? "bg-red-500 hover:bg-red-400 text-white"
                       : "bg-green-500 hover:bg-green-400 text-black"
                   }`}
                 >
-                  {liquidityActive ? 'Deactivate' : 'Activate'}
+                  {featureFlags.liquidityActive ? 'Deactivate' : 'Activate'}
                 </Button>
               </div>
 
@@ -1228,6 +1585,301 @@ export default function AdminSection(): React.JSX.Element {
           )}
         </Card>
         )}
+      {/* FREG Coin Airdrop */}
+      {contracts?.fregAirdrop && (
+        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+          <button
+            onClick={() => setShowFregAirdrop(!showFregAirdrop)}
+            className="w-full p-4 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Coins className="w-6 h-6 text-orange-400" />
+              <span className="font-bangers text-2xl text-orange-400">FREG Coin Airdrop</span>
+            </div>
+            {showFregAirdrop ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+          </button>
+
+          {showFregAirdrop && (
+            <CardContent className="p-6 pt-0 space-y-4">
+              {/* Balance */}
+              <div className="bg-black/30 rounded-lg p-3 flex justify-between items-center">
+                <span className="font-righteous text-white/70">FREG in contract:</span>
+                <span className="font-mono text-orange-400">{Number(airdropCoinBalance).toLocaleString()} FREG</span>
+              </div>
+
+              {/* Deposit FREG */}
+              <div className="border-t border-white/20 pt-4 space-y-3">
+                <div className="flex items-center gap-4">
+                  <label className="font-righteous text-white/70 w-32">Percentage:</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={airdropPercentage}
+                    onChange={(e) => {
+                      const pct = e.target.value
+                      setAirdropPercentage(pct)
+                      const TOTAL_SUPPLY = 1_337_000_000_000
+                      const parsed = parseFloat(pct)
+                      if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+                        setAirdropDepositAmount(String(Math.floor(TOTAL_SUPPLY * parsed / 100)))
+                      }
+                    }}
+                    className="w-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="60"
+                  />
+                  <span className="text-white/70 font-righteous">%</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="font-righteous text-white/70 w-32">Amount:</label>
+                  <Input
+                    type="text"
+                    value={airdropDepositAmount}
+                    onChange={(e) => setAirdropDepositAmount(e.target.value)}
+                    className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                    placeholder="0"
+                  />
+                  <span className="text-white/70 font-righteous">FREG</span>
+                  <Button onClick={handleAirdropDeposit} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
+                    Deposit
+                  </Button>
+                </div>
+              </div>
+
+              {/* How to trigger airdrop */}
+              <div className="border-t border-white/20 pt-4">
+                <p className="font-righteous text-white/50 text-sm">
+                  To distribute: run <span className="font-mono text-orange-400">node scripts/airdropFregCoin.js --network base</span> from the hardhat directory. Use <span className="font-mono text-orange-400">--dry-run</span> to preview, <span className="font-mono text-orange-400">--resume &lt;file&gt;</span> to continue after a failure.
+                </p>
+              </div>
+
+              {/* Withdraw remainder */}
+              <div className="border-t border-white/20 pt-4 flex items-center justify-between">
+                <span className="font-righteous text-white/70">Withdraw remaining FREG:</span>
+                <Button
+                  onClick={handleWithdrawRemainder}
+                  className="bg-orange-500 hover:bg-orange-400 text-black font-bangers"
+                >
+                  Withdraw Remainder
+                </Button>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* Rescue Pending Head Reroll */}
+      <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+        <button
+          onClick={() => setShowRescueHeadReroll(!showRescueHeadReroll)}
+          className="w-full p-4 flex items-center justify-between text-left"
+        >
+          <div className="flex items-center gap-3">
+            <XCircle className="w-6 h-6 text-orange-400" />
+            <span className="font-bangers text-2xl text-orange-400">Rescue Pending Head Reroll</span>
+          </div>
+          {showRescueHeadReroll ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+        </button>
+
+        {showRescueHeadReroll && (
+          <CardContent className="p-6 pt-0 space-y-4">
+            <p className="font-righteous text-white/60 text-sm">
+              Rescues stuck head rerolls safely through the items contract. This cancels the exact VRF request and mints a fresh <span className="font-mono text-orange-400">Head Reroll</span> item back to the freg owner.
+            </p>
+
+            {/* Scan button + counters */}
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleScanPending}
+                disabled={scanning}
+                className="bg-white/10 hover:bg-white/20 text-white font-bangers text-lg px-6 py-2 border border-white/20 rounded-xl"
+              >
+                {scanning ? "Scanning..." : "Scan Contract"}
+              </Button>
+              {pendingCounts && (
+                <div className="flex gap-4 font-righteous text-sm">
+                  <span className={pendingCounts.mintCount > 0 ? "text-yellow-400" : "text-white/50"}>
+                    Pending mints: <span className="font-mono">{pendingCounts.mintCount}</span>
+                  </span>
+                  <span className={pendingCounts.headRerollCount > 0 ? "text-red-400" : "text-white/50"}>
+                    Pending rerolls: <span className="font-mono">{pendingCounts.headRerollCount}</span>
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Scan results */}
+            {pendingRerollTokenIds !== null && (
+              <div className="bg-black/30 rounded-lg p-3">
+                {pendingRerollTokenIds.length === 0 ? (
+                  <p className="font-righteous text-green-400 text-sm">No tokens with pending head reroll found.</p>
+                ) : (
+                  <>
+                    <p className="font-righteous text-red-400 text-sm mb-2">
+                      Stuck tokens ({pendingRerollTokenIds.length}): <span className="font-mono text-white">{pendingRerollTokenIds.join(', ')}</span>
+                    </p>
+                    <p className="font-righteous text-white/50 text-xs">Token IDs are pre-filled below for rescue.</p>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label className="font-righteous text-white/70 block mb-2">
+                Token IDs to rescue (comma or newline separated):
+              </label>
+              <textarea
+                value={rescueTokenIds}
+                onChange={(e) => setRescueTokenIds(e.target.value)}
+                className="w-full h-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono p-3 rounded-md resize-none"
+                placeholder="42&#10;77&#10;103"
+              />
+            </div>
+            <Button
+              onClick={handleRescueHeadReroll}
+              className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4"
+            >
+              Rescue Pending Rerolls
+            </Button>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* VRF Request Confirmations */}
+      {contracts?.fregsRandomizer && (
+        <Card className="bg-white/5 border-white/10">
+          <div
+            className="flex items-center justify-between p-4 cursor-pointer"
+            onClick={() => setShowVrfConfirmations(!showVrfConfirmations)}
+          >
+            <h3 className="font-bangers text-xl text-white">VRF Request Confirmations</h3>
+            <span className="text-white/60">{showVrfConfirmations ? '▲' : '▼'}</span>
+          </div>
+          {showVrfConfirmations && (
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-white/70 text-sm">Confirmations (min 1, recommended 3)</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={vrfConfirmations}
+                  onChange={(e) => setVrfConfirmations(e.target.value)}
+                  className="bg-white/10 border-white/20 text-white mt-1"
+                />
+              </div>
+              <Button
+                onClick={handleSetVrfConfirmations}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-bangers"
+              >
+                Update Confirmations
+              </Button>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* VRF Callback Gas Limits */}
+      {contracts?.fregsRandomizer && (
+        <Card className="bg-white/5 border-white/10">
+          <div
+            className="flex items-center justify-between p-4 cursor-pointer"
+            onClick={() => setShowVrfGasLimits(!showVrfGasLimits)}
+          >
+            <h3 className="font-bangers text-xl text-white">VRF Callback Gas Limits</h3>
+            <span className="text-white/60">{showVrfGasLimits ? '▲' : '▼'}</span>
+          </div>
+          {showVrfGasLimits && (
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="font-righteous text-white/70 text-sm block mb-1">Mint gas limit</label>
+                  <input
+                    type="number"
+                    value={vrfMintGas}
+                    onChange={(e) => setVrfMintGas(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-white font-mono text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="font-righteous text-white/70 text-sm block mb-1">Claim item gas limit</label>
+                  <input
+                    type="number"
+                    value={vrfClaimItemGas}
+                    onChange={(e) => setVrfClaimItemGas(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-white font-mono text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="font-righteous text-white/70 text-sm block mb-1">Head reroll gas limit</label>
+                  <input
+                    type="number"
+                    value={vrfHeadRerollGas}
+                    onChange={(e) => setVrfHeadRerollGas(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-white font-mono text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="font-righteous text-white/70 text-sm block mb-1">Spin gas limit</label>
+                  <input
+                    type="number"
+                    value={vrfSpinGas}
+                    onChange={(e) => setVrfSpinGas(e.target.value)}
+                    className="w-full bg-white/10 border border-white/20 rounded px-3 py-2 text-white font-mono text-sm"
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleSetVrfGasLimits}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-bangers"
+              >
+                Update Gas Limits
+              </Button>
+            </CardContent>
+          )}
+        </Card>
+      )}
+      {/* Chainlink Subscription */}
+      {contracts?.fregsRandomizer && (
+        <Card className="bg-white/5 border-white/10">
+          <div
+            className="flex items-center justify-between p-4 cursor-pointer"
+            onClick={() => setShowChainlinkSubscription(!showChainlinkSubscription)}
+          >
+            <h3 className="font-bangers text-xl text-white">Chainlink Subscription</h3>
+            <span className="text-white/60">{showChainlinkSubscription ? '▲' : '▼'}</span>
+          </div>
+          {showChainlinkSubscription && (
+            <CardContent className="pt-0 space-y-4">
+              <div>
+                <label className="text-white/70 text-sm">Subscription ID</label>
+                <Input
+                  value={chainlinkSubId}
+                  onChange={(e) => setChainlinkSubId(e.target.value)}
+                  className="bg-white/10 border-white/20 text-white mt-1 font-mono text-xs"
+                  placeholder="Subscription ID"
+                />
+              </div>
+              <div>
+                <label className="text-white/70 text-sm">Gas Lane</label>
+                <select
+                  value={chainlinkGasLane}
+                  onChange={(e) => setChainlinkGasLane(e.target.value)}
+                  className="w-full mt-1 rounded-md bg-white/10 border border-white/20 text-white px-3 py-2 text-sm"
+                >
+                  <option value="2gwei">2 gwei (cheaper, slower)</option>
+                  <option value="30gwei">30 gwei (more expensive, faster)</option>
+                </select>
+              </div>
+              <Button
+                onClick={handleSetChainlinkSubscription}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-bangers"
+              >
+                Update Subscription
+              </Button>
+            </CardContent>
+          )}
+        </Card>
+      )}
       </div>
 
       {/* Transaction Modal */}

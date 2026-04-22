@@ -7,11 +7,19 @@ import {
   FREGS_MINTPASS_ADDRESS,
   SPIN_THE_WHEEL_ADDRESS,
   FREGS_LIQUIDITY_ADDRESS,
+  FREG_SHOP_ADDRESS,
+  FREG_COIN_ADDRESS,
+  FREG_AIRDROP_ADDRESS,
+  FREGS_RANDOMIZER_ADDRESS,
   FregsABI,
   FregsItemsABI,
   FregsMintPassABI,
   SpinTheWheelABI,
   FregsLiquidityABI,
+  FregShopABI,
+  FregCoinABI,
+  FregsAirdropABI,
+  FregsRandomizerABI,
 } from "../config/contracts"
 
 export function useContracts() {
@@ -60,6 +68,34 @@ export function useContracts() {
         write: async () => {
           const signer = await getSigner()
           return new Contract(FREGS_LIQUIDITY_ADDRESS, FregsLiquidityABI, signer)
+        },
+      } : null,
+      fregShop: FREG_SHOP_ADDRESS ? {
+        read: new Contract(FREG_SHOP_ADDRESS, FregShopABI, provider),
+        write: async () => {
+          const signer = await getSigner()
+          return new Contract(FREG_SHOP_ADDRESS, FregShopABI, signer)
+        },
+      } : null,
+      fregCoin: FREG_COIN_ADDRESS ? {
+        read: new Contract(FREG_COIN_ADDRESS, FregCoinABI, provider),
+        write: async () => {
+          const signer = await getSigner()
+          return new Contract(FREG_COIN_ADDRESS, FregCoinABI, signer)
+        },
+      } : null,
+      fregAirdrop: FREG_AIRDROP_ADDRESS ? {
+        read: new Contract(FREG_AIRDROP_ADDRESS, FregsAirdropABI, provider),
+        write: async () => {
+          const signer = await getSigner()
+          return new Contract(FREG_AIRDROP_ADDRESS, FregsAirdropABI, signer)
+        },
+      } : null,
+      fregsRandomizer: FREGS_RANDOMIZER_ADDRESS ? {
+        read: new Contract(FREGS_RANDOMIZER_ADDRESS, FregsRandomizerABI, provider),
+        write: async () => {
+          const signer = await getSigner()
+          return new Contract(FREGS_RANDOMIZER_ADDRESS, FregsRandomizerABI, signer)
         },
       } : null,
     }

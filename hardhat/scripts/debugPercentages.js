@@ -2,10 +2,11 @@ const { ethers, network } = require("hardhat");
 const { loadDeploymentStatus } = require("./deploymentStatus");
 
 const NONE = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-const TOTAL_MINTS = 2000;
-const BATCH_SIZE = 50; // Print progress every N mints
+const TOTAL_MINTS = 200;
+const BATCH_SIZE = 10;
+const EVENT_TIMEOUT_MS = Number(process.env.VRF_EVENT_TIMEOUT_MS || 180000);
+const EVENT_POLL_MS = Number(process.env.VRF_EVENT_POLL_MS || 3000);
 
-// Trait names from traits.json (index = traitId, 1-based)
 const HEAD_NAMES = {
     1: "Normal Eyes", 2: "Beanie", 3: "Bored Eyes", 4: "Captain", 5: "Commie",
     6: "Cowboy", 7: "Crown", 8: "Cap", 9: "Halo", 10: "3D Glasses",
@@ -53,6 +54,69 @@ function printDistribution(title, counts, total, nameMap) {
     }
 }
 
+function randomHexColor() {
+    return `#${Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0').toUpperCase()}`;
+}
+
+async function sleep(ms) {
+    await new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function getTxGasPrice() {
+    const feeData = await ethers.provider.getFeeData();
+    const candidates = [feeData.gasPrice, feeData.maxFeePerGas].filter(
+        v => typeof v === "bigint" && v > 0n
+    );
+    if (candidates.length === 0) return 1n;
+    return candidates.reduce((max, v) => v > max ? v : max);
+}
+
+async function waitForEvent({ contract, filter, fromBlock, description, match }) {
+    const deadline = Date.now() + EVENT_TIMEOUT_MS;
+    let nextFromBlock = Number(fromBlock);
+
+    while (Date.now() < deadline) {
+        const latestBlock = await ethers.provider.getBlockNumber();
+        const logs = await contract.queryFilter(filter, nextFromBlock, latestBlock);
+        for (const log of logs) {
+            if (!match || match(log)) return log;
+        }
+        nextFromBlock = latestBlock + 1;
+        await sleep(EVENT_POLL_MS);
+    }
+
+    throw new Error(`Timed out waiting for ${description}`);
+}
+
+async function syncNonceState(nonceState) {
+    const pendingNonce = await ethers.provider.getTransactionCount(nonceState.address, "pending");
+    if (pendingNonce > nonceState.nextNonce) nonceState.nextNonce = pendingNonce;
+    return nonceState.nextNonce;
+}
+
+async function sendTx(sendFn, txOptions, nonceState) {
+    let lastError;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        const nonce = await syncNonceState(nonceState);
+        try {
+            const tx = await sendFn({ ...txOptions, nonce });
+            nonceState.nextNonce = nonce + 1;
+            const receipt = await tx.wait();
+            return { tx, receipt };
+        } catch (error) {
+            lastError = error;
+            const msg = String(error?.message || error);
+            if (msg.includes("nonce too low") || msg.includes("already known") || msg.includes("replacement transaction underpriced")) {
+                nonceState.nextNonce = await ethers.provider.getTransactionCount(nonceState.address, "pending");
+                await sleep(1000);
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw lastError;
+}
+
 async function main() {
     const status = loadDeploymentStatus(network.name);
     const [deployer] = await ethers.getSigners();
@@ -60,49 +124,61 @@ async function main() {
     const fregs = await ethers.getContractAt("Fregs", status.contracts.fregs);
     const fregsItems = await ethers.getContractAt("FregsItems", status.contracts.fregsItems);
 
+    const nonceState = {
+        address: deployer.address,
+        nextNonce: await ethers.provider.getTransactionCount(deployer.address, "pending"),
+    };
+
     const mintPrice = await fregs.mintPrice();
     const mintPhase = await fregs.mintPhase();
-    console.log(`Mint price: ${ethers.formatEther(mintPrice)} ETH`);
-    console.log(`Mint phase: ${mintPhase} (0=Paused, 1=Whitelist, 2=Public)`);
+
+    console.log(`Network:       ${network.name}`);
+    console.log(`Deployer:      ${deployer.address}`);
+    console.log(`Mint price:    ${ethers.formatEther(mintPrice)} ETH`);
+    console.log(`Mint phase:    ${mintPhase} (0=Paused, 1=Whitelist, 2=Public)`);
     console.log(`Minting ${TOTAL_MINTS} fregs...\n`);
 
-    // Trait counters
     const headCounts = {};
     const mouthCounts = {};
     const stomachCounts = {};
     const itemCounts = {};
-
     const mintedTokenIds = [];
     let failed = 0;
 
-    // Mint all
     for (let i = 0; i < TOTAL_MINTS; i++) {
         try {
-            // Use varied colors for realism
-            const hue = Math.floor((i / TOTAL_MINTS) * 360);
-            const color = `#${hue.toString(16).padStart(2, "0")}aa55`;
+            const gasPrice = await getTxGasPrice();
+            const color = randomHexColor();
 
-            const tx = await fregs.mint(color, { value: mintPrice, gasLimit: 500000n });
-            const receipt = await tx.wait();
+            const { tx, receipt } = await sendTx(
+                txOptions => fregs.mint(color, txOptions),
+                { value: mintPrice, gasLimit: 800000n, gasPrice },
+                nonceState
+            );
 
-            const event = receipt.logs.find(l => {
-                try { return fregs.interface.parseLog(l)?.name === "FregMinted"; } catch { return false; }
-            });
-            const parsed = event ? fregs.interface.parseLog(event) : null;
+            let parsed = null;
+            for (const log of receipt.logs) {
+                try {
+                    const p = fregs.interface.parseLog(log);
+                    if (p?.name === "FregMinted") { parsed = p; break; }
+                } catch { /* skip */ }
+            }
+
+            if (!parsed) {
+                parsed = await waitForEvent({
+                    contract: fregs,
+                    filter: fregs.filters.FregMinted(null, deployer.address),
+                    fromBlock: receipt.blockNumber,
+                    description: `FregMinted for mint ${i}`,
+                });
+            }
 
             if (parsed) {
                 const tokenId = Number(parsed.args.tokenId);
-                const h = parsed.args.head;
-                const m = parsed.args.mouth;
-                const b = parsed.args.belly;
-
                 mintedTokenIds.push(tokenId);
-
-                const headId = Number(h);
-                const mouthId = m === NONE ? 0 : Number(m);
-                const stomachId = b === NONE ? 0 : Number(b);
-
-                headCounts[headId] = (headCounts[headId] || 0) + 1;
+                headCounts[Number(parsed.args.head)] = (headCounts[Number(parsed.args.head)] || 0) + 1;
+                const mouthId = parsed.args.mouth === NONE ? 0 : Number(parsed.args.mouth);
+                const stomachId = parsed.args.belly === NONE ? 0 : Number(parsed.args.belly);
                 mouthCounts[mouthId] = (mouthCounts[mouthId] || 0) + 1;
                 stomachCounts[stomachId] = (stomachCounts[stomachId] || 0) + 1;
             } else {
@@ -110,7 +186,7 @@ async function main() {
             }
         } catch (e) {
             failed++;
-            if (failed <= 3) console.log(`  Mint ${i} FAILED: ${e.message.slice(0, 200)}`);
+            if (failed <= 3) console.log(`  Mint ${i} FAILED: ${String(e.message || e).slice(0, 200)}`);
         }
 
         if ((i + 1) % BATCH_SIZE === 0) {
@@ -119,21 +195,36 @@ async function main() {
     }
 
     console.log(`\nMinting done: ${mintedTokenIds.length} success, ${failed} failed`);
-
-    // Claim items for all minted fregs
     console.log(`\nClaiming items for ${mintedTokenIds.length} fregs...`);
     let claimFailed = 0;
 
     for (let i = 0; i < mintedTokenIds.length; i++) {
         const tokenId = mintedTokenIds[i];
         try {
-            const tx = await fregsItems.claimItem(tokenId, { gasLimit: 500000n });
-            const receipt = await tx.wait();
+            const gasPrice = await getTxGasPrice();
 
-            const event = receipt.logs.find(l => {
-                try { return fregsItems.interface.parseLog(l)?.name === "ItemClaimed"; } catch { return false; }
-            });
-            const parsed = event ? fregsItems.interface.parseLog(event) : null;
+            const { receipt } = await sendTx(
+                txOptions => fregsItems.claimItem(tokenId, txOptions),
+                { gasLimit: 700000n, gasPrice },
+                nonceState
+            );
+
+            let parsed = null;
+            for (const log of receipt.logs) {
+                try {
+                    const p = fregsItems.interface.parseLog(log);
+                    if (p?.name === "ItemClaimed") { parsed = p; break; }
+                } catch { /* skip */ }
+            }
+
+            if (!parsed) {
+                parsed = await waitForEvent({
+                    contract: fregsItems,
+                    filter: fregsItems.filters.ItemClaimed(tokenId, null, deployer.address),
+                    fromBlock: receipt.blockNumber,
+                    description: `ItemClaimed for Freg #${tokenId}`,
+                });
+            }
 
             if (parsed) {
                 const iType = Number(parsed.args.itemType);
@@ -141,7 +232,7 @@ async function main() {
             }
         } catch (e) {
             claimFailed++;
-            if (claimFailed <= 3) console.log(`  Claim freg #${tokenId} FAILED: ${e.message.slice(0, 200)}`);
+            if (claimFailed <= 3) console.log(`  Claim freg #${tokenId} FAILED: ${String(e.message || e).slice(0, 200)}`);
         }
 
         if ((i + 1) % BATCH_SIZE === 0) {
@@ -152,7 +243,6 @@ async function main() {
     const totalClaimed = mintedTokenIds.length - claimFailed;
     console.log(`\nClaiming done: ${totalClaimed} success, ${claimFailed} failed`);
 
-    // Print reports
     printDistribution("HEAD TRAITS", headCounts, mintedTokenIds.length, HEAD_NAMES);
     printDistribution("MOUTH TRAITS", mouthCounts, mintedTokenIds.length, MOUTH_NAMES);
     printDistribution("STOMACH TRAITS", stomachCounts, mintedTokenIds.length, STOMACH_NAMES);

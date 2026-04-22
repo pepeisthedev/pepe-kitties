@@ -1,0 +1,28 @@
+{
+  "byChainId": {
+    "8453": {
+      "background": [],
+      "head": [],
+      "mouth": [],
+      "skin": [],
+      "stomach": []
+    },
+    "31337": {
+      "background": [],
+      "head": [],
+      "mouth": [],
+      "skin": [],
+      "stomach": [
+      ]
+    },
+    "84532": {
+      "background": [],
+      "head": [],
+      "mouth": [],
+      "skin": [],
+      "stomach": [
+  
+      ]
+    }
+  }
+}

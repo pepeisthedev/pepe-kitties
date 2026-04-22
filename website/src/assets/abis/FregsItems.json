@@ -32,6 +32,11 @@
   },
   {
     "inputs": [],
+    "name": "AlreadyClaimedErr",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ApprovalCallerNotOwnerNorApproved",
     "type": "error"
   },
@@ -43,6 +48,11 @@
   {
     "inputs": [],
     "name": "BalanceQueryForZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ClaimRequestsPending",
     "type": "error"
   },
   {
@@ -116,6 +126,36 @@
   },
   {
     "inputs": [],
+    "name": "HeadRerollsPending",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InsufficientCoinBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidAmount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidItemType",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidTraitType",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LengthMismatchErr",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "MintERC2309QuantityExceedsLimit",
     "type": "error"
   },
@@ -131,7 +171,52 @@
   },
   {
     "inputs": [],
+    "name": "MissingPendingRequest",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NameRequired",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NoClaimWeights",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NoExcessCoins",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NotCompatibleWithSpotMints",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotFregOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotItemOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OnlyRandomizer",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OnlyShopContract",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OnlySpinContract",
     "type": "error"
   },
   {
@@ -168,7 +253,27 @@
   },
   {
     "inputs": [],
+    "name": "PendingRequestMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RandomRequestsPending",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RandomizerNotSet",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SVGRendererNotSet",
     "type": "error"
   },
   {
@@ -194,6 +299,11 @@
   {
     "inputs": [],
     "name": "TokenAlreadyExists",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TokenDoesNotExist",
     "type": "error"
   },
   {
@@ -290,6 +400,37 @@
       {
         "indexed": true,
         "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "actionId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "ClaimItemRequested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
         "name": "itemTokenId",
         "type": "uint256"
       },
@@ -363,6 +504,43 @@
       }
     ],
     "name": "DefaultRoyaltySet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "actionId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "HeadRerollRequested",
     "type": "event"
   },
   {
@@ -475,6 +653,31 @@
       }
     ],
     "name": "MintedFromCoin",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "itemType",
+        "type": "uint256"
+      }
+    ],
+    "name": "MintedFromShop",
     "type": "event"
   },
   {
@@ -827,6 +1030,19 @@
   },
   {
     "inputs": [],
+    "name": "MUTATION",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "SKELETON_SKIN",
     "outputs": [
       {
@@ -1056,7 +1272,39 @@
   },
   {
     "inputs": [],
+    "name": "chestOpeningActive",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "chestsBurned",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimActionByRequestId",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1182,6 +1430,77 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "actionId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "requester",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "randomWord",
+        "type": "uint256"
+      }
+    ],
+    "name": "fulfillClaimItem",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "actionId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "requester",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "randomWord",
+        "type": "uint256"
+      }
+    ],
+    "name": "fulfillHeadReroll",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1379,6 +1698,44 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "headRerollActionByRequestId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "headRerollRequestIdByAction",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "headRerollWeight",
     "outputs": [
@@ -1528,6 +1885,37 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_itemType",
+        "type": "uint256"
+      }
+    ],
+    "name": "mintFromShop",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "mutationItemTypeId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "name",
     "outputs": [
@@ -1535,6 +1923,32 @@
         "internalType": "string",
         "name": "",
         "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "nextClaimActionId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "nextHeadRerollActionId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -1610,7 +2024,104 @@
   },
   {
     "inputs": [],
+    "name": "pendingClaimCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "pendingHeadRerollActionByFregId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pendingHeadRerollCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "randomizer",
+    "outputs": [
+      {
+        "internalType": "contract IFregsRandomizer",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      }
+    ],
+    "name": "rescueHeadReroll",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "rescuePendingClaimCount",
+    "outputs": [],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "requestIds",
+        "type": "uint256[]"
+      }
+    ],
+    "name": "rescuePendingClaims",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1821,6 +2332,19 @@
   {
     "inputs": [
       {
+        "internalType": "bool",
+        "name": "_active",
+        "type": "bool"
+      }
+    ],
+    "name": "setChestOpeningActive",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "_fregCoin",
         "type": "address"
@@ -1884,6 +2408,32 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "_itemTypeId",
+        "type": "uint256"
+      }
+    ],
+    "name": "setMutationItemTypeId",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_randomizer",
+        "type": "address"
+      }
+    ],
+    "name": "setRandomizer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "_colorChange",
         "type": "uint256"
       },
@@ -1932,6 +2482,19 @@
       }
     ],
     "name": "setSVGRenderer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_shop",
+        "type": "address"
+      }
+    ],
+    "name": "setShopContract",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -2027,6 +2590,19 @@
     "name": "setTreasureChestWeight",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "shopContract",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -2366,6 +2942,24 @@
       }
     ],
     "name": "useHeadTraitItem",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "itemTokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fregId",
+        "type": "uint256"
+      }
+    ],
+    "name": "useMutationItem",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

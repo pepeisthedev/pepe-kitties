@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react"
 import { ITEM_TYPE_NAMES, ITEM_TYPE_DESCRIPTIONS, getItemConfig } from "../config/contracts"
 
-// Get item image path from items.json config
+// Get item image path from merged item config
 function getItemImagePath(itemType: number): string {
   const config = getItemConfig(itemType)
   if (config?.svgFile) {

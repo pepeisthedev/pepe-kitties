@@ -38,6 +38,11 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         _burn(holder, MINT_PASS, 1);
     }
 
+    function refundMintPass(address holder) external {
+        require(msg.sender == fregsContract, "Only Fregs contract");
+        _mint(holder, MINT_PASS, 1, "");
+    }
+
     // ============ Owner Functions ============
 
     function setFregsContract(address _fregsContract) external onlyOwner {
@@ -58,6 +63,7 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     // Mint from SpinTheWheel spin wheel
     function mintFromCoin(address to, uint256 amount) external {
         require(msg.sender == spinTheWheelContract, "Only SpinTheWheel contract");
+        totalMinted += amount;
         _mint(to, MINT_PASS, amount, "");
         emit MintedFromCoin(to, amount);
     }
@@ -107,27 +113,14 @@ contract FregsMintPass is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         );
     }
 
-    function _encodeMetadata() internal view returns (string memory) {
+    function _encodeMetadata() internal pure returns (string memory) {
         bytes memory json = abi.encodePacked(
             '{"name": "Fregs Mint Pass",',
             '"description": "Use this pass to mint a Freg NFT during the whitelist phase!",',
-            '"image": "data:image/svg+xml;base64,',
-            _encodePlaceholderSVG(),
-            '","attributes": [{"trait_type": "Type", "value": "Mint Pass"}]}'
+            '"image": "ipfs://bafkreidda6oib627le5kbl47od2a4yuvzjsw7d7kvxpg6znfqg2rshc5hm",',
+            '"attributes": [{"trait_type": "Type", "value": "Mint Pass"}]}'
         );
         return _base64Encode(json);
-    }
-
-    function _encodePlaceholderSVG() internal pure returns (string memory) {
-        bytes memory svg = abi.encodePacked(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">',
-            '<rect width="200" height="200" fill="#1a1a2e"/>',
-            '<rect x="20" y="20" width="160" height="160" rx="20" fill="#16213e" stroke="#e94560" stroke-width="3"/>',
-            '<text x="100" y="90" text-anchor="middle" fill="#e94560" font-size="16" font-weight="bold">FREGS</text>',
-            '<text x="100" y="120" text-anchor="middle" fill="#fff" font-size="14">MINT PASS</text>',
-            '</svg>'
-        );
-        return _base64Encode(svg);
     }
 
     // Simple base64 encoding for on-chain metadata

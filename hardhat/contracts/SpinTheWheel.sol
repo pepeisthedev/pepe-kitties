@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "./interfaces/IFregsRandomizer.sol";
 
 interface IFregsMintPass {
     function mintFromCoin(address to, uint256 amount) external;
@@ -27,6 +28,7 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     // External contracts
     IFregsMintPass public mintPassContract;
     IFregsItems public itemsContract;
+    IFregsRandomizer public randomizer;
 
     // Prize types
     uint256 public constant PRIZE_NONE = 0;       // Lose
@@ -49,8 +51,17 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     mapping(uint256 => uint256) public itemMaxSupply;
     mapping(uint256 => uint256) public itemMintCount;
 
-    // Randomness
-    uint256 private randomNonce;
+    struct PendingSpin {
+        address player;
+        bool active;
+    }
+
+    mapping(uint256 => PendingSpin) private pendingSpins;
+    mapping(uint256 => uint256) public spinActionByRequestId;
+    uint256 public nextSpinActionId;
+    uint256 public pendingSpinCount;
+
+    bool public active;
 
     // Events
     event SpinResult(
@@ -64,82 +75,97 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     event ItemPrizeAdded(uint256 itemType, uint256 weight);
     event ItemPrizeRemoved(uint256 itemType);
     event WeightsUpdated(uint256 loseWeight, uint256 mintPassWeight, uint256 totalItemWeight);
+    event SpinRequested(uint256 indexed requestId, uint256 indexed actionId, address indexed player);
+
+    modifier onlyRandomizer() {
+        require(address(randomizer) != address(0) && msg.sender == address(randomizer), "Only randomizer");
+        _;
+    }
 
     constructor(string memory uri_) ERC1155(uri_) Ownable(msg.sender) {}
 
     // ============ Spin the Wheel ============
 
     function spin() external nonReentrant {
+        require(active, "Spin is not active");
+        require(address(randomizer) != address(0), "Randomizer not set");
         require(balanceOf(msg.sender, SPIN_TOKEN) >= 1, "No SpinToken");
         require(address(mintPassContract) != address(0), "MintPass contract not set");
         require(address(itemsContract) != address(0), "Items contract not set");
+
+        uint256 totalWeight = loseWeight + mintPassWeight + totalItemWeight;
+        require(totalWeight > 0, "No prizes configured");
+
+        uint256 actionId = ++nextSpinActionId;
+        pendingSpins[actionId] = PendingSpin({player: msg.sender, active: true});
 
         // Burn 1 SpinToken
         _burn(msg.sender, SPIN_TOKEN, 1);
         emit CoinBurned(msg.sender, 1);
 
-        // Calculate total weight
+        pendingSpinCount += 1;
+        uint256 requestId = randomizer.requestSpin(msg.sender, actionId);
+        if (pendingSpins[actionId].active) {
+            spinActionByRequestId[requestId] = actionId;
+        }
+        emit SpinRequested(requestId, actionId, msg.sender);
+    }
+
+    // Intentionally not nonReentrant so localhost mock VRF auto-fulfill can settle in the same tx.
+    function fulfillSpin(uint256 requestId, uint256 actionId, address player, uint256 randomWord) external onlyRandomizer {
+        PendingSpin memory pending = pendingSpins[actionId];
+        require(pending.active, "Unknown spin request");
+        require(pending.player == player, "Spin player mismatch");
+
+        uint256 trackedActionId = spinActionByRequestId[requestId];
+        require(trackedActionId == 0 || trackedActionId == actionId, "Spin request mismatch");
+
+        delete pendingSpins[actionId];
+        delete spinActionByRequestId[requestId];
+        pendingSpinCount -= 1;
+
         uint256 totalWeight = loseWeight + mintPassWeight + totalItemWeight;
-        require(totalWeight > 0, "No prizes configured");
+        uint256 rand = randomWord % totalWeight;
+        uint256 cumulative = loseWeight;
 
-        // Get random number
-        uint256 rand = _getRandom(totalWeight);
-        uint256 cumulative = 0;
-
-        // Check for lose
-        cumulative += loseWeight;
         if (rand < cumulative) {
-            emit SpinResult(msg.sender, false, PRIZE_NONE, 0);
+            emit SpinResult(player, false, PRIZE_NONE, 0);
             return;
         }
 
-        // Check for MintPass
         cumulative += mintPassWeight;
         if (rand < cumulative) {
-            mintPassContract.mintFromCoin(msg.sender, 1);
-            emit SpinResult(msg.sender, true, PRIZE_MINTPASS, 0);
+            mintPassContract.mintFromCoin(player, 1);
+            emit SpinResult(player, true, PRIZE_MINTPASS, 0);
             return;
         }
 
-        // Check for item prizes
         for (uint256 i = 0; i < itemPrizes.length; i++) {
             cumulative += itemPrizes[i].weight;
             if (rand < cumulative) {
                 uint256 iType = itemPrizes[i].itemType;
 
-                // If item is sold out, give a MintPass instead
                 if (itemMaxSupply[iType] > 0 && itemMintCount[iType] >= itemMaxSupply[iType]) {
-                    mintPassContract.mintFromCoin(msg.sender, 1);
-                    emit SpinResult(msg.sender, true, PRIZE_MINTPASS, 0);
+                    mintPassContract.mintFromCoin(player, 1);
+                    emit SpinResult(player, true, PRIZE_MINTPASS, 0);
                     return;
                 }
 
                 itemMintCount[iType]++;
-                itemsContract.mintFromCoin(msg.sender, iType);
-                emit SpinResult(msg.sender, true, PRIZE_ITEM, iType);
+                itemsContract.mintFromCoin(player, iType);
+                emit SpinResult(player, true, PRIZE_ITEM, iType);
                 return;
             }
         }
 
-        // Fallback: lose (should never reach here if weights are configured correctly)
-        emit SpinResult(msg.sender, false, PRIZE_NONE, 0);
-    }
-
-    function _getRandom(uint256 max) internal returns (uint256) {
-        randomNonce++;
-        return uint256(
-            keccak256(
-                abi.encodePacked(
-                    block.timestamp,
-                    block.prevrandao,
-                    msg.sender,
-                    randomNonce
-                )
-            )
-        ) % max;
+        emit SpinResult(player, false, PRIZE_NONE, 0);
     }
 
     // ============ Owner Functions ============
+
+    function setActive(bool _active) external onlyOwner {
+        active = _active;
+    }
 
     function ownerMint(address to, uint256 amount) external onlyOwner {
         require(amount > 0, "Amount must be greater than 0");
@@ -166,24 +192,34 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     }
 
     function setMintPassContract(address _mintPass) external onlyOwner {
+        require(pendingSpinCount == 0, "Spin requests pending");
         mintPassContract = IFregsMintPass(_mintPass);
     }
 
     function setItemsContract(address _items) external onlyOwner {
+        require(pendingSpinCount == 0, "Spin requests pending");
         itemsContract = IFregsItems(_items);
     }
 
+    function setRandomizer(address _randomizer) external onlyOwner {
+        require(pendingSpinCount == 0, "Spin requests pending");
+        randomizer = IFregsRandomizer(_randomizer);
+    }
+
     function setLoseWeight(uint256 _weight) external onlyOwner {
+        require(pendingSpinCount == 0, "Spin requests pending");
         loseWeight = _weight;
         emit WeightsUpdated(loseWeight, mintPassWeight, totalItemWeight);
     }
 
     function setMintPassWeight(uint256 _weight) external onlyOwner {
+        require(pendingSpinCount == 0, "Spin requests pending");
         mintPassWeight = _weight;
         emit WeightsUpdated(loseWeight, mintPassWeight, totalItemWeight);
     }
 
     function addItemPrize(uint256 itemType, uint256 weight) external onlyOwner {
+        require(pendingSpinCount == 0, "Spin requests pending");
         require(weight > 0, "Weight must be greater than 0");
 
         // Check if item type already exists
@@ -202,6 +238,7 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     }
 
     function updateItemPrizeWeight(uint256 itemType, uint256 newWeight) external onlyOwner {
+        require(pendingSpinCount == 0, "Spin requests pending");
         for (uint256 i = 0; i < itemPrizes.length; i++) {
             if (itemPrizes[i].itemType == itemType) {
                 totalItemWeight = totalItemWeight - itemPrizes[i].weight + newWeight;
@@ -214,6 +251,7 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
     }
 
     function removeItemPrize(uint256 itemType) external onlyOwner {
+        require(pendingSpinCount == 0, "Spin requests pending");
         for (uint256 i = 0; i < itemPrizes.length; i++) {
             if (itemPrizes[i].itemType == itemType) {
                 totalItemWeight -= itemPrizes[i].weight;
@@ -230,7 +268,31 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
         revert("Item type not found");
     }
 
+    function rescuePendingSpinCount(uint256) external pure {
+        revert("Use request-specific rescue");
+    }
+
+    function rescuePendingSpins(uint256[] calldata requestIds) external onlyOwner {
+        for (uint256 i = 0; i < requestIds.length; i++) {
+            uint256 requestId = requestIds[i];
+            uint256 actionId = spinActionByRequestId[requestId];
+            require(actionId != 0, "Unknown spin request");
+
+            PendingSpin memory pending = pendingSpins[actionId];
+            require(pending.active, "Spin not pending");
+
+            delete pendingSpins[actionId];
+            delete spinActionByRequestId[requestId];
+            pendingSpinCount -= 1;
+
+            randomizer.cancelRequest(requestId);
+            _mint(pending.player, SPIN_TOKEN, 1, "");
+            emit CoinsMinted(pending.player, 1);
+        }
+    }
+
     function setItemMaxSupply(uint256 itemType, uint256 maxSupply) external onlyOwner {
+        require(pendingSpinCount == 0, "Spin requests pending");
         itemMaxSupply[itemType] = maxSupply;
     }
 
@@ -294,30 +356,13 @@ contract SpinTheWheel is ERC1155, ERC1155Burnable, Ownable, ReentrancyGuard {
 
     function _encodeMetadata() internal pure returns (string memory) {
         bytes memory json = abi.encodePacked(
-            '{"name": "SpinToken",',
+            '{"name": "Freg Spin Token",',
             '"description": "Spin the wheel for a chance to win prizes! Burn 1 SpinToken to spin.",',
-            '"image": "data:image/svg+xml;base64,',
-            _encodeCoinSVG(),
-            '","attributes": [{"trait_type": "Type", "value": "Game Token"}]}'
+            '"image": "ipfs://bafybeidvpudkt75b56scxtnwtm2fmpodf5a7jslcmhmlh25vl6elmlw6cq",',
+            '"animation_url": "ipfs://bafybeiaufjnxtaa4gkc6qouifr2mi7r6d44lbhwhpis2ygck6octup46ue",',
+            '"attributes": [{"trait_type": "Type", "value": "Spin Token"}]}'
         );
         return _base64Encode(json);
-    }
-
-    function _encodeCoinSVG() internal pure returns (string memory) {
-        bytes memory svg = abi.encodePacked(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">',
-            '<defs><linearGradient id="coinGrad" x1="0%" y1="0%" x2="100%" y2="100%">',
-            '<stop offset="0%" style="stop-color:#FFD700"/>',
-            '<stop offset="50%" style="stop-color:#FFA500"/>',
-            '<stop offset="100%" style="stop-color:#FFD700"/>',
-            '</linearGradient></defs>',
-            '<circle cx="100" cy="100" r="90" fill="url(#coinGrad)" stroke="#B8860B" stroke-width="5"/>',
-            '<circle cx="100" cy="100" r="70" fill="none" stroke="#B8860B" stroke-width="2"/>',
-            '<text x="100" y="90" text-anchor="middle" fill="#8B4513" font-size="24" font-weight="bold">SPIN</text>',
-            '<text x="100" y="120" text-anchor="middle" fill="#8B4513" font-size="18">TOKEN</text>',
-            '</svg>'
-        );
-        return _base64Encode(svg);
     }
 
     function _base64Encode(bytes memory data) internal pure returns (string memory) {

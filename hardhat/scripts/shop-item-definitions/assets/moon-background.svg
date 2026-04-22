@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 617.49 644.18">
+  <defs><style>.moon-bg{fill:#0d1b2a;}.moon-body{fill:#e8e8d0;}.moon-crater{fill:#c8c8b0;}</style></defs>
+  <rect class="moon-bg" width="617.49" height="644.18" rx="30"/>
+  <circle class="moon-body" cx="480" cy="120" r="70"/>
+  <circle class="moon-bg" cx="510" cy="100" r="55"/>
+  <circle class="moon-crater" cx="100" cy="600" r="3" opacity="0.4"/>
+  <circle class="moon-crater" cx="250" cy="580" r="2" opacity="0.3"/>
+  <circle class="moon-crater" cx="400" cy="610" r="2.5" opacity="0.35"/>
+  <circle class="moon-crater" cx="550" cy="590" r="2" opacity="0.3"/>
+  <circle class="moon-crater" cx="170" cy="50" r="1.5" opacity="0.25"/>
+  <circle class="moon-crater" cx="320" cy="300" r="1.5" opacity="0.2"/>
+  <circle class="moon-crater" cx="80" cy="200" r="2" opacity="0.3"/>
+</svg>

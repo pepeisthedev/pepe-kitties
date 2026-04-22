@@ -8,9 +8,13 @@ import { useOwnedItems, useContractData, useContracts } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
 import { ITEM_TYPES } from "../config/contracts"
-import { Flame } from "lucide-react"
+import { Flame, Lock } from "lucide-react"
 
-export default function TreasureChestSection(): React.JSX.Element {
+interface Props {
+    chestOpeningActive: boolean
+}
+
+export default function TreasureChestSection({ chestOpeningActive }: Props): React.JSX.Element {
     const { isConnected } = useAppKitAccount()
     const contracts = useContracts()
     const { data: contractData } = useContractData()
@@ -67,27 +71,10 @@ export default function TreasureChestSection(): React.JSX.Element {
                     The official token of the Fregs ecosystem
                 </p>
 
-                {/* External Links */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
-                    <Button
-                        onClick={() => window.open("https://dexscreener.com/base/0x3735e0fad9DcD3BB9a0e4a2E86bD24f8a86AeF17", "_blank")}
-                        className="inline-flex items-center justify-center gap-3 px-6 py-3 rounded-2xl font-bangers text-lg
-                            btn-theme-primary
-                            hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
-                    >
-                        <img src="/dexscreener-logo.svg" alt="DexScreener" className="w-6 h-6 icon-theme-button" />
-                        DexScreener
-                    </Button>
-                    <Button
-                        onClick={() => window.open("https://app.uniswap.org/swap?outputCurrency=0x3735e0fad9DcD3BB9a0e4a2E86bD24f8a86AeF17&chain=base", "_blank")}
-                        className="inline-flex items-center justify-center gap-3 px-6 py-3 rounded-2xl font-bangers text-lg
-                            btn-theme-primary
-                            hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
-                    >
-                        <img src="/uniswap-logo.svg" alt="Uniswap" className="w-6 h-6 icon-theme-button" />
-                        Buy on Uniswap
-                    </Button>
-                </div>
+                {/* Coming Soon */}
+                <p className="font-righteous text-theme-muted text-lg mb-10">
+                    Trading coming soon — LP launching on Base
+                </p>
 
                 
             </div>
@@ -97,13 +84,14 @@ export default function TreasureChestSection(): React.JSX.Element {
 
             <div className="text-center mb-12">
                 <h3 className="font-bangers text-4xl md:text-5xl text-theme-primary mb-4">
-                    TREASURE CHESTS
+                    YOUR TREASURE CHESTS
                 </h3>
                 <p className="font-righteous text-xl md:text-2xl text-theme-muted max-w-2xl mx-auto mb-2">
-                    Burn your treasure chest to claim FregCoin!
+                    Open your treasure chest to claim FregCoin!
                 </p>
             
             </div>
+
 
             {!isConnected ? (
                 <Card className="bg-theme-card border-4 border-theme rounded-3xl">
@@ -122,7 +110,7 @@ export default function TreasureChestSection(): React.JSX.Element {
                     <CardContent className="p-12 text-center">
                         <p className="font-bangers text-3xl text-theme-muted mb-4">No Treasure Chests</p>
                         <p className="font-righteous text-lg text-theme-subtle">
-                            Treasure chests are ultra-rare drops when claiming items from your Fregs!
+                            Treasure chests can be obtained by spinning the wheel or claiming an item!
                         </p>
                     </CardContent>
                 </Card>
@@ -140,20 +128,30 @@ export default function TreasureChestSection(): React.JSX.Element {
                             <p className="font-bangers text-2xl text-theme-primary mb-3">
                                 Chest #{chest.tokenId}
                             </p>
-                            <Button
-                                onClick={() => handleBurn(chest.tokenId)}
-                                disabled={burningId !== null}
-                                className="px-8 py-3 rounded-xl font-bangers text-lg bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400 text-white"
-                            >
-                                {burningId === chest.tokenId ? (
-                                    <LoadingSpinner size="sm" />
-                                ) : (
-                                    <>
-                                        <Flame className="w-5 h-5 mr-2" />
-                                        Burn & Claim
-                                    </>
-                                )}
-                            </Button>
+                            {chestOpeningActive ? (
+                                <Button
+                                    onClick={() => handleBurn(chest.tokenId)}
+                                    disabled={burningId !== null}
+                                    className="px-8 py-3 rounded-xl font-bangers text-lg bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-400 hover:to-orange-400 text-white"
+                                >
+                                    {burningId === chest.tokenId ? (
+                                        <LoadingSpinner size="sm" />
+                                    ) : (
+                                        <>
+                                            <Flame className="w-5 h-5 mr-2" />
+                                            Burn & Claim
+                                        </>
+                                    )}
+                                </Button>
+                            ) : (
+                                <Button
+                                    disabled
+                                    className="px-8 py-3 rounded-xl font-bangers text-lg opacity-40 cursor-not-allowed"
+                                >
+                                    <Lock className="w-5 h-5 mr-2" />
+                                    Coming soon
+                                </Button>
+                            )}
                         </div>
                     ))}
                 </div>

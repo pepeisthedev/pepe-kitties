@@ -54,7 +54,7 @@ No React Router — `MainPage.tsx` implements SPA navigation via `useState<Secti
 
 **Hooks** (`src/hooks/`, exported from `index.ts`): All follow `{ data, loading, error, refetch }` pattern — `useContractData()`, `useOwnedKitties()`, `useOwnedItems()`, `useUnclaimedKitties()`, `useFregCoinBalance()`, `useIsOwner()`.
 
-**Item system:** `src/config/items.json` is the single source of truth for item definitions (id, category, targetTraitType, incompatibility rules). Imported by `src/config/contracts.ts`.
+**Item system:** built-in items live in `src/config/items.json`, while dynamically added test items live in `src/config/dynamic-items.json` keyed by chain ID. `src/config/contracts.ts` merges the built-ins with the active chain's dynamic bucket for the website runtime.
 
 **KittyRenderer:** Composes frog images by layering SVGs (background → body → stomach → head → mouth). Base traits in `public/frogz/default/`, item-applied traits in `public/frogz/from_items/`. Colors applied by replacing placeholder `#65b449` in SVGs.
 

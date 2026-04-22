@@ -8,11 +8,12 @@ import { useUnclaimedKitties, useContractData, useContracts, useOwnedItems, useO
 import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
+import { waitForEvent } from "../lib/waitForEvent"
 import { ITEM_TYPE_NAMES, ITEM_TYPES } from "../config/contracts"
 import { Gift } from "lucide-react"
 
 export default function ClaimItemsSection(): React.JSX.Element {
-    const { isConnected } = useAppKitAccount()
+    const { address, isConnected } = useAppKitAccount()
     const contracts = useContracts()
     const { data: contractData } = useContractData()
     const { unclaimedIds, isLoading, error, refetch } = useUnclaimedKitties()
@@ -58,7 +59,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
     }
 
     const handleClaim = useCallback(async (kittyId: number) => {
-        if (!contracts) return
+        if (!contracts || !address) return
 
         // Use flushSync to ensure modal renders immediately before wallet popup
         flushSync(() => {
@@ -74,7 +75,20 @@ export default function ClaimItemsSection(): React.JSX.Element {
             const tx = await contract.claimItem(kittyId, { gasLimit: 1000000n })
             const receipt = await tx.wait()
 
-            const claimedItem = parseItemClaimedEvent(receipt)
+            let claimedItem = parseItemClaimedEvent(receipt)
+            if (!claimedItem) {
+                const claimEvent = await waitForEvent({
+                    contract: contracts.items.read,
+                    filter: contracts.items.read.filters.ItemClaimed(kittyId, null, address),
+                    fromBlock: receipt.blockNumber,
+                })
+
+                claimedItem = {
+                    fregId: Number(claimEvent.args.fregId ?? claimEvent.args[0]),
+                    itemTokenId: Number(claimEvent.args.itemTokenId ?? claimEvent.args[1]),
+                    itemType: Number(claimEvent.args.itemType ?? claimEvent.args[3]),
+                }
+            }
 
             const isBeadPunk = claimedItem?.itemType === ITEM_TYPES.BEAD_PUNK
             const itemName = claimedItem ? (ITEM_TYPE_NAMES[claimedItem.itemType] || "Item") : "Item"
@@ -98,7 +112,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
             setClaimingId(null)
             setIsModalLoading(false)
         }
-    }, [contracts, refetch, refetchItems, refetchKitties])
+    }, [address, contracts, refetch, refetchItems, refetchKitties])
 
     // Calculate percentages from weights
     const totalWeight = 10000
@@ -130,7 +144,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
                                 <p className="font-bangers text-lg text-white">{getRarityPercent(contractData.headRerollWeight)}%</p>
                             </div>
                             <div className="bg-gray-300/20 rounded-lg p-2">
-                                <p className="font-righteous text-xs text-gray-300">Metal Skin</p>
+                                <p className="font-righteous text-xs text-gray-300">Robot Skin</p>
                                 <p className="font-bangers text-lg text-white">{getRarityPercent(contractData.metalSkinWeight)}%</p>
                             </div>
                             <div className="bg-yellow-400/20 rounded-lg p-2">
@@ -156,7 +170,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
                 </Card>
             ) : isLoading ? (
                 <div className="flex justify-center py-12">
-                    <LoadingSpinner size="lg" message="Loading unclaimed kitties..." />
+                    <LoadingSpinner size="lg" message="Loading unclaimed fregs..." />
                 </div>
             ) : error ? (
                 <Card className="bg-black/40 border-4 border-red-400 rounded-3xl">
@@ -169,7 +183,7 @@ export default function ClaimItemsSection(): React.JSX.Element {
                     <CardContent className="p-12 text-center">
                         <p className="font-bangers text-3xl text-white/70 mb-4">All Items Claimed!</p>
                         <p className="font-righteous text-lg text-white/50">
-                            All your kitties have already claimed their items
+                            All your Fregs have already claimed their items
                         </p>
                     </CardContent>
                 </Card>

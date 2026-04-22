@@ -8,10 +8,12 @@ const {
 } = require("./deployUtils");
 const { loadDeploymentStatus, saveDeploymentStatus } = require("./deploymentStatus");
 
-// Helper to send transaction with retry and proper waiting
-async function sendTx(txPromise, confirmations = 1) {
+// Helper to send transaction with retry and proper waiting.
+// Always pass a factory function: sendTx(() => contract.method(args))
+// This ensures retries submit a fresh transaction with a fresh nonce.
+async function sendTx(txFn, confirmations = 1) {
     return await retryWithBackoff(async () => {
-        const tx = await txPromise;
+        const tx = await txFn();
         const receipt = await tx.wait(confirmations);
         // Small delay to let the network catch up
         if (network.name !== "localhost" && network.name !== "hardhat") {
@@ -56,6 +58,14 @@ const FROGSUIT_ITEM_TYPE = 10;
 const CHEST_ITEM_TYPE = 6;
 const INITIAL_SPIN_TOKENS_TO_MINT = 100;     // Initial SpinTokens to mint to owner on localhost
 
+const VRF_CALLBACK_GAS = {
+    mint: Number(process.env.VRF_MINT_CALLBACK_GAS_LIMIT || 700000),
+    claimItem: Number(process.env.VRF_CLAIM_ITEM_CALLBACK_GAS_LIMIT || 500000),
+    headReroll: Number(process.env.VRF_HEAD_REROLL_CALLBACK_GAS_LIMIT || 350000),
+    spin: Number(process.env.VRF_SPIN_CALLBACK_GAS_LIMIT || 450000),
+};
+const VRF_REQUEST_CONFIRMATIONS = Number(process.env.VRF_REQUEST_CONFIRMATIONS || 1);
+
 // Path to website ABIs folder (relative to hardhat folder)
 const WEBSITE_ABI_PATH = path.join(__dirname, "../../website/src/assets/abis");
 
@@ -71,8 +81,45 @@ const ITEMS_PATH = path.join(__dirname, "../../website/public/items");
 // Path to from_items traits.json (for special items configuration)
 const FROM_ITEMS_TRAITS_JSON_PATH = path.join(FROM_ITEMS_PATH, "traits.json");
 
-// Path to items.json (single source of truth for all items)
+// Path to built-in items.json. Dynamic/test items are added later via deployNewShopItem.js.
 const ITEMS_JSON_PATH = path.join(__dirname, "../../website/src/config/items.json");
+const DEFAULT_VRF_COORDINATOR_ADDRESSES = {
+  baseSepolia: "0x5C210eF41CD1a72de73bF76eC39637bB0d3d7BEE",
+  base: "0xd5D517aBE5cF79B7e95eC98dB0f0277788aFF634",
+};
+
+const DEFAULT_VRF_KEY_HASHES = {
+  // Base Sepolia only exposes the 30 gwei lane
+  baseSepolia: "0x9e1344a1247c8a1785d0a4681a27152bffdb43666ae5bf7d14d24a5efd44bf71",
+
+  // Base mainnet 2 gwei lane
+  base: "0x00b81b5a830cb0a4009fbd8904de511e28631e62ce5ad231373d3cdad373ccab",
+};
+
+function getVrfConfig() {
+    if (network.name === "localhost" || network.name === "hardhat") {
+        return { coordinator: null, subscriptionId: 0, keyHash: ethers.ZeroHash };
+    }
+    if (network.name === "baseSepolia") {
+        return {
+            coordinator: process.env.BASE_SEPOLIA_VRF_COORDINATOR || DEFAULT_VRF_COORDINATOR_ADDRESSES.baseSepolia,
+            subscriptionId: BigInt(process.env.BASE_SEPOLIA_VRF_SUBSCRIPTION_ID || 0),
+            keyHash: process.env.BASE_SEPOLIA_VRF_KEY_HASH || DEFAULT_VRF_KEY_HASHES.baseSepolia,
+        };
+    }
+    if (network.name === "base") {
+        return {
+            coordinator: process.env.BASE_VRF_COORDINATOR || DEFAULT_VRF_COORDINATOR_ADDRESSES.base,
+            subscriptionId: BigInt(process.env.BASE_VRF_SUBSCRIPTION_ID || 0),
+            keyHash: process.env.BASE_VRF_KEY_HASH || DEFAULT_VRF_KEY_HASHES.base,
+        };
+    }
+    return {
+        coordinator: process.env.VRF_COORDINATOR || "",
+        subscriptionId: BigInt(process.env.VRF_SUBSCRIPTION_ID || 0),
+        keyHash: process.env.VRF_KEY_HASH || ethers.ZeroHash,
+    };
+}
 
 // ============ LOAD TRAITS FROM JSON ============
 function loadTraitsConfig() {
@@ -101,7 +148,7 @@ function loadTraitsConfig() {
     return { traitsConfig, traitNames, traitWeights, noneTraitIds };
 }
 
-// Load items.json - single source of truth for all items
+// Load built-in items.json
 function loadItemsConfig() {
     if (!fs.existsSync(ITEMS_JSON_PATH)) {
         console.log("  ⚠️  items/items.json not found");
@@ -197,14 +244,14 @@ async function deployBody(svgPartWriter, traitsConfig) {
     console.log("  Deploying UnifiedBodyRenderer (color + special skins)...");
     const svgData = processSvgFile(bodyPath, 'body');
 
-    // Find the main body color (typically #65b449 green, used in .body-cls-6{fill:#65b449;})
-    // After prefixing, we look for .body-cls-X{fill:#XXXXXX pattern
-    const colorPattern = /\.body-cls-\d+\{fill:(#[0-9a-fA-F]{6});/;
+    // Find the main body color - it is the green fill (#469935) applied to the main body path.
+    // The SVG has multiple fill rules; we specifically target the green color class.
+    const colorPattern = /\.body-cls-\d+\{fill:(#469935);/i;
     const match = svgData.match(colorPattern);
 
     if (!match) {
-        console.log("  ⚠️  Could not find color pattern in body SVG");
-        console.log("     Expected pattern like: .body-cls-X{fill:#XXXXXX;}");
+        console.log("  ⚠️  Could not find body green color (#469935) in body SVG");
+        console.log("     Expected pattern like: .body-cls-X{fill:#469935;}");
         console.log("     Deploying as static SVG...");
 
         // Deploy as a simple SVG renderer without color support
@@ -236,7 +283,8 @@ async function deployBody(svgPartWriter, traitsConfig) {
     const part2 = svgData.substring(afterColor);
 
     console.log(`    Found body color: ${match[1]}`);
-
+    console.log(`    Part 1 tail (last 40 chars): ...${part1.slice(-40)}`);
+    console.log(`    Part 2 head (first 40 chars): ${part2.slice(0, 40)}...`);
     console.log(`    Color body Part 1: ${part1.length} chars, Part 2: ${part2.length} chars`);
 
     const part1Address = await storeSvgData(svgPartWriter, part1);
@@ -277,7 +325,7 @@ async function deployBody(svgPartWriter, traitsConfig) {
             }
 
             const skinName = skinNames[i]?.name || `Skin ${skinId}`;
-            await sendTx(bodyRenderer.setSkin(skinId, pointers, skinName));
+            await sendTx(() => bodyRenderer.setSkin(skinId, pointers, skinName));
             console.log(`      Skin ${skinId} (${skinName}) deployed (${totalChunks} chunks)`);
         }
     }
@@ -289,6 +337,18 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
     // Skin uses from_items folder only (with explicit typeIds matching fileNames)
     // Head uses default + from_items (from_items use explicit typeIds: baseCount + fileNumber)
     // Other traits use default folder only
+
+    // Load from_items trait names for skin/head lookups
+    const fromItemsTraitNames = {};
+    if (fs.existsSync(FROM_ITEMS_TRAITS_JSON_PATH)) {
+        const fromItemsTraits = JSON.parse(fs.readFileSync(FROM_ITEMS_TRAITS_JSON_PATH, "utf8"));
+        for (const [category, entries] of Object.entries(fromItemsTraits)) {
+            fromItemsTraitNames[category] = {};
+            for (const entry of entries) {
+                fromItemsTraitNames[category][entry.fileName] = entry.name;
+            }
+        }
+    }
 
     let allFiles = [];
     let useExplicitTypeIds = false; // For skin folder, typeIds must match fileNames
@@ -307,6 +367,7 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
             .map(f => ({
                 file: f,
                 path: path.join(folderPath, f),
+                source: 'from_items',
                 typeId: parseInt(f.replace('.svg', '')) // Extract typeId from fileName (2.svg → 2)
             }));
         useExplicitTypeIds = true;
@@ -389,17 +450,22 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
         }
 
         const SVGRenderer = await ethers.getContractFactory("SVGRenderer");
-        const traitName = traitNames[i] || `Type ${i + 1}`;
         const source = fileObj.source || 'default';
+        // Resolve trait name: from_items skins/heads use from_items/traits.json, others use default/traits.json
+        const fromItemsName = fromItemsTraitNames[folderName]?.[fileName];
+        const traitName = (source === 'from_items' && fromItemsName) ? fromItemsName : (traitNames[i] || `Type ${i + 1}`);
         const renderer = await deployContract(SVGRenderer, [addresses], `${folderName}/${fileName} (${source})`);
         const rendererAddress = await renderer.getAddress();
         svgRendererAddresses.push(rendererAddress);
         console.log(`    ${fileName} from ${source} deployed (${totalChunks} chunks) - "${traitName}"`);
 
-        // Track deployed trait
-        deployedTraits[fileName] = {
+        // Track deployed trait. Head deploys combine default/ and from_items/ files,
+        // so include the source in non-default keys to avoid filename collisions.
+        const statusKey = folderName === 'head' && source !== 'default' ? `${source}/${fileName}` : fileName;
+        deployedTraits[statusKey] = {
             routerId: useExplicitTypeIds ? fileObj.typeId : i + 1, // Explicit typeId for skin, 1-indexed for others
             name: traitName,
+            fileName: fileName,
             source: source,
             rendererAddress: rendererAddress
         };
@@ -413,23 +479,25 @@ async function deployTraitFolder(folderName, svgPartWriter, traitNames = [], dep
         // For skin: use explicit typeIds matching fileNames
         const typeIds = files.map(f => f.typeId);
         console.log(`    Using explicit typeIds: [${typeIds.join(', ')}]`);
-        await sendTx(router.setRenderContractsBatchWithTypeIds(typeIds, svgRendererAddresses));
+        await sendTx(() => router.setRenderContractsBatchWithTypeIds(typeIds, svgRendererAddresses));
 
         // Set trait names with explicit typeIds
         for (let i = 0; i < files.length; i++) {
-            const traitName = traitNames[i] || `Type ${files[i].typeId}`;
-            await sendTx(router.setTraitName(files[i].typeId, traitName));
+            const source = files[i].source || 'default';
+            const fromItemsName = fromItemsTraitNames[folderName]?.[files[i].file];
+            const name = (source === 'from_items' && fromItemsName) ? fromItemsName : (traitNames[i] || `Type ${files[i].typeId}`);
+            await sendTx(() => router.setTraitName(files[i].typeId, name));
         }
         console.log(`    Set ${files.length} trait names with explicit typeIds`);
     } else {
         // For other traits: use sequential IDs (1, 2, 3...)
-        await sendTx(router.setRenderContractsBatch(svgRendererAddresses));
+        await sendTx(() => router.setRenderContractsBatch(svgRendererAddresses));
 
         // Set trait names if provided
         if (traitNames.length > 0) {
             // Only set names for the number of files we actually deployed
             const namesToSet = traitNames.slice(0, files.length);
-            await sendTx(router.setTraitNamesBatch(namesToSet));
+            await sendTx(() => router.setTraitNamesBatch(namesToSet));
             console.log(`    Set ${namesToSet.length} trait names`);
         }
     }
@@ -452,25 +520,34 @@ async function deployItems(svgPartWriter) {
         return null;
     }
 
-    const files = fs.readdirSync(ITEMS_PATH)
-        .filter(f => f.endsWith('.svg'))
-        .sort((a, b) => parseInt(a.replace('.svg', '')) - parseInt(b.replace('.svg', '')));
+    // Load items.json to get the mapping from item type ID to SVG file
+    const itemsConfig = JSON.parse(fs.readFileSync(ITEMS_JSON_PATH, "utf8"));
+    const items = itemsConfig.items.filter(item => item.svgFile);
 
-    if (files.length === 0) {
-        console.log("  No item SVGs found, skipping...");
+    if (items.length === 0) {
+        console.log("  No items with SVG files found, skipping...");
         return null;
     }
 
-    console.log(`  Deploying items (${files.length} SVGs)...`);
+    console.log(`  Deploying items (${items.length} SVGs) with explicit type IDs...`);
 
     const svgRendererAddresses = [];
+    const typeIds = [];
     const chunkSize = 16 * 1024;
 
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const filePath = path.join(ITEMS_PATH, file);
-        // Items don't need class prefixing since they're standalone
-        const svgData = processSvgFile(filePath, '');
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const filePath = path.join(ITEMS_PATH, item.svgFile);
+
+        if (!fs.existsSync(filePath)) {
+            console.log(`  WARNING: SVG file not found for item ${item.id} (${item.name}): ${item.svgFile}, skipping...`);
+            continue;
+        }
+
+        console.log(`  Deploying item ${item.id}: ${item.name} (${item.svgFile})...`);
+
+        // Items are standalone SVGs - keep the <svg> wrapper for tokenURI rendering
+        const svgData = processSvgFile(filePath, '', true);
 
         const totalChunks = Math.ceil(svgData.length / chunkSize);
         const addresses = [];
@@ -482,15 +559,17 @@ async function deployItems(svgPartWriter) {
         }
 
         const SVGRenderer = await ethers.getContractFactory("SVGRenderer");
-        const renderer = await deployContract(SVGRenderer, [addresses], `Item ${file}`);
+        const renderer = await deployContract(SVGRenderer, [addresses], `Item ${item.name} (type ${item.id})`);
         svgRendererAddresses.push(await renderer.getAddress());
+        typeIds.push(item.id);
     }
 
-    // Deploy router for items
+    // Deploy router for items with explicit type IDs
     const SVGRouter = await ethers.getContractFactory("SVGRouter");
     const router = await deployContract(SVGRouter, [], "Items router");
 
-    await sendTx(router.setRenderContractsBatch(svgRendererAddresses));
+    console.log(`  Setting item router with typeIds: [${typeIds.join(', ')}]`);
+    await sendTx(() => router.setRenderContractsBatchWithTypeIds(typeIds, svgRendererAddresses));
 
     const routerAddress = await router.getAddress();
     return routerAddress;
@@ -588,13 +667,46 @@ async function main() {
     console.log("Balance:", ethers.formatEther(await ethers.provider.getBalance(deployerAddress)), "ETH");
     console.log("Verify Contracts:", VERIFY_CONTRACTS);
 
-    // Load or initialize deployment status
-    const deploymentStatus = loadDeploymentStatus(network.name);
-    deploymentStatus.network = network.name;
+    // Initialize fresh deployment status (clear stale data from previous deploys)
+    const deploymentStatus = {
+        network: network.name,
+        lastUpdated: null,
+        contracts: {},
+        routers: {},
+        defaultTraits: {},
+        addedTraits: {},
+        itemTypes: {},
+    };
 
     // Configuration
     const ROYALTY_RECEIVER = deployerAddress;
     const ROYALTY_FEE = 500; // 5% (500/10000)
+    const isLocalhost = network.name === "localhost" || network.name === "hardhat";
+
+    const vrfConfig = getVrfConfig();
+    if (!isLocalhost) {
+        if (!vrfConfig.coordinator) throw new Error(`Missing VRF coordinator for ${network.name}. Set BASE_VRF_COORDINATOR in .env.`);
+        if (!vrfConfig.subscriptionId || vrfConfig.subscriptionId === 0n) throw new Error(`Missing VRF subscription ID for ${network.name}. Set BASE_VRF_SUBSCRIPTION_ID in .env.`);
+    }
+
+    let vrfCoordinatorAddress = vrfConfig.coordinator;
+    let vrfSubscriptionId = vrfConfig.subscriptionId;
+    let vrfKeyHash = vrfConfig.keyHash;
+
+    if (isLocalhost) {
+        console.log("\n--- Deploying MockVRFV2PlusWrapper (mock coordinator) ---");
+        const MockVRFV2PlusWrapper = await ethers.getContractFactory("MockVRFV2PlusWrapper");
+        const mockCoordinator = await deployContract(MockVRFV2PlusWrapper, [], "MockVRFV2PlusWrapper");
+        vrfCoordinatorAddress = await mockCoordinator.getAddress();
+        vrfSubscriptionId = 1; // dummy
+        vrfKeyHash = ethers.ZeroHash; // dummy
+    }
+
+    // ============ Deploy FregsRandomizer ============
+    console.log("\n--- Deploying FregsRandomizer ---");
+    const FregsRandomizer = await ethers.getContractFactory("FregsRandomizer");
+    const fregsRandomizer = await deployContract(FregsRandomizer, [vrfCoordinatorAddress, vrfSubscriptionId, vrfKeyHash], "FregsRandomizer");
+    const fregsRandomizerAddress = await fregsRandomizer.getAddress();
 
     // ============ Deploy Fregs ============
     console.log("\n--- Deploying Fregs ---");
@@ -632,56 +744,109 @@ async function main() {
     const fregsLiquidity = await deployContract(FregsLiquidity, [], "FregsLiquidity");
     const fregsLiquidityAddress = await fregsLiquidity.getAddress();
 
+    // ============ Deploy FregShop ============
+    console.log("\n--- Deploying FregShop ---");
+    const FregShop = await ethers.getContractFactory("FregShop");
+    const fregShop = await deployContract(FregShop, [], "FregShop");
+    const fregShopAddress = await fregShop.getAddress();
+
+    // ============ Deploy FregsAirdrop ============
+    console.log("\n--- Deploying FregsAirdrop ---");
+    const FregsAirdrop = await ethers.getContractFactory("FregsAirdrop");
+    const fregsAirdrop = await deployContract(FregsAirdrop, [], "FregsAirdrop");
+    const fregsAirdropAddress = await fregsAirdrop.getAddress();
+
     // ============ Configure Cross-Contract References ============
     console.log("\n--- Configuring Cross-Contract References ---");
 
+    console.log("Configuring FregsRandomizer...");
+    await sendTx(() => fregsRandomizer.setContracts(fregsAddress, fregsItemsAddress, spinTheWheelAddress));
+    await sendTx(() =>
+        fregsRandomizer.setCallbackGasLimits(
+            VRF_CALLBACK_GAS.mint,
+            VRF_CALLBACK_GAS.claimItem,
+            VRF_CALLBACK_GAS.headReroll,
+            VRF_CALLBACK_GAS.spin
+        )
+    );
+    await sendTx(() => fregsRandomizer.setRequestConfirmations(VRF_REQUEST_CONFIRMATIONS));
+    if (isLocalhost) {
+        await sendTx(() => fregsRandomizer.setAutoFulfill(true));
+    }
+    console.log("  VRF coordinator:", vrfCoordinatorAddress);
+    console.log("  VRF subscription ID:", vrfSubscriptionId);
+
+    if (!isLocalhost) {
+        console.log("Adding FregsRandomizer as VRF subscription consumer...");
+        const coordinator = await ethers.getContractAt("IVRFCoordinatorV2Plus", vrfCoordinatorAddress);
+        await sendTx(() => coordinator.addConsumer(vrfSubscriptionId, fregsRandomizerAddress));
+        console.log("  FregsRandomizer added as consumer!");
+    }
+
     console.log("Setting items contract on Fregs...");
-    await sendTx(fregs.setItemsContract(fregsItemsAddress));
+    await sendTx(() => fregs.setItemsContract(fregsItemsAddress));
 
     console.log("Setting mint pass contract on Fregs...");
-    await sendTx(fregs.setMintPassContract(fregsMintPassAddress));
+    await sendTx(() => fregs.setMintPassContract(fregsMintPassAddress));
+
+    console.log("Setting randomizer on Fregs...");
+    await sendTx(() => fregs.setRandomizer(fregsRandomizerAddress));
 
     console.log("Setting Fregs on MintPass...");
-    await sendTx(fregsMintPass.setFregsContract(fregsAddress));
+    await sendTx(() => fregsMintPass.setFregsContract(fregsAddress));
 
     // Configure SpinTheWheel
     console.log("Configuring SpinTheWheel...");
-    await sendTx(spinTheWheel.setMintPassContract(fregsMintPassAddress));
-    await sendTx(spinTheWheel.setItemsContract(fregsItemsAddress));
-    await sendTx(spinTheWheel.setLoseWeight(SPIN_LOSE_WEIGHT));
-    await sendTx(spinTheWheel.setMintPassWeight(SPIN_MINTPASS_WEIGHT));
-    await sendTx(spinTheWheel.addItemPrize(HOODIE_ITEM_TYPE, SPIN_HOODIE_WEIGHT));
-    await sendTx(spinTheWheel.addItemPrize(FROGSUIT_ITEM_TYPE, SPIN_FROGSUIT_WEIGHT));
-    await sendTx(spinTheWheel.addItemPrize(CHEST_ITEM_TYPE, SPIN_CHEST_WEIGHT));
+    await sendTx(() => spinTheWheel.setMintPassContract(fregsMintPassAddress));
+    await sendTx(() => spinTheWheel.setItemsContract(fregsItemsAddress));
+    await sendTx(() => spinTheWheel.setLoseWeight(SPIN_LOSE_WEIGHT));
+    await sendTx(() => spinTheWheel.setMintPassWeight(SPIN_MINTPASS_WEIGHT));
+    await sendTx(() => spinTheWheel.addItemPrize(HOODIE_ITEM_TYPE, SPIN_HOODIE_WEIGHT));
+    await sendTx(() => spinTheWheel.addItemPrize(FROGSUIT_ITEM_TYPE, SPIN_FROGSUIT_WEIGHT));
+    await sendTx(() => spinTheWheel.addItemPrize(CHEST_ITEM_TYPE, SPIN_CHEST_WEIGHT));
 
     // Set max supply caps for spin prizes
-    await sendTx(spinTheWheel.setItemMaxSupply(CHEST_ITEM_TYPE, 700));
-    await sendTx(spinTheWheel.setItemMaxSupply(HOODIE_ITEM_TYPE, 30));
-    await sendTx(spinTheWheel.setItemMaxSupply(FROGSUIT_ITEM_TYPE, 30));
+    await sendTx(() => spinTheWheel.setItemMaxSupply(CHEST_ITEM_TYPE, 700));
+    await sendTx(() => spinTheWheel.setItemMaxSupply(HOODIE_ITEM_TYPE, 30));
+    await sendTx(() => spinTheWheel.setItemMaxSupply(FROGSUIT_ITEM_TYPE, 30));
 
     // Set SpinTheWheel on MintPass and Items
     console.log("Setting SpinTheWheel on MintPass and Items...");
-    await sendTx(fregsMintPass.setSpinTheWheelContract(spinTheWheelAddress));
-    await sendTx(fregsItems.setSpinTheWheelContract(spinTheWheelAddress));
+    await sendTx(() => fregsMintPass.setSpinTheWheelContract(spinTheWheelAddress));
+    await sendTx(() => fregsItems.setSpinTheWheelContract(spinTheWheelAddress));
 
     // Set FregCoin on FregsItems
     console.log("Setting FregCoin on FregsItems...");
-    await sendTx(fregsItems.setFregCoinContract(fregCoinAddress));
+    await sendTx(() => fregsItems.setFregCoinContract(fregCoinAddress));
+    console.log("Setting randomizer on FregsItems...");
+    await sendTx(() => fregsItems.setRandomizer(fregsRandomizerAddress));
+    console.log("Setting randomizer on SpinTheWheel...");
+    await sendTx(() => spinTheWheel.setRandomizer(fregsRandomizerAddress));
 
     // Configure FregsLiquidity
     console.log("Configuring FregsLiquidity...");
-    await sendTx(fregsLiquidity.setFregs(fregsAddress));
-    await sendTx(fregsLiquidity.setFregCoin(fregCoinAddress));
-    await sendTx(fregs.setLiquidityContract(fregsLiquidityAddress));
+    await sendTx(() => fregsLiquidity.setFregs(fregsAddress));
+    await sendTx(() => fregsLiquidity.setFregCoin(fregCoinAddress));
+    await sendTx(() => fregs.setLiquidityContract(fregsLiquidityAddress));
+
+    // Configure FregShop
+    console.log("Configuring FregShop...");
+    await sendTx(() => fregShop.setFregCoinContract(fregCoinAddress));
+    await sendTx(() => fregShop.setItemsContract(fregsItemsAddress));
+    await sendTx(() => fregsItems.setShopContract(fregShopAddress));
+
+    // Configure FregsAirdrop
+    console.log("Configuring FregsAirdrop...");
+    await sendTx(() => fregsAirdrop.setFregCoin(fregCoinAddress));
+    await sendTx(() => fregsAirdrop.setFregs(fregsAddress));
 
     // ============ Set Mint Phase ============
-    const isLocalhost = network.name === "localhost" || network.name === "hardhat";
     if (isLocalhost) {
         console.log("\n--- Setting mint phase to Public (2) for localhost ---");
-        await sendTx(fregs.setMintPhase(2));
+        await sendTx(() => fregs.setMintPhase(2));
     } else {
         console.log("\n--- Setting mint phase to Paused (0) for live network ---");
-        await sendTx(fregs.setMintPhase(0));
+        await sendTx(() => fregs.setMintPhase(0));
     }
 
     // ============ Mint Mint Passes to Deployer (localhost only) ============
@@ -689,14 +854,14 @@ async function main() {
     if (isLocalhost) {
         console.log("\n--- Minting Mint Passes ---");
         console.log(`Minting ${MINT_PASSES_TO_MINT} mint passes to deployer...`);
-        await sendTx(fregsMintPass.ownerMint(deployerAddress, MINT_PASSES_TO_MINT, { gasLimit: 200000n }));
+        await sendTx(() => fregsMintPass.ownerMint(deployerAddress, MINT_PASSES_TO_MINT, { gasLimit: 200000n }));
         mintPassBalance = await fregsMintPass.balanceOf(deployerAddress, 1); // Token ID 1 = MINT_PASS
         console.log(`Deployer mint pass balance: ${mintPassBalance}`);
 
         // Also mint to additional recipient if configured
         if (ADDITIONAL_MINTPASS_RECIPIENT && ADDITIONAL_MINTPASS_RECIPIENT !== "0x0000000000000000000000000000000000000000") {
             console.log(`Minting ${MINT_PASSES_TO_MINT} mint passes to ${ADDITIONAL_MINTPASS_RECIPIENT}...`);
-            await sendTx(fregsMintPass.ownerMint(ADDITIONAL_MINTPASS_RECIPIENT, MINT_PASSES_TO_MINT, { gasLimit: 200000n }));
+            await sendTx(() => fregsMintPass.ownerMint(ADDITIONAL_MINTPASS_RECIPIENT, MINT_PASSES_TO_MINT, { gasLimit: 200000n }));
             const additionalBalance = await fregsMintPass.balanceOf(ADDITIONAL_MINTPASS_RECIPIENT, 1);
             console.log(`Additional recipient mint pass balance: ${additionalBalance}`);
         }
@@ -709,28 +874,17 @@ async function main() {
     if (isLocalhost && INITIAL_SPIN_TOKENS_TO_MINT > 0) {
         console.log("\n--- Minting SpinTokens ---");
         console.log(`Minting ${INITIAL_SPIN_TOKENS_TO_MINT} SpinTokens to deployer...`);
-        await sendTx(spinTheWheel.ownerMint(deployerAddress, INITIAL_SPIN_TOKENS_TO_MINT));
+        await sendTx(() => spinTheWheel.ownerMint(deployerAddress, INITIAL_SPIN_TOKENS_TO_MINT));
         spinTokenBalance = await spinTheWheel.balanceOf(deployerAddress, 1);
         console.log(`Deployer SpinToken balance: ${spinTokenBalance}`);
 
         // Fund FregsItems with FregCoin for chest rewards (1000 chests x 133.7M = 133.7B)
         const chestFunding = ethers.parseEther("133700000000");
-        console.log("Minting 133.7B FregCoin to FregsItems for chest rewards...");
-        await sendTx(fregCoin.ownerMint(fregsItemsAddress, chestFunding));
+        console.log("Transferring 133.7B FregCoin to FregsItems for chest rewards...");
+        await sendTx(() => fregCoin.transfer(fregsItemsAddress, chestFunding));
         const itemsCoinBalance = await fregCoin.balanceOf(fregsItemsAddress);
         console.log(`FregsItems FregCoin balance: ${ethers.formatEther(itemsCoinBalance)}`);
 
-        // Fund FregsLiquidity with ETH and FregCoin for testing
-        console.log("\n--- Funding FregsLiquidity ---");
-        const liquidityETH = ethers.parseEther("1.0");
-        await sendTx(fregsLiquidity.depositETH({ value: liquidityETH }));
-        console.log(`FregsLiquidity ETH balance: ${ethers.formatEther(liquidityETH)}`);
-
-        const liquidityCoinAmount = ethers.parseEther("3000000000"); // 3B FregCoin
-        console.log("Minting 3B FregCoin to FregsLiquidity...");
-        await sendTx(fregCoin.ownerMint(fregsLiquidityAddress, liquidityCoinAmount));
-        const liquidityCoinBalance = await fregCoin.balanceOf(fregsLiquidityAddress);
-        console.log(`FregsLiquidity FregCoin balance: ${ethers.formatEther(liquidityCoinBalance)}`);
     }
 
     // ============ Configure Item Configs from items.json ============
@@ -748,7 +902,7 @@ async function main() {
         const descriptions = itemTypeIds.map(id => configs[id].description);
 
         console.log(`  Configuring ${itemTypeIds.length} item configs from items.json...`);
-        await sendTx(fregsItems.setBuiltInItemConfigsBatch(itemTypeIds, names, descriptions));
+        await sendTx(() => fregsItems.setBuiltInItemConfigsBatch(itemTypeIds, names, descriptions));
         console.log("  Item configs set!");
     } else {
         console.log("  ⚠️  No items/items.json found, skipping item config");
@@ -760,9 +914,14 @@ async function main() {
     deploymentStatus.contracts.fregs = fregsAddress;
     deploymentStatus.contracts.fregsItems = fregsItemsAddress;
     deploymentStatus.contracts.fregsMintPass = fregsMintPassAddress;
+    deploymentStatus.contracts.fregsRandomizer = fregsRandomizerAddress;
     deploymentStatus.contracts.fregCoin = fregCoinAddress;
     deploymentStatus.contracts.spinTheWheel = spinTheWheelAddress;
     deploymentStatus.contracts.fregsLiquidity = fregsLiquidityAddress;
+    deploymentStatus.contracts.fregShop = fregShopAddress;
+    deploymentStatus.contracts.fregsAirdrop = fregsAirdropAddress;
+    deploymentStatus.contracts.vrfCoordinator = vrfCoordinatorAddress;
+    deploymentStatus.contracts.vrfSubscriptionId = vrfSubscriptionId;
 
     // ============ Deploy Art and SVG Renderer ============
     const artAddresses = await deployArt(deploymentStatus);
@@ -778,7 +937,7 @@ async function main() {
     // Configure SVG Renderer with art contracts (simplified: 5 contracts)
     console.log("\n--- Configuring FregsSVGRenderer ---");
     console.log("Setting art contracts on SVG Renderer...");
-    await sendTx(svgRenderer.setAllContracts(
+    await sendTx(() => svgRenderer.setAllContracts(
         artAddresses.background || ethers.ZeroAddress,  // background (0=color rect, 1+=special)
         artAddresses.body || ethers.ZeroAddress,        // body (colorable skin via BodyRenderer)
         artAddresses.skin || ethers.ZeroAddress,        // skin (special skins: Bronze=1, Diamond=2, Metal=3)
@@ -791,7 +950,7 @@ async function main() {
     // Set base trait counts for mint randomization
     if (artAddresses.baseTraitCounts) {
         console.log("Setting base trait counts...");
-        await sendTx(svgRenderer.setAllBaseTraitCounts(
+        await sendTx(() => svgRenderer.setAllBaseTraitCounts(
             artAddresses.baseTraitCounts.head || 0,
             artAddresses.baseTraitCounts.mouth || 0,
             artAddresses.baseTraitCounts.stomach || 0
@@ -801,7 +960,7 @@ async function main() {
 
     // Set SVG Renderer on Fregs
     console.log("Setting SVG Renderer on Fregs...");
-    await sendTx(fregs.setSVGRenderer(svgRendererAddress));
+    await sendTx(() => fregs.setSVGRenderer(svgRendererAddress));
     console.log("SVG Renderer set on Fregs!");
 
     // Configure weighted trait selection on Fregs
@@ -814,7 +973,7 @@ async function main() {
             const noneId = artAddresses.noneTraitIds[traitName] || 0;
             if (weights && weights.length > 0) {
                 console.log(`  Setting ${traitName} weights: [${weights.join(', ')}], noneTraitId: ${noneId}`);
-                await sendTx(fregs.setTraitWeights(traitTypeId, weights, noneId));
+                await sendTx(() => fregs.setTraitWeights(traitTypeId, weights, noneId));
                 console.log(`  ${traitName} weights configured!`);
             }
         }
@@ -823,7 +982,7 @@ async function main() {
     // Set Items SVG Renderer on FregsItems
     if (artAddresses.items) {
         console.log("Setting SVG Renderer on FregsItems...");
-        await sendTx(fregsItems.setSVGRenderer(artAddresses.items));
+        await sendTx(() => fregsItems.setSVGRenderer(artAddresses.items));
         console.log("SVG Renderer set on FregsItems!");
     }
 
@@ -837,7 +996,7 @@ async function main() {
             const allTraitValues = traitMappings.map(m => m.traitValue);
 
             console.log(`  Configuring ${allItemTypes.length} trait item mappings...`);
-            await sendTx(fregsItems.setTraitItemMappingsBatch(allItemTypes, allTraitValues));
+            await sendTx(() => fregsItems.setTraitItemMappingsBatch(allItemTypes, allTraitValues));
             console.log("  Trait item mappings configured!");
         }
     }
@@ -854,10 +1013,13 @@ async function main() {
     copyABI("Fregs", "Fregs");
     copyABI("FregsItems", "FregsItems");
     copyABI("FregsMintPass", "FregsMintPass");
+    copyABI("FregsRandomizer", "FregsRandomizer");
     copyABI("FregsSVGRenderer", "FregsSVGRenderer");
     copyABI("SpinTheWheel", "SpinTheWheel");
     copyABI("FregCoin", "FregCoin");
     copyABI("FregsLiquidity", "FregsLiquidity");
+    copyABI("FregShop", "FregShop");
+    copyABI("FregsAirdrop", "FregsAirdrop");
 
     console.log("ABIs copied successfully!");
 
@@ -903,6 +1065,18 @@ async function main() {
             console.log("Fregs Mint Pass verification failed:", error.message);
         }
 
+        // Verify FregsRandomizer
+        try {
+            console.log("Verifying FregsRandomizer...");
+            await run("verify:verify", {
+                address: fregsRandomizerAddress,
+                constructorArguments: [vrfCoordinatorAddress, vrfSubscriptionId, vrfKeyHash]
+            });
+            console.log("FregsRandomizer verified!");
+        } catch (error) {
+            console.log("FregsRandomizer verification failed:", error.message);
+        }
+
         // Verify FregsSVGRenderer
         try {
             console.log("Verifying FregsSVGRenderer...");
@@ -926,6 +1100,18 @@ async function main() {
         } catch (error) {
             console.log("SpinTheWheel verification failed:", error.message);
         }
+
+        // Verify FregShop
+        try {
+            console.log("Verifying FregShop...");
+            await run("verify:verify", {
+                address: fregShopAddress,
+                constructorArguments: []
+            });
+            console.log("FregShop verified!");
+        } catch (error) {
+            console.log("FregShop verification failed:", error.message);
+        }
     } else if (!VERIFY_CONTRACTS) {
         console.log("\n--- Skipping Contract Verification (VERIFY_CONTRACTS = false) ---");
     }
@@ -939,10 +1125,15 @@ async function main() {
     console.log("  Fregs:           ", fregsAddress);
     console.log("  Fregs Items:     ", fregsItemsAddress);
     console.log("  Fregs Mint Pass: ", fregsMintPassAddress);
+    console.log("  FregsRandomizer: ", fregsRandomizerAddress);
     console.log("  FregCoin:        ", fregCoinAddress);
     console.log("  SpinTheWheel:    ", spinTheWheelAddress);
     console.log("  FregsLiquidity:  ", fregsLiquidityAddress);
+    console.log("  FregShop:        ", fregShopAddress);
+    console.log("  FregsAirdrop:    ", fregsAirdropAddress);
     console.log("  SVG Renderer:    ", svgRendererAddress);
+    console.log("  VRF Coordinator: ", vrfCoordinatorAddress);
+    console.log("  VRF Subscription:", vrfSubscriptionId);
     console.log("\nArt Contracts (6 unified routers):");
     console.log("  Background:        ", artAddresses.background || "Not deployed (uses color rect)");
     console.log("  Body:              ", artAddresses.body || "Not deployed");
@@ -970,10 +1161,12 @@ async function main() {
     console.log("  Treasure Chest:", SPIN_CHEST_WEIGHT / 100, "%");
     console.log("\nNext Steps:");
     console.log("  1. Fund items contract with FregCoin for chest rewards (1000 chests x 133.7M = 133.7B):");
+    console.log(`     - Script: npx hardhat run scripts/fundChestRewards.js --network ${network.name}`);
     console.log("     - Approve: await fregCoin.approve(fregsItemsAddress, ethers.parseEther('133700000000'))");
     console.log("     - Deposit: await fregsItems.depositCoins(ethers.parseEther('133700000000'))");
-    console.log("  2. Activate mint pass sale:");
-    console.log("     await fregsMintPass.setMintPassSaleActive(true)");
+    console.log("  2. Set mint phase when ready:");
+    console.log("     await fregs.setMintPhase(1) // whitelist");
+    console.log("     await fregs.setMintPhase(2) // public");
     // ============ Save Deployment Status ============
     console.log("\n--- Saving Deployment Status ---");
     saveDeploymentStatus(deploymentStatus, network.name);
@@ -989,7 +1182,12 @@ async function main() {
     console.log(`VITE_FREGCOIN_ADDRESS=${fregCoinAddress}`);
     console.log(`VITE_SPIN_THE_WHEEL_ADDRESS=${spinTheWheelAddress}`);
     console.log(`VITE_FREGS_LIQUIDITY_ADDRESS=${fregsLiquidityAddress}`);
+    console.log(`VITE_FREG_SHOP_ADDRESS=${fregShopAddress}`);
+    console.log(`VITE_FREG_AIRDROP_ADDRESS=${fregsAirdropAddress}`);
     console.log(`VITE_SVG_RENDERER_ADDRESS=${svgRendererAddress}`);
+    console.log(`VITE_FREGS_RANDOMIZER_ADDRESS=${fregsRandomizerAddress}`);
+
+    
 
 }
 

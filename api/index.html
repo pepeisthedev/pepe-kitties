@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fregs API</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bangers&family=Righteous&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg-0: #040816;
+        --bg-1: #081124;
+        --bg-2: #0b1831;
+        --grid: rgba(105, 170, 255, 0.08);
+        --panel: rgba(8, 13, 28, 0.92);
+        --panel-strong: rgba(5, 9, 22, 0.98);
+        --line: rgba(102, 255, 166, 0.14);
+        --line-strong: rgba(108, 255, 170, 0.28);
+        --text: #eef6f2;
+        --muted: #99a8b8;
+        --green: #86f06b;
+        --green-deep: #183e22;
+        --lime: #d4ff73;
+        --code-bg: #03060f;
+        --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        font-family: "Righteous", cursive, fantasy, serif;
+        background:
+          radial-gradient(circle at top center, rgba(18, 92, 38, 0.42), transparent 36%),
+          radial-gradient(circle at 80% 0%, rgba(35, 111, 61, 0.28), transparent 26%),
+          linear-gradient(180deg, rgba(4, 11, 24, 0.98), rgba(2, 6, 16, 1)),
+          repeating-linear-gradient(
+            to right,
+            transparent 0,
+            transparent 47px,
+            var(--grid) 48px
+          ),
+          repeating-linear-gradient(
+            to bottom,
+            transparent 0,
+            transparent 47px,
+            var(--grid) 48px
+          );
+        background-color: var(--bg-0);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      code,
+      pre {
+        font-family: "IBM Plex Mono", monospace;
+      }
+
+      .page {
+        width: min(1240px, calc(100vw - 28px));
+        margin: 0 auto;
+        padding: 28px 0 72px;
+      }
+
+      .hero {
+        position: relative;
+        overflow: hidden;
+        padding: 38px 34px 34px;
+        border-radius: 28px;
+        border: 1px solid var(--line);
+        background:
+          linear-gradient(180deg, rgba(9, 23, 24, 0.98), rgba(6, 10, 23, 0.96)),
+          linear-gradient(135deg, rgba(134, 240, 107, 0.08), rgba(16, 42, 22, 0));
+        box-shadow: var(--shadow);
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: auto -80px -120px auto;
+        width: 320px;
+        height: 320px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(134, 240, 107, 0.22), transparent 72%);
+        pointer-events: none;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--line-strong);
+        background: rgba(134, 240, 107, 0.08);
+        color: var(--green);
+        font-size: 12px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .hero h1 {
+        margin: 18px 0 12px;
+        font-family: "Bangers", cursive, fantasy, serif;
+        font-size: clamp(3.2rem, 8vw, 6.2rem);
+        line-height: 0.88;
+        letter-spacing: 0.02em;
+        color: #f4fff3;
+        text-shadow: 0 12px 32px rgba(72, 255, 130, 0.1);
+      }
+
+      .hero-copy {
+        max-width: 860px;
+        color: var(--muted);
+        font-size: 1.08rem;
+        line-height: 1.7;
+      }
+
+      .hero-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 26px;
+      }
+
+      .stat {
+        min-width: 180px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(123, 255, 176, 0.12);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .stat-label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 12px;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .stat-value {
+        font-size: 0.95rem;
+        color: var(--text);
+        word-break: break-word;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 300px;
+        gap: 24px;
+        margin-top: 24px;
+      }
+
+      .content {
+        min-width: 0;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+        padding: 22px 20px;
+        border-radius: 24px;
+        border: 1px solid var(--line);
+        background: rgba(7, 12, 24, 0.9);
+        box-shadow: var(--shadow);
+      }
+
+      .sidebar h2,
+      .section h2 {
+        margin: 0 0 18px;
+        font-family: "Bangers", cursive, fantasy, serif;
+        font-size: 2.2rem;
+        letter-spacing: 0.03em;
+        color: #f0fff0;
+      }
+
+      .sidebar p {
+        margin: 0 0 16px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .nav-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .nav-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-radius: 16px;
+        border: 1px solid transparent;
+        background: rgba(255, 255, 255, 0.02);
+        color: var(--text);
+        transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+      }
+
+      .nav-link:hover {
+        transform: translateX(4px);
+        border-color: var(--line-strong);
+        background: rgba(134, 240, 107, 0.05);
+      }
+
+      .section {
+        padding: 30px 0 0;
+      }
+
+      .section-header {
+        margin-bottom: 16px;
+      }
+
+      .section-kicker {
+        display: inline-block;
+        margin-bottom: 6px;
+        font-size: 12px;
+        color: var(--green);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      .section-header p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .endpoint-list {
+        display: grid;
+        gap: 18px;
+      }
+
+      .endpoint-card {
+        overflow: hidden;
+        border-radius: 24px;
+        border: 1px solid rgba(114, 255, 173, 0.12);
+        background:
+          linear-gradient(180deg, rgba(8, 12, 26, 0.96), rgba(5, 8, 18, 0.98)),
+          rgba(6, 11, 23, 0.95);
+        box-shadow: var(--shadow);
+        opacity: 0;
+        transform: translateY(14px);
+        animation: rise-in 0.55s ease forwards;
+      }
+
+      .endpoint-card:nth-child(2) { animation-delay: 0.05s; }
+      .endpoint-card:nth-child(3) { animation-delay: 0.1s; }
+      .endpoint-card:nth-child(4) { animation-delay: 0.15s; }
+      .endpoint-card:nth-child(5) { animation-delay: 0.2s; }
+      .endpoint-card:nth-child(6) { animation-delay: 0.25s; }
+
+      .endpoint-toggle {
+        width: 100%;
+        padding: 22px 22px 20px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .endpoint-toggle:hover {
+        background: rgba(134, 240, 107, 0.03);
+      }
+
+      .endpoint-card.is-expanded .endpoint-toggle {
+        border-bottom: 1px solid rgba(120, 255, 184, 0.08);
+      }
+
+      .endpoint-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .endpoint-summary {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .endpoint-title {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+      }
+
+      .method {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 54px;
+        height: 30px;
+        padding: 0 12px;
+        border-radius: 10px;
+        background: rgba(24, 62, 34, 0.72);
+        color: #8dffac;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+      }
+
+      .path {
+        min-width: 0;
+        font-size: 1.15rem;
+        color: #edf8ee;
+        word-break: break-all;
+      }
+
+      .content-type {
+        flex-shrink: 0;
+        font-size: 12px;
+        color: #72839a;
+        letter-spacing: 0.06em;
+      }
+
+      .endpoint-chevron {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        border: 1px solid rgba(132, 255, 174, 0.14);
+        background: rgba(134, 240, 107, 0.05);
+        color: #dfffe7;
+        font-size: 14px;
+        transition: transform 0.18s ease, background 0.18s ease;
+      }
+
+      .endpoint-card.is-expanded .endpoint-chevron {
+        transform: rotate(180deg);
+        background: rgba(134, 240, 107, 0.12);
+      }
+
+      .endpoint-panel {
+        padding: 18px 22px 20px;
+      }
+
+      .endpoint-description {
+        margin: 0 0 18px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .code-shell {
+        position: relative;
+        overflow: hidden;
+        border-radius: 18px;
+        border: 1px solid rgba(120, 255, 184, 0.1);
+        background: linear-gradient(180deg, rgba(4, 7, 15, 0.96), rgba(2, 5, 11, 1));
+      }
+
+      .code-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(120, 255, 184, 0.08);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .code-label {
+        font-size: 12px;
+        color: #7f94a8;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .copy-button {
+        cursor: pointer;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(132, 255, 174, 0.18);
+        background: rgba(134, 240, 107, 0.08);
+        color: #dfffe7;
+        font-family: "Righteous", cursive, fantasy, serif;
+        font-size: 12px;
+        transition: background 0.18s ease, transform 0.18s ease;
+      }
+
+      .copy-button:hover {
+        background: rgba(134, 240, 107, 0.18);
+        transform: translateY(-1px);
+      }
+
+      .code-block {
+        margin: 0;
+        padding: 16px 18px 18px;
+        overflow-x: auto;
+        color: #d8f3df;
+        line-height: 1.6;
+        font-size: 13px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .response-note {
+        margin-top: 12px;
+        font-size: 12px;
+        color: #74839a;
+      }
+
+      .note-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 28px;
+      }
+
+      .note-card {
+        padding: 18px;
+        border-radius: 20px;
+        border: 1px solid rgba(120, 255, 184, 0.12);
+        background: rgba(5, 10, 20, 0.9);
+      }
+
+      .note-card strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--lime);
+      }
+
+      .note-card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .footer {
+        margin-top: 32px;
+        padding: 20px 22px;
+        border-radius: 20px;
+        border: 1px solid rgba(120, 255, 184, 0.12);
+        background: rgba(6, 11, 21, 0.92);
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .live-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 14px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(134, 240, 107, 0.08);
+        border: 1px solid rgba(134, 240, 107, 0.12);
+        color: #d9ffde;
+        font-size: 12px;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 16px rgba(134, 240, 107, 0.8);
+      }
+
+      @keyframes rise-in {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 1080px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .page {
+          width: min(100vw - 18px, 1240px);
+          padding-top: 18px;
+        }
+
+        .hero {
+          padding: 26px 20px 24px;
+        }
+
+        .endpoint-card {
+          border-radius: 22px;
+        }
+
+        .endpoint-toggle {
+          padding: 18px;
+        }
+
+        .endpoint-panel {
+          padding: 16px 18px 18px;
+        }
+
+        .endpoint-head {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .endpoint-summary {
+          width: 100%;
+          justify-content: space-between;
+        }
+
+        .endpoint-title {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .note-strip {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="eyebrow">Fregs API • Public • 100% on-chain artwork</div>
+        <h1>Fregs API</h1>
+        <p class="hero-copy">
+          The Fregs API is a thin public layer over the live collection. Use it to fetch minted
+          Fregs, owner data and trait metadata from a clean HTTP surface, while live token state
+          stays on-chain and SVG assets are served directly from the API bundle. The examples below are
+          static snapshots that mirror the response shapes and use `api.fregs.io` in the curl commands.
+          <br>
+          Fregs start at token ID 0. If a token used to exist but was burned, the API returns 410 Gone.
+        </p>
+        <div class="hero-stats">
+          <div class="stat">
+            <span class="stat-label">Base URL</span>
+            <span class="stat-value" id="api-origin">https://api.fregs.io</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Primary prefix</span>
+            <span class="stat-value">/fregs</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Response formats</span>
+            <span class="stat-value">application/json, image/svg+xml</span>
+          </div>
+        </div>
+        <div class="live-pill">
+          <span class="dot"></span>
+          Static examples are trimmed for readability, especially SVG payloads.
+        </div>
+      </section>
+
+      <section class="layout">
+        <div class="content">
+          <section class="section" id="core">
+            <div class="section-header">
+              <span class="section-kicker">Collection</span>
+              <h2>Core Endpoints</h2>
+              <p>
+                Use these for collection-wide lookups, token detail pages and ownership checks.
+                Token-specific examples below are generated from the first minted Freg found on the
+                active deployment.
+              </p>
+            </div>
+            <div class="endpoint-list" id="core-endpoints"></div>
+          </section>
+
+          <section class="section" id="traits">
+            <div class="section-header">
+              <span class="section-kicker">Traits</span>
+              <h2>Trait Endpoints</h2>
+              <p>
+                Trait listings and trait SVG payloads come from the bundled project manifests and
+                local SVG assets. Large SVG strings are trimmed in the docs
+                view only, so the structure stays real without filling the page with data URIs.
+              </p>
+            </div>
+            <div class="endpoint-list" id="trait-endpoints"></div>
+          </section>
+
+          <section class="section" id="items">
+            <div class="section-header">
+              <span class="section-kicker">Items</span>
+              <h2>Item Endpoints</h2>
+              <p>
+                Item listings and ownership summaries are served from the FregsItems contract.
+                Item detail routes return static item metadata as JSON by default, with a separate
+                SVG endpoint for the raw item artwork.
+              </p>
+            </div>
+            <div class="endpoint-list" id="item-endpoints"></div>
+          </section>
+
+        </div>
+
+        <aside class="sidebar">
+          <h2>Quick Links</h2>
+          <p>
+            The public API lives under one canonical namespace. Start with collection listing, then
+            drill into a token, owner, trait or item.
+          </p>
+          <nav class="nav-list">
+            <a class="nav-link" href="#core">
+              <span>Core endpoints</span>
+              <span>01</span>
+            </a>
+            <a class="nav-link" href="#traits">
+              <span>Trait endpoints</span>
+              <span>02</span>
+            </a>
+            <a class="nav-link" href="#items">
+              <span>Item endpoints</span>
+              <span>03</span>
+            </a>
+            <a class="nav-link" href="https://fregs.io" target="_blank" rel="noreferrer">
+              <span>Main website</span>
+              <span>↗</span>
+            </a>
+          </nav>
+        </aside>
+      </section>
+
+  
+    </main>
+
+    <script>
+      const DEFAULT_API_ORIGIN = "https://api.fregs.io";
+      const apiOrigin = DEFAULT_API_ORIGIN;
+
+      document.getElementById("api-origin").textContent = apiOrigin;
+
+      function buildUrl(path) {
+        return `${apiOrigin}${path}`;
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function trimLargeStrings(value, depth = 0) {
+        if (typeof value === "string") {
+          if (value.length > 280) {
+            return `${value.slice(0, 180)}... [trimmed ${value.length - 180} chars]`;
+          }
+          return value;
+        }
+
+        if (Array.isArray(value)) {
+          if (depth > 3 && value.length > 8) {
+            return [...value.slice(0, 8), `... ${value.length - 8} more items`];
+          }
+          return value.map((item) => trimLargeStrings(item, depth + 1));
+        }
+
+        if (value && typeof value === "object") {
+          return Object.fromEntries(
+            Object.entries(value).map(([key, entryValue]) => {
+              if (
+                typeof entryValue === "string" &&
+                (key === "svg" || key === "image" || key === "renderer")
+              ) {
+                return [
+                  key,
+                  entryValue.length > 220
+                    ? `${entryValue.slice(0, 150)}... [trimmed ${entryValue.length - 150} chars]`
+                    : entryValue
+                ];
+              }
+              return [key, trimLargeStrings(entryValue, depth + 1)];
+            })
+          );
+        }
+
+        return value;
+      }
+
+      const EXAMPLE_FREGS_ADDRESS = "0x02c108083691468eB8bbA5890E91f74E5b2ad2cC";
+      const EXAMPLE_ITEMS_ADDRESS = "0x7BCb9B24b16D2AC7Dc975E1ff38536A8839CA0D3";
+      const EXAMPLE_OWNER = "0x1111111111111111111111111111111111111111";
+      const EXAMPLE_TOKEN_ID = 0;
+      const EXAMPLE_ITEM_SLUG = "chest";
+      const EXAMPLE_BODY_COLOR = "#7CB342";
+      const EXAMPLE_TRAIT_COLOR = "#65b449";
+      const EXAMPLE_FREG_SVG =
+        '<?xml version="1.0" encoding="UTF-8"?><svg viewBox="0 0 617.49 644.18">... [trimmed SVG example]</svg>';
+      const EXAMPLE_TRAIT_SVG =
+        '<?xml version="1.0" encoding="UTF-8"?><svg viewBox="0 0 617.49 644.18">... [trimmed trait SVG example]</svg>';
+      const EXAMPLE_ITEM_SVG =
+        '<?xml version="1.0" encoding="UTF-8"?><svg viewBox="0 0 512 512">... [trimmed item SVG example]</svg>';
+
+      function buildTokenLinks(tokenId) {
+        return {
+          imageSvg: buildUrl(`/fregs/${tokenId}/image.svg`),
+          metadata: buildUrl(`/fregs/${tokenId}/metadata`),
+          opensea: `https://testnets.opensea.io/assets/base_sepolia/${EXAMPLE_FREGS_ADDRESS}/${tokenId}`,
+          owner: buildUrl(`/fregs/${tokenId}/owner`),
+          self: buildUrl(`/fregs/${tokenId}`)
+        };
+      }
+
+      function buildTraitLinks(traitType, traitId, color) {
+        const query = color ? `?color=${encodeURIComponent(color)}` : "";
+        return {
+          json: buildUrl(`/fregs/traits/${traitType}/${traitId}${query}`),
+          svg: buildUrl(`/fregs/traits/${traitType}/${traitId}/image.svg${query}`)
+        };
+      }
+
+      function buildItemLinks(slug) {
+        return {
+          imageSvg: buildUrl(`/fregs/items/${slug}/image.svg`),
+          self: buildUrl(`/fregs/items/${slug}`)
+        };
+      }
+
+      const exampleFregAttributes = [
+        { trait_type: "Background", value: EXAMPLE_BODY_COLOR },
+        { trait_type: "Body", value: EXAMPLE_BODY_COLOR },
+        { trait_type: "Head", value: "Pixel Glasses" },
+        { trait_type: "Mouth", value: "Cigarette" },
+        { trait_type: "Belly", value: "ETH" }
+      ];
+
+      const exampleFregAttributesByType = {
+        Background: EXAMPLE_BODY_COLOR,
+        Body: EXAMPLE_BODY_COLOR,
+        Head: "Pixel Glasses",
+        Mouth: "Cigarette",
+        Belly: "ETH"
+      };
+
+      const exampleFregSummary = {
+        tokenId: EXAMPLE_TOKEN_ID,
+        name: `Freg #${EXAMPLE_TOKEN_ID}`,
+        description: "Fregs",
+        owner: EXAMPLE_OWNER,
+        image: EXAMPLE_FREG_SVG,
+        attributes: exampleFregAttributes,
+        links: buildTokenLinks(EXAMPLE_TOKEN_ID)
+      };
+
+      const exampleFregOwnerEntry = {
+        tokenId: EXAMPLE_TOKEN_ID,
+        name: `Freg #${EXAMPLE_TOKEN_ID}`,
+        description: "Fregs",
+        owner: EXAMPLE_OWNER,
+        image: EXAMPLE_FREG_SVG,
+        attributes: exampleFregAttributes,
+        attributesByType: exampleFregAttributesByType,
+        links: buildTokenLinks(EXAMPLE_TOKEN_ID)
+      };
+
+      const exampleChestItem = {
+        itemType: 6,
+        slug: EXAMPLE_ITEM_SLUG,
+        name: "Treasure Chest",
+        description: "Burn this chest to claim $FREG rewards",
+        category: "special",
+        isClaimable: true,
+        isOwnerMintable: true,
+        links: buildItemLinks(EXAMPLE_ITEM_SLUG)
+      };
+
+      function codeBlock(title, text, copyValue, copyLabel = "Copy curl") {
+        const button = copyValue
+          ? `<button class="copy-button" data-copy="${escapeHtml(copyValue)}">${escapeHtml(copyLabel)}</button>`
+          : `<span></span>`;
+        return `
+          <div class="code-shell">
+            <div class="code-toolbar">
+              <span class="code-label">${escapeHtml(title)}</span>
+              ${button}
+            </div>
+            <pre class="code-block"><code>${escapeHtml(text)}</code></pre>
+          </div>
+        `;
+      }
+
+      function renderEndpointCard(container, endpoint) {
+        const article = document.createElement("article");
+        article.className = "endpoint-card";
+        article.id = endpoint.anchor;
+        article.dataset.loaded = "false";
+
+        article.innerHTML = `
+          <button class="endpoint-toggle" type="button" aria-expanded="false">
+            <div class="endpoint-head">
+              <div class="endpoint-title">
+                <span class="method">${endpoint.method}</span>
+                <code class="path">${escapeHtml(endpoint.pathLabel)}</code>
+              </div>
+              <div class="endpoint-summary">
+                <span class="content-type">${escapeHtml(endpoint.contentType)}</span>
+                <span class="endpoint-chevron">▾</span>
+              </div>
+            </div>
+          </button>
+          <div class="endpoint-panel" hidden>
+            <p class="endpoint-description">${escapeHtml(endpoint.description)}</p>
+            <div class="curl-slot"></div>
+            <div class="response-slot" style="margin-top: 14px;"></div>
+            <div class="response-note">${escapeHtml(endpoint.note || "")}</div>
+          </div>
+        `;
+
+        article.querySelector(".endpoint-toggle").addEventListener("click", () => {
+          const isExpanded = article.classList.toggle("is-expanded");
+          const panel = article.querySelector(".endpoint-panel");
+          const toggle = article.querySelector(".endpoint-toggle");
+          panel.hidden = !isExpanded;
+          toggle.setAttribute("aria-expanded", String(isExpanded));
+
+          if (isExpanded && article.dataset.loaded !== "true") {
+            populateEndpointCard(article, endpoint);
+            article.dataset.loaded = "true";
+          }
+        });
+
+        container.appendChild(article);
+        return article;
+      }
+
+      function formatExampleResponse(response) {
+        if (typeof response === "string") {
+          return response;
+        }
+
+        return JSON.stringify(trimLargeStrings(response), null, 2);
+      }
+
+      function populateEndpointCard(article, endpoint) {
+        const curlPath = endpoint.curlPath;
+        const curl = `curl "${buildUrl(curlPath)}"`;
+        article.querySelector(".curl-slot").innerHTML = codeBlock("curl", curl, curl);
+
+        const responseSlot = article.querySelector(".response-slot");
+        responseSlot.innerHTML = codeBlock("response", formatExampleResponse(endpoint.exampleResponse));
+      }
+
+      function wireCopyButtons() {
+        document.addEventListener("click", async (event) => {
+          const button = event.target.closest("[data-copy]");
+          if (!button) {
+            return;
+          }
+
+          try {
+            await navigator.clipboard.writeText(button.getAttribute("data-copy"));
+            const original = button.textContent;
+            button.textContent = "Copied";
+            setTimeout(() => {
+              button.textContent = original;
+            }, 1200);
+          } catch (error) {
+            button.textContent = "Copy failed";
+            setTimeout(() => {
+              button.textContent = "Copy curl";
+            }, 1200);
+          }
+        });
+      }
+
+      function init() {
+        wireCopyButtons();
+        const coreEndpoints = [
+          {
+            anchor: "endpoint-fregs-list",
+            contentType: "application/json",
+            curlPath: "/fregs?limit=1",
+            description: "Lists Freg token IDs with pagination. This is the best starting point to discover token IDs.",
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              count: 1,
+              cursor: 0,
+              includeBurned: false,
+              includeMetadata: false,
+              items: [
+                {
+                  links: buildTokenLinks(EXAMPLE_TOKEN_ID),
+                  tokenId: EXAMPLE_TOKEN_ID
+                }
+              ],
+              limit: 1,
+              nextCursor: 1,
+              supply: 1
+            },
+            method: "GET",
+            note: "Static example shown. Add ?includeMetadata=true if you want metadata inline.",
+            pathLabel: "/fregs?limit=1"
+          },
+          {
+            anchor: "endpoint-fregs-ids",
+            contentType: "application/json",
+            curlPath: "/fregs/ids",
+            description: "Returns all currently existing Freg token IDs and the current collection supply.",
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              supply: 1,
+              tokenIds: [EXAMPLE_TOKEN_ID]
+            },
+            method: "GET",
+            note: "Use ?includeBurned=1 if you also want burned token IDs included in a separate array.",
+            pathLabel: "/fregs/ids"
+          },
+          {
+            anchor: "endpoint-fregs-owned-by-wallet",
+            contentType: "application/json",
+            curlPath: `/fregs/owners/${EXAMPLE_OWNER}?includeMetadata=true`,
+            description: "Returns the Fregs currently owned by a wallet address, with a total count and the owned token IDs.",
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              count: 1,
+              includeMetadata: true,
+              owner: EXAMPLE_OWNER,
+              tokenIds: [EXAMPLE_TOKEN_ID],
+              fregs: [exampleFregOwnerEntry]
+            },
+            method: "GET",
+            note: "Static example shown. The real endpoint returns owner, count and tokenIds by default, and adds a fregs array when includeMetadata=true.",
+            pathLabel: "/fregs/owners/:address?includeMetadata=true"
+          },
+          {
+            anchor: "endpoint-freg-token",
+            contentType: "application/json",
+            curlPath: `/fregs/${EXAMPLE_TOKEN_ID}`,
+            description: "Returns a single Freg in a flattened NFT format with owner, description, attributes and raw SVG image.",
+            exampleResponse: exampleFregSummary,
+            method: "GET",
+            note: "Static example shown. Burned tokens return HTTP 410 with a message payload instead of a token object.",
+            pathLabel: "/fregs/:tokenId"
+          },
+          {
+            anchor: "endpoint-freg-owner",
+            contentType: "application/json",
+            curlPath: `/fregs/${EXAMPLE_TOKEN_ID}/owner`,
+            description: "Returns only the wallet address that currently owns the specified Freg.",
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              owner: EXAMPLE_OWNER,
+              tokenId: EXAMPLE_TOKEN_ID
+            },
+            method: "GET",
+            note: "Useful for fast ownership checks when you do not need full metadata. Burned tokens return HTTP 410 Gone.",
+            pathLabel: "/fregs/:tokenId/owner"
+          },
+          {
+            anchor: "endpoint-freg-metadata",
+            contentType: "application/json",
+            curlPath: `/fregs/${EXAMPLE_TOKEN_ID}/metadata`,
+            description: "Returns the full NFT metadata JSON built in the API from live contract trait data and bundled SVG assets.",
+            exampleResponse: {
+              name: `Freg #${EXAMPLE_TOKEN_ID}`,
+              description: "Fregs",
+              image: "data:image/svg+xml,<?xml version=\"1.0\" encoding=\"UTF-8\"?><svg ... [trimmed SVG example]</svg>",
+              attributes: exampleFregAttributes
+            },
+            method: "GET",
+            note: "Static example shown. The real response shape matches standard NFT metadata with no API wrapper fields added.",
+            pathLabel: "/fregs/:tokenId/metadata"
+          },
+          {
+            anchor: "endpoint-freg-image",
+            contentType: "image/svg+xml",
+            curlPath: `/fregs/${EXAMPLE_TOKEN_ID}/image.svg`,
+            description: "Returns the rendered SVG image for the specified Freg, assembled in the API from bundled assets and live contract trait data.",
+            exampleResponse: EXAMPLE_FREG_SVG,
+            method: "GET",
+            note: "Static SVG example shown, trimmed for readability. Burned tokens return HTTP 410 Gone.",
+            pathLabel: "/fregs/:tokenId/image.svg"
+          },
+        ];
+
+        const traitEndpoints = [
+          {
+            anchor: "endpoint-traits-all",
+            contentType: "application/json",
+            curlPath: "/fregs/traits",
+            description: "Returns the complete trait catalog grouped by type.",
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              traitTypes: {
+                background: {
+                  count: 1,
+                  traitType: "background",
+                  traits: [
+                    {
+                      links: buildTraitLinks("background", 0, EXAMPLE_TRAIT_COLOR),
+                      name: "Dynamic Background"
+                    }
+                  ]
+                },
+                body: {
+                  count: 5,
+                  traitType: "body",
+                  traits: [
+                    {
+                      links: buildTraitLinks("body", 0, EXAMPLE_TRAIT_COLOR),
+                      name: "Base"
+                    },
+                    {
+                      itemId: 5,
+                      itemName: "Gold Skin",
+                      links: buildTraitLinks("body", 1),
+                      name: "Gold Skin"
+                    }
+                  ]
+                },
+                head: {
+                  count: 24,
+                  traitType: "head",
+                  traits: [
+                    {
+                      links: buildTraitLinks("head", 1),
+                      name: "Normal Eyes"
+                    },
+                    {
+                      links: buildTraitLinks("head", 2),
+                      name: "Beanie"
+                    },
+                    {
+                      itemId: 9,
+                      itemName: "Hoodie",
+                      links: buildTraitLinks("head", 24),
+                      name: "Hoodie"
+                    }
+                  ]
+                },
+                mouth: {
+                  count: 10,
+                  traitType: "mouth",
+                  traits: [
+                    {
+                      links: buildTraitLinks("mouth", 1),
+                      name: "Cruella"
+                    },
+                    {
+                      links: buildTraitLinks("mouth", 2),
+                      name: "Cigarette"
+                    }
+                  ]
+                },
+                belly: {
+                  count: 5,
+                  traitType: "belly",
+                  traits: [
+                    {
+                      links: buildTraitLinks("belly", 1),
+                      name: "Base"
+                    },
+                    {
+                      links: buildTraitLinks("belly", 2),
+                      name: "ETH"
+                    }
+                  ]
+                }
+              }
+            },
+            method: "GET",
+            note: "Static example shown. The real response includes the full grouped trait catalog.",
+            pathLabel: "/fregs/traits"
+          },
+          {
+            anchor: "endpoint-traits-head",
+            contentType: "application/json",
+            curlPath: "/fregs/traits/head",
+            description: "Returns all head traits, including special item heads mapped above the base trait range.",
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              count: 24,
+              traitType: "head",
+              traits: [
+                {
+                  links: buildTraitLinks("head", 1),
+                  name: "Normal Eyes"
+                },
+                {
+                  links: buildTraitLinks("head", 2),
+                  name: "Beanie"
+                },
+                {
+                  links: buildTraitLinks("head", 3),
+                  name: "Bored Eyes"
+                },
+                {
+                  itemId: 9,
+                  itemName: "Hoodie",
+                  links: buildTraitLinks("head", 24),
+                  name: "Hoodie"
+                }
+              ]
+            },
+            method: "GET",
+            note: "Static example shown. The real response includes the full head trait array.",
+            pathLabel: "/fregs/traits/head"
+          },
+          {
+            anchor: "endpoint-traits-head-detail",
+            contentType: "application/json",
+            curlPath: "/fregs/traits/head/1",
+            description: "Returns one head trait as JSON, including the rendered SVG string when the trait has standalone art.",
+            exampleResponse: {
+              collection: "Fregs",
+              contractAddress: EXAMPLE_FREGS_ADDRESS,
+              svg: EXAMPLE_TRAIT_SVG,
+              trait: {
+                links: buildTraitLinks("head", 1),
+                name: "Normal Eyes"
+              }
+            },
+            method: "GET",
+            note: "Static example shown. The real response includes the full SVG string.",
+            pathLabel: "/fregs/traits/head/1"
+          },
+          {
+            anchor: "endpoint-traits-head-image",
+            contentType: "image/svg+xml",
+            curlPath: "/fregs/traits/head/1/image.svg",
+            description: "Returns only the standalone SVG for a renderable trait.",
+            exampleResponse: EXAMPLE_TRAIT_SVG,
+            method: "GET",
+            note: "This mirrors the token image route shape. Traits without standalone art return HTTP 400 on this endpoint.",
+            pathLabel: "/fregs/traits/head/1/image.svg"
+          }
+        ];
+
+        const itemEndpoints = [
+          {
+            anchor: "endpoint-items-list",
+            contentType: "application/json",
+            curlPath: "/fregs/items",
+            description: "Returns the catalog of available Fregs items, with links to each item detail route.",
+            exampleResponse: {
+              collection: "Fregs Items",
+              contractAddress: EXAMPLE_ITEMS_ADDRESS,
+              count: 9,
+              items: [
+                {
+                  itemType: 1,
+                  slug: "color-change",
+                  name: "Color Change",
+                  description: "Change your Freg's body color to any hex color",
+                  category: "utility",
+                  isClaimable: true,
+                  isOwnerMintable: true,
+                  links: buildItemLinks("color-change")
+                },
+                {
+                  itemType: 2,
+                  slug: "head-reroll",
+                  name: "Head Reroll",
+                  description: "Use this item to reroll your Freg's head trait",
+                  category: "utility",
+                  isClaimable: true,
+                  isOwnerMintable: true,
+                  links: buildItemLinks("head-reroll")
+                },
+                exampleChestItem,
+                {
+                  itemType: 9,
+                  slug: "hoodie",
+                  name: "Hoodie",
+                  description: "A cozy hoodie for your Freg",
+                  category: "head",
+                  isClaimable: false,
+                  isOwnerMintable: true,
+                  links: buildItemLinks("hoodie")
+                }
+              ]
+            },
+            method: "GET",
+            note: "Static example shown. The real response includes the full available item catalog for the configured chain.",
+            pathLabel: "/fregs/items"
+          },
+          {
+            anchor: "endpoint-item-detail",
+            contentType: "application/json",
+            curlPath: `/fregs/items/${EXAMPLE_ITEM_SLUG}`,
+            description: "Returns one item definition as JSON, including the rendered SVG string and static metadata fields.",
+            exampleResponse: {
+              collection: "Fregs Items",
+              contractAddress: EXAMPLE_ITEMS_ADDRESS,
+              item: {
+                ...exampleChestItem,
+                attributes: [
+                  {
+                    trait_type: "Item Type",
+                    value: "Treasure Chest"
+                  }
+                ],
+                image: EXAMPLE_ITEM_SVG
+              }
+            },
+            method: "GET",
+            note: "Static example shown. This is item-type metadata, not token-instance metadata.",
+            pathLabel: "/fregs/items/chest"
+          },
+          {
+            anchor: "endpoint-item-image",
+            contentType: "image/svg+xml",
+            curlPath: `/fregs/items/${EXAMPLE_ITEM_SLUG}/image.svg`,
+            description: "Returns only the SVG for a single item type.",
+            exampleResponse: EXAMPLE_ITEM_SVG,
+            method: "GET",
+            note: "Static SVG example shown, trimmed for readability.",
+            pathLabel: "/fregs/items/chest/image.svg"
+          },
+          {
+            anchor: "endpoint-items-owned-by-wallet",
+            contentType: "application/json",
+            curlPath: `/fregs/items/owners/${EXAMPLE_OWNER}`,
+            description: "Returns the items owned by a wallet address, aggregated by item type with a count for each type.",
+            exampleResponse: {
+              collection: "Fregs Items",
+              contractAddress: EXAMPLE_ITEMS_ADDRESS,
+              owner: EXAMPLE_OWNER,
+              count: 6,
+              distinctCount: 2,
+              items: [
+                {
+                  itemType: 2,
+                  slug: "head-reroll",
+                  name: "Head Reroll",
+                  description: "Use this item to reroll your Freg's head trait",
+                  category: "utility",
+                  isClaimable: true,
+                  isOwnerMintable: true,
+                  links: buildItemLinks("head-reroll"),
+                  count: 5
+                },
+                {
+                  itemType: 1,
+                  slug: "color-change",
+                  name: "Color Change",
+                  description: "Change your Freg's body color to any hex color",
+                  category: "utility",
+                  isClaimable: true,
+                  isOwnerMintable: true,
+                  links: buildItemLinks("color-change"),
+                  count: 1
+                }
+              ]
+            },
+            method: "GET",
+            note: "Static example shown. The real response is grouped by item type, so repeated items come back once with a count field instead of individual token IDs.",
+            pathLabel: "/fregs/items/owners/:address"
+          }
+        ];
+
+        const coreContainer = document.getElementById("core-endpoints");
+        const traitsContainer = document.getElementById("trait-endpoints");
+        const itemsContainer = document.getElementById("item-endpoints");
+
+        coreEndpoints.forEach((endpoint) => renderEndpointCard(coreContainer, endpoint));
+        traitEndpoints.forEach((endpoint) => renderEndpointCard(traitsContainer, endpoint));
+        itemEndpoints.forEach((endpoint) => renderEndpointCard(itemsContainer, endpoint));
+      }
+
+      init();
+    </script>
+  </body>
+</html>
