@@ -709,8 +709,8 @@
         return value;
       }
 
-      const EXAMPLE_FREGS_ADDRESS = "0x02c108083691468eB8bbA5890E91f74E5b2ad2cC";
-      const EXAMPLE_ITEMS_ADDRESS = "0x7BCb9B24b16D2AC7Dc975E1ff38536A8839CA0D3";
+      const EXAMPLE_FREGS_ADDRESS = "0xbee938d12c06e281b03ee81f857e16341ba2ead1";
+      const EXAMPLE_ITEMS_ADDRESS = "0x942152224447a3dE9074aF878dCe81E0C154b1Fb";
       const EXAMPLE_OWNER = "0x1111111111111111111111111111111111111111";
       const EXAMPLE_TOKEN_ID = 0;
       const EXAMPLE_ITEM_SLUG = "chest";
@@ -727,7 +727,7 @@
         return {
           imageSvg: buildUrl(`/fregs/${tokenId}/image.svg`),
           metadata: buildUrl(`/fregs/${tokenId}/metadata`),
-          opensea: `https://testnets.opensea.io/assets/base_sepolia/${EXAMPLE_FREGS_ADDRESS}/${tokenId}`,
+          opensea: `https://opensea.io/assets/base_sepolia/${EXAMPLE_FREGS_ADDRESS}/${tokenId}`,
           owner: buildUrl(`/fregs/${tokenId}/owner`),
           self: buildUrl(`/fregs/${tokenId}`)
         };

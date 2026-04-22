@@ -8,8 +8,8 @@ interface LandingSectionProps {
 // Social link URLs - update these with actual links
 const SOCIAL_LINKS = {
     x: "https://x.com/Fregs_io",
-    opensea: "https://opensea.io/collection/fregs",
-    etherscan: "https://basescan.org/address/0x...",
+    opensea: "https://opensea.io/collection/fregs-io",
+    etherscan: "https://basescan.org/address/0xbee938d12c06e281b03ee81f857e16341ba2ead1",
 }
 
 const VIDEO_BASE_URL = "https://pub-59fac2662d16414c8202fc478b0c90b7.r2.dev/landing"
