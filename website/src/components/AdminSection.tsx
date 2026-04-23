@@ -281,21 +281,32 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     }
 
     setTxStatus('pending')
-    setTxMessage(`Minting to ${addresses.length} wallets...`)
-    setMintProgress({ current: 0, total: addresses.length })
+    setTxMessage(`Checking ${addresses.length} addresses for contracts...`)
+
+    const { receivers, skipped } = await filterOutNonReceivers(addresses)
+    const skippedNote = skipped.length > 0 ? ` (skipped ${skipped.length} non-receiver contract${skipped.length > 1 ? 's' : ''}: ${skipped.join(', ')})` : ''
+
+    if (receivers.length === 0) {
+      setErrorMessage(`No addresses can receive ERC1155 tokens.${skippedNote}`)
+      setTxStatus('error')
+      return
+    }
+
+    setMintProgress({ current: 0, total: receivers.length })
+    setTxMessage(`Minting to ${receivers.length} wallets...${skippedNote}`)
 
     try {
       const contract = await contracts.items.write()
 
-      for (let i = 0; i < addresses.length; i++) {
-        setMintProgress({ current: i + 1, total: addresses.length })
-        setTxMessage(`Minting to wallet ${i + 1} of ${addresses.length}...`)
-        const tx = await contract.ownerMint(addresses[i], selectedItemType, Number(mintAmount))
+      for (let i = 0; i < receivers.length; i++) {
+        setMintProgress({ current: i + 1, total: receivers.length })
+        setTxMessage(`Minting to wallet ${i + 1} of ${receivers.length}...${skippedNote}`)
+        const tx = await contract.ownerMint(receivers[i], selectedItemType, Number(mintAmount))
         await tx.wait()
       }
 
       setTxStatus('success')
-      setTxMessage(`Minted to ${addresses.length} wallets!`)
+      setTxMessage(`Minted to ${receivers.length} wallets!${skippedNote}`)
       setAddressesInput("")
       setMintProgress({ current: 0, total: 0 })
     } catch (err: any) {
@@ -496,20 +507,31 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     }
 
     setTxStatus('pending')
-    setTxMessage(`Airdropping ${amount} mint pass(es) to ${addresses.length} wallets...`)
+    setTxMessage(`Checking ${addresses.length} addresses for contracts...`)
+
+    const { receivers, skipped } = await filterOutNonReceivers(addresses)
+    const skippedNote = skipped.length > 0 ? ` (skipped ${skipped.length} non-receiver contract${skipped.length > 1 ? 's' : ''}: ${skipped.join(', ')})` : ''
+
+    if (receivers.length === 0) {
+      setErrorMessage(`No addresses can receive ERC1155 tokens.${skippedNote}`)
+      setTxStatus('error')
+      return
+    }
+
+    setTxMessage(`Airdropping ${amount} mint pass(es) to ${receivers.length} wallets...${skippedNote}`)
 
     try {
       const contract = await contracts.mintPass.write()
 
       // Use the airdrop function with same amount for all
-      const amounts = addresses.map(() => amount)
-      const tx = await contract.airdrop(addresses, amounts)
+      const amounts = receivers.map(() => amount)
+      const tx = await contract.airdrop(receivers, amounts)
 
       setTxStatus('confirming')
       await tx.wait()
 
       setTxStatus('success')
-      setTxMessage(`Airdropped ${amount} mint pass(es) to ${addresses.length} wallets!`)
+      setTxMessage(`Airdropped ${amount} mint pass(es) to ${receivers.length} wallets!${skippedNote}`)
       setMintPassAddresses("")
       setMintPassProgress({ current: 0, total: 0 })
 
@@ -519,6 +541,33 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to airdrop mint passes")
       setTxStatus('error')
+    }
+  }
+
+  const filterOutNonReceivers = async (addresses: string[]): Promise<{ receivers: string[]; skipped: string[] }> => {
+    if (!contracts) return { receivers: addresses, skipped: [] }
+    const ON_ERC1155_RECEIVED_SELECTOR = '0xf23a6e61'
+    const results = await Promise.all(
+      addresses.map(async (addr) => {
+        const code = await contracts.provider.getCode(addr)
+        if (code === '0x') return { addr, ok: true } // EOA, always fine
+        // Contract: check if it accepts ERC1155
+        try {
+          const iface = new Contract(addr, [
+            'function onERC1155Received(address,address,uint256,uint256,bytes) view returns (bytes4)'
+          ], contracts.provider)
+          const result = await iface.onERC1155Received(
+            addr, addr, 0, 1, '0x'
+          )
+          return { addr, ok: result === ON_ERC1155_RECEIVED_SELECTOR }
+        } catch {
+          return { addr, ok: false }
+        }
+      })
+    )
+    return {
+      receivers: results.filter(r => r.ok).map(r => r.addr),
+      skipped: results.filter(r => !r.ok).map(r => r.addr),
     }
   }
 
@@ -547,18 +596,29 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     }
 
     setTxStatus('pending')
-    setTxMessage(`Airdropping ${amount} spin token(s) to ${addresses.length} wallets...`)
+    setTxMessage(`Checking ${addresses.length} addresses for contracts...`)
+
+    const { receivers, skipped } = await filterOutNonReceivers(addresses)
+    const skippedNote = skipped.length > 0 ? ` (skipped ${skipped.length} non-receiver contract${skipped.length > 1 ? 's' : ''}: ${skipped.join(', ')})` : ''
+
+    if (receivers.length === 0) {
+      setErrorMessage(`No addresses can receive ERC1155 tokens.${skippedNote}`)
+      setTxStatus('error')
+      return
+    }
+
+    setTxMessage(`Airdropping ${amount} spin token(s) to ${receivers.length} wallets...${skippedNote}`)
 
     try {
       const contract = await contracts.spinTheWheel.write()
-      const amounts = addresses.map(() => amount)
-      const tx = await contract.airdrop(addresses, amounts)
+      const amounts = receivers.map(() => amount)
+      const tx = await contract.airdrop(receivers, amounts)
 
       setTxStatus('confirming')
       await tx.wait()
 
       setTxStatus('success')
-      setTxMessage(`Airdropped ${amount} spin token(s) to ${addresses.length} wallets!`)
+      setTxMessage(`Airdropped ${amount} spin token(s) to ${receivers.length} wallets!${skippedNote}`)
       setSpinAddresses("")
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to airdrop spin tokens")
