@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { parseEther, formatEther, isAddress, Contract } from "ethers"
+import { parseEther, formatEther, isAddress, getAddress, Contract } from "ethers"
 import Section from "./Section"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
@@ -266,10 +266,13 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const handleBatchMint = async () => {
     if (!contracts) return
 
-    const addresses = addressesInput
-      .split('\n')
-      .map(a => a.trim())
-      .filter(a => isAddress(a))
+    const addresses = [...new Set(
+      addressesInput
+        .split('\n')
+        .map(a => a.trim())
+        .filter(a => isAddress(a))
+        .map(a => getAddress(a))
+    )]
 
     if (addresses.length === 0) {
       setErrorMessage("No valid addresses provided")
@@ -429,10 +432,13 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const handleAddFreeMintWallets = async () => {
     if (!contracts) return
 
-    const addresses = freeMintAddresses
-      .split('\n')
-      .map(a => a.trim())
-      .filter(a => isAddress(a))
+    const addresses = [...new Set(
+      freeMintAddresses
+        .split('\n')
+        .map(a => a.trim())
+        .filter(a => isAddress(a))
+        .map(a => getAddress(a))
+    )]
 
     if (addresses.length === 0) {
       setErrorMessage("No valid addresses provided")
@@ -468,10 +474,13 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const handleMintPassAirdrop = async () => {
     if (!contracts) return
 
-    const addresses = mintPassAddresses
-      .split('\n')
-      .map(a => a.trim())
-      .filter(a => isAddress(a))
+    const addresses = [...new Set(
+      mintPassAddresses
+        .split('\n')
+        .map(a => a.trim())
+        .filter(a => isAddress(a))
+        .map(a => getAddress(a))
+    )]
 
     if (addresses.length === 0) {
       setErrorMessage("No valid addresses provided")
@@ -516,10 +525,13 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const handleSpinAirdrop = async () => {
     if (!contracts) return
 
-    const addresses = spinAddresses
-      .split('\n')
-      .map(a => a.trim())
-      .filter(a => isAddress(a))
+    const addresses = [...new Set(
+      spinAddresses
+        .split('\n')
+        .map(a => a.trim())
+        .filter(a => isAddress(a))
+        .map(a => getAddress(a))
+    )]
 
     if (addresses.length === 0) {
       setErrorMessage("No valid addresses provided")
@@ -879,25 +891,21 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     setErrorMessage("")
   }
 
-  const validAddressCount = addressesInput
-    .split('\n')
-    .map(a => a.trim())
-    .filter(a => isAddress(a)).length
+  const validAddressCount = new Set(
+    addressesInput.split('\n').map(a => a.trim()).filter(a => isAddress(a)).map(a => getAddress(a))
+  ).size
 
-  const validFreeMintAddressCount = freeMintAddresses
-    .split('\n')
-    .map(a => a.trim())
-    .filter(a => isAddress(a)).length
+  const validFreeMintAddressCount = new Set(
+    freeMintAddresses.split('\n').map(a => a.trim()).filter(a => isAddress(a)).map(a => getAddress(a))
+  ).size
 
-  const validMintPassAddressCount = mintPassAddresses
-    .split('\n')
-    .map(a => a.trim())
-    .filter(a => isAddress(a)).length
+  const validMintPassAddressCount = new Set(
+    mintPassAddresses.split('\n').map(a => a.trim()).filter(a => isAddress(a)).map(a => getAddress(a))
+  ).size
 
-  const validSpinAddressCount = spinAddresses
-    .split('\n')
-    .map(a => a.trim())
-    .filter(a => isAddress(a)).length
+  const validSpinAddressCount = new Set(
+    spinAddresses.split('\n').map(a => a.trim()).filter(a => isAddress(a)).map(a => getAddress(a))
+  ).size
 
   return (
     <Section id="admin">
