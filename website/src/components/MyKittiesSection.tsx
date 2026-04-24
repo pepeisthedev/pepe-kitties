@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react"
 import { formatEther } from "ethers"
 import { flushSync } from "react-dom"
-import { useAppKitAccount } from "@reown/appkit/react"
+import { useAppKit, useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
@@ -309,6 +309,7 @@ function CarouselCard({ kitty, isFlipped, hasClaimable, isExpanded, claimingToke
 
 export default function MyKittiesSection(): React.JSX.Element {
     const { address, isConnected } = useAppKitAccount()
+    const { open } = useAppKit()
     const contracts = useContracts()
     const { kitties, isLoading, error, refetch: refetchKitties, updateKitty } = useOwnedKitties()
     const { unclaimedIds, refetch: refetchUnclaimed } = useUnclaimedKitties()
@@ -681,10 +682,16 @@ export default function MyKittiesSection(): React.JSX.Element {
        
             {!isConnected ? (
                 <Card className="bg-theme-card border-4 border-theme rounded-3xl">
-                    <CardContent className="p-12 text-center">
+                    <CardContent className="p-12 text-center flex flex-col items-center gap-4">
                         <p className="font-righteous text-xl text-theme-muted">
                             Connect your wallet to see your Fregs
                         </p>
+                        <Button
+                            onClick={() => open()}
+                            className="font-bangers text-lg px-8 py-3 rounded-full bg-theme hover:opacity-90 text-theme border-2 border-theme"
+                        >
+                            Connect Wallet
+                        </Button>
                     </CardContent>
                 </Card>
             ) : isLoading ? (

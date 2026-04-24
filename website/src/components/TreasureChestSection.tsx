@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { formatEther } from "ethers"
-import { useAppKitAccount } from "@reown/appkit/react"
+import { useAppKit, useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
@@ -16,6 +16,7 @@ interface Props {
 
 export default function TreasureChestSection({ chestOpeningActive }: Props): React.JSX.Element {
     const { isConnected } = useAppKitAccount()
+    const { open } = useAppKit()
     const contracts = useContracts()
     const { data: contractData } = useContractData()
     const { items, isLoading, refetch } = useOwnedItems()
@@ -95,10 +96,16 @@ export default function TreasureChestSection({ chestOpeningActive }: Props): Rea
 
             {!isConnected ? (
                 <Card className="bg-theme-card border-4 border-theme rounded-3xl">
-                    <CardContent className="p-12 text-center">
+                    <CardContent className="p-12 text-center flex flex-col items-center gap-4">
                         <p className="font-righteous text-xl text-theme-muted">
                             Connect your wallet to view your treasure chests
                         </p>
+                        <Button
+                            onClick={() => open()}
+                            className="font-bangers text-lg px-8 py-3 rounded-full bg-theme hover:opacity-90 text-theme border-2 border-theme"
+                        >
+                            Connect Wallet
+                        </Button>
                     </CardContent>
                 </Card>
             ) : isLoading ? (

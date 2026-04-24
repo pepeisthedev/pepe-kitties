@@ -1,6 +1,6 @@
 import React, { useState } from "react"
 import { formatEther, Signature } from "ethers"
-import { useAppKitAccount } from "@reown/appkit/react"
+import { useAppKit, useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
@@ -40,6 +40,7 @@ export default function ShopSection({ shopActive }: ShopSectionProps): React.JSX
 
 function ActiveShopSection(): React.JSX.Element {
     const { isConnected } = useAppKitAccount()
+    const { open } = useAppKit()
     const contracts = useContracts()
     const { items: shopItems, isLoading: shopLoading, refetch: refetchShop } = useShopItems()
     const { balance: fregBalance, isLoading: balanceLoading, refetch: refetchBalance } = useFregCoinBalance()
@@ -214,8 +215,14 @@ function ActiveShopSection(): React.JSX.Element {
             )}
 
             {!isConnected ? (
-                <div className="text-center py-16">
+                <div className="text-center py-16 flex flex-col items-center gap-4">
                     <p className="font-righteous text-xl text-theme-muted">Connect your wallet to browse the shop</p>
+                    <Button
+                        onClick={() => open()}
+                        className="font-bangers text-lg px-8 py-3 rounded-full bg-theme hover:opacity-90 text-theme border-2 border-theme"
+                    >
+                        Connect Wallet
+                    </Button>
                 </div>
             ) : !contracts?.fregShop ? (
                 <div className="text-center py-16">

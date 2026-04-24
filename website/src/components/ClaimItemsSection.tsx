@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react"
 import { flushSync } from "react-dom"
-import { useAppKitAccount } from "@reown/appkit/react"
+import { useAppKit, useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
@@ -14,6 +14,7 @@ import { Gift } from "lucide-react"
 
 export default function ClaimItemsSection(): React.JSX.Element {
     const { address, isConnected } = useAppKitAccount()
+    const { open } = useAppKit()
     const contracts = useContracts()
     const { data: contractData } = useContractData()
     const { unclaimedIds, isLoading, error, refetch } = useUnclaimedKitties()
@@ -162,10 +163,16 @@ export default function ClaimItemsSection(): React.JSX.Element {
 
             {!isConnected ? (
                 <Card className="bg-black/40 border-4 border-purple-400 rounded-3xl">
-                    <CardContent className="p-12 text-center">
+                    <CardContent className="p-12 text-center flex flex-col items-center gap-4">
                         <p className="font-righteous text-xl text-white/70">
                             Connect your wallet to claim items
                         </p>
+                        <Button
+                            onClick={() => open()}
+                            className="font-bangers text-lg px-8 py-3 rounded-full bg-purple-500 hover:bg-purple-400 text-white border-2 border-purple-300"
+                        >
+                            Connect Wallet
+                        </Button>
                     </CardContent>
                 </Card>
             ) : isLoading ? (

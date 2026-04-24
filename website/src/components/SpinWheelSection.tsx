@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
-import { useAppKitAccount } from "@reown/appkit/react"
+import { useAppKit, useAppKitAccount } from "@reown/appkit/react"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
 import {
@@ -264,6 +264,7 @@ interface SpinWheelProps {
 
 export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.JSX.Element | null {
   const { address, isConnected } = useAppKitAccount()
+  const { open } = useAppKit()
   const contracts = useContracts()
   const { balance, isLoading: balanceLoading, refetch: refetchBalance } = useSpinTokenBalance()
   const { refetch: refetchItems } = useOwnedItems()
@@ -563,7 +564,21 @@ export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.
 
       {/* Wheel area — scrollable, centered */}
       <div className="flex-1 overflow-y-auto flex items-center justify-center px-4 pt-20 pb-2 relative z-10">
-        {!spinActive ? (
+        {!isConnected ? (
+          <Card className="bg-black/80 border-4 border-purple-400 rounded-3xl">
+            <CardContent className="p-12 text-center flex flex-col items-center gap-4">
+              <p className="font-righteous text-xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                Connect your wallet to spin the wheel
+              </p>
+              <Button
+                onClick={() => open()}
+                className="font-bangers text-lg px-8 py-3 rounded-full bg-purple-500 hover:bg-purple-400 text-white border-2 border-purple-300"
+              >
+                Connect Wallet
+              </Button>
+            </CardContent>
+          </Card>
+        ) : !spinActive ? (
           <Card className="bg-black/80 border-4 border-yellow-400 rounded-3xl">
             <CardContent className="p-12 text-center">
               <Lock className="w-12 h-12 mx-auto mb-4 text-yellow-300 opacity-80" />
@@ -572,14 +587,6 @@ export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.
               </p>
               <p className="font-righteous text-lg text-white/80 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                 The wheel is coming soon — check back later!
-              </p>
-            </CardContent>
-          </Card>
-        ) : !isConnected ? (
-          <Card className="bg-black/80 border-4 border-purple-400 rounded-3xl">
-            <CardContent className="p-12 text-center">
-              <p className="font-righteous text-xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                Connect your wallet to spin the wheel
               </p>
             </CardContent>
           </Card>
