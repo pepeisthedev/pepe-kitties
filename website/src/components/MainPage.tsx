@@ -25,7 +25,7 @@ export default function MainPage(): React.JSX.Element {
     const renderSection = () => {
         switch (activeSection) {
             case "landing":
-                return <LandingSection onEnter={() => setActiveSection("spin-wheel")} />
+                return <LandingSection onEnter={() => setActiveSection("mint")} />
             case "mint":
                 return <MintSection />
             case "my-kitties":

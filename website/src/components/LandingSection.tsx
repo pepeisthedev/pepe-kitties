@@ -218,7 +218,7 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                             transition duration-200 hover:opacity-90"
                         style={{ backgroundColor: '#7CB342' }}
                     >
-                        Spin to win
+                        Mint
                     </Button>
                 </div>
 
