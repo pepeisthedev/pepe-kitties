@@ -320,7 +320,7 @@ export default function LandingSection({ onEnter }: LandingSectionProps): React.
                                 100% On-Chain
                             </h3>
                             <p className="text-white/70 font-righteous text-base md:text-lg leading-relaxed">
-                                All Freg images are generated and stored entirely on-chain across X smart contracts.
+                                All Freg images are generated and stored entirely on-chain across more than 220 smart contracts.
                                 No IPFS, no external hosting — your Freg lives on the blockchain forever.
                             </p>
                         </div>

@@ -11,9 +11,10 @@ import LoadingSpinner from "./LoadingSpinner"
 import KittyRenderer from "./KittyRenderer"
 import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
+import ItemRaritiesModal from "./ItemRaritiesModal"
 import { waitForEvent } from "../lib/waitForEvent"
 import { ITEM_TYPE_NAMES, ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, ITEMS, checkItemIncompatibility, BASE_HEAD_COUNT, BASE_STOMACH_COUNT, BASE_MOUTH_COUNT } from "../config/contracts"
-import { Gift, LayoutGrid, Rows, Flame, AlertTriangle, Wand2, Palette, Backpack } from "lucide-react"
+import { Gift, LayoutGrid, Rows, Flame, AlertTriangle, Wand2, Palette, Backpack, CircleHelp } from "lucide-react"
 import {
     Dialog,
     DialogContent,
@@ -326,6 +327,7 @@ export default function MyKittiesSection(): React.JSX.Element {
     const [redeemCoin, setRedeemCoin] = useState<string | null>(null)
     const [liquidityActive, setLiquidityActive] = useState(false)
     const [burnConfirmTokenId, setBurnConfirmTokenId] = useState<number | null>(null)
+    const [isRaritiesOpen, setIsRaritiesOpen] = useState(false)
 
     // Items tab state (separate selection from fregs tab)
     const [itemsSelectedKittyId, setItemsSelectedKittyId] = useState<number | null>(null)
@@ -766,33 +768,45 @@ export default function MyKittiesSection(): React.JSX.Element {
                             </button>
                         </div>
 
-                        {/* Grid/Carousel toggle - only in fregs tab */}
-                        {tab === 'fregs' && (
-                            <div className="flex bg-theme-card rounded-lg p-1 gap-1">
-                                <button
-                                    onClick={() => setViewMode('grid')}
-                                    className={`p-2 rounded-md transition-all ${
-                                        viewMode === 'grid'
-                                            ? 'bg-theme-primary text-theme-button-text'
-                                            : 'text-theme-muted hover:text-theme-primary'
-                                    }`}
-                                    title="Grid View"
-                                >
-                                    <LayoutGrid className="w-5 h-5" />
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('carousel')}
-                                    className={`p-2 rounded-md transition-all ${
-                                        viewMode === 'carousel'
-                                            ? 'bg-theme-primary text-theme-button-text'
-                                            : 'text-theme-muted hover:text-theme-primary'
-                                    }`}
-                                    title="Carousel View"
-                                >
-                                    <Rows className="w-5 h-5" />
-                                </button>
-                            </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setIsRaritiesOpen(true)}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-theme-muted/40 bg-theme-card px-3 py-1.5 text-theme-muted hover:text-theme-primary hover:border-theme-primary/60 transition-colors cursor-pointer"
+                                aria-label="Show item rarities"
+                            >
+                                <CircleHelp className="w-4 h-4" />
+                                <span className="font-righteous text-xs hidden sm:inline">Item Rarities</span>
+                            </button>
+
+                            {/* Grid/Carousel toggle - only in fregs tab */}
+                            {tab === 'fregs' && (
+                                <div className="flex bg-theme-card rounded-lg p-1 gap-1">
+                                    <button
+                                        onClick={() => setViewMode('grid')}
+                                        className={`p-2 rounded-md transition-all ${
+                                            viewMode === 'grid'
+                                                ? 'bg-theme-primary text-theme-button-text'
+                                                : 'text-theme-muted hover:text-theme-primary'
+                                        }`}
+                                        title="Grid View"
+                                    >
+                                        <LayoutGrid className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode('carousel')}
+                                        className={`p-2 rounded-md transition-all ${
+                                            viewMode === 'carousel'
+                                                ? 'bg-theme-primary text-theme-button-text'
+                                                : 'text-theme-muted hover:text-theme-primary'
+                                        }`}
+                                        title="Carousel View"
+                                    >
+                                        <Rows className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* === FREGS TAB === */}
@@ -1402,6 +1416,8 @@ export default function MyKittiesSection(): React.JSX.Element {
                     </div>
                 )}
             </ResultModal>
+
+            <ItemRaritiesModal open={isRaritiesOpen} onOpenChange={setIsRaritiesOpen} />
         </Section>
     )
 }

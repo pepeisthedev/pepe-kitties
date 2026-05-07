@@ -4,10 +4,11 @@ import { parseEther } from "ethers"
 import Section from "./Section"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
-import { Sparkles, Palette, CheckCircle, XCircle, Gift } from "lucide-react"
+import { Sparkles, Palette, CheckCircle, XCircle, Gift, CircleHelp } from "lucide-react"
 import { useContractData, useContracts, useOwnedKitties, useUnclaimedKitties } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import KittyRenderer from "./KittyRenderer"
+import TraitRaritiesModal from "./TraitRaritiesModal"
 import { waitForEvent } from "../lib/waitForEvent"
 import {
     Dialog,
@@ -111,6 +112,8 @@ export default function MintSection(): React.JSX.Element {
         stomach: number
     } | null>(null)
     const [awaitingMessageIndex, setAwaitingMessageIndex] = useState(0)
+
+    const [isInfoOpen, setIsInfoOpen] = useState(false)
 
     const [revealPhase, setRevealPhase] = useState<RevealPhase>('hidden')
     const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; angle: number; delay: number; size: number; color: string }>>([])
@@ -301,6 +304,15 @@ export default function MintSection(): React.JSX.Element {
                             size="sm"
                             className="w-full h-full"
                         />
+                        <button
+                            type="button"
+                            onClick={() => setIsInfoOpen(true)}
+                            className="absolute top-2 right-2 xl:top-3 xl:right-3 inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-black/55 backdrop-blur px-3 py-1.5 text-white/90 hover:text-white hover:border-white/60 hover:bg-black/70 transition-colors cursor-pointer shadow-lg"
+                            aria-label="Show trait rarities"
+                        >
+                            <CircleHelp className="w-4 h-4" />
+                            <span className="font-righteous text-xs">Trait Rarities</span>
+                        </button>
                     </div>
                 </div>
 
@@ -750,6 +762,8 @@ export default function MintSection(): React.JSX.Element {
                     )}
                 </DialogContent>
             </Dialog>
+
+            <TraitRaritiesModal open={isInfoOpen} onOpenChange={setIsInfoOpen} />
         </Section>
     )
 }
