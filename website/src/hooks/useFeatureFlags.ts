@@ -13,6 +13,7 @@ import {
   FregShopABI,
   FregsLiquidityABI,
 } from "../config/contracts"
+import { readWithFallback, getFallbackProvider, type ReadProvider } from "../lib/rpc"
 
 export interface FeatureFlags {
   mintActive: boolean
@@ -32,6 +33,49 @@ const DEFAULT_FLAGS: FeatureFlags = {
 
 const INITIAL_RETRY_DELAY_MS = 2000
 const MAX_RETRY_DELAY_MS = 30000
+const WALLET_ATTEMPTS_BEFORE_FALLBACK = 2
+
+type FlagKey = keyof FeatureFlags
+
+type FlagSpec = {
+  key: FlagKey
+  read: (provider: ReadProvider) => Promise<any>
+  transform: (raw: any) => boolean
+}
+
+const SPECS: FlagSpec[] = [
+  {
+    key: "chestOpeningActive",
+    read: (p) => new Contract(FREGS_ITEMS_ADDRESS, FregsItemsABI, p).chestOpeningActive(),
+    transform: Boolean,
+  },
+  {
+    key: "mintActive",
+    read: (p) => new Contract(FREGS_ADDRESS, FregsABI, p).mintPhase(),
+    transform: (raw) => Number(raw) > 0,
+  },
+  {
+    key: "spinActive",
+    read: (p) => SPIN_THE_WHEEL_ADDRESS
+      ? new Contract(SPIN_THE_WHEEL_ADDRESS, SpinTheWheelABI, p).active()
+      : Promise.resolve(false),
+    transform: Boolean,
+  },
+  {
+    key: "liquidityActive",
+    read: (p) => FREGS_LIQUIDITY_ADDRESS
+      ? new Contract(FREGS_LIQUIDITY_ADDRESS, FregsLiquidityABI, p).active()
+      : Promise.resolve(false),
+    transform: Boolean,
+  },
+  {
+    key: "shopActive",
+    read: (p) => FREG_SHOP_ADDRESS
+      ? new Contract(FREG_SHOP_ADDRESS, FregShopABI, p).shopActive()
+      : Promise.resolve(false),
+    transform: Boolean,
+  },
+]
 
 export function useFeatureFlags() {
   const { walletProvider } = useAppKitProvider("eip155")
@@ -41,6 +85,7 @@ export function useFeatureFlags() {
 
   const retryTimerRef = useRef<number | undefined>(undefined)
   const retryDelayRef = useRef<number>(INITIAL_RETRY_DELAY_MS)
+  const failureCountsRef = useRef<Map<FlagKey, number>>(new Map())
 
   const clearRetryTimer = useCallback(() => {
     if (retryTimerRef.current !== undefined) {
@@ -55,40 +100,34 @@ export function useFeatureFlags() {
     clearRetryTimer()
     setIsLoading(true)
 
+    const wallet = new BrowserProvider(walletProvider as any)
+
+    const readSpec = (spec: FlagSpec) => {
+      const failures = failureCountsRef.current.get(spec.key) ?? 0
+      const preferFallback = failures >= WALLET_ATTEMPTS_BEFORE_FALLBACK
+        && getFallbackProvider() !== null
+      return readWithFallback(wallet, spec.read, preferFallback)
+    }
+
     try {
-      const provider = new BrowserProvider(walletProvider as any)
-      const fregs = new Contract(FREGS_ADDRESS, FregsABI, provider)
-      const items = new Contract(FREGS_ITEMS_ADDRESS, FregsItemsABI, provider)
+      const results = await Promise.allSettled(SPECS.map(readSpec))
 
-      const calls: Array<() => Promise<any>> = [
-        () => items.chestOpeningActive(),
-        () => fregs.mintPhase(),
-        SPIN_THE_WHEEL_ADDRESS
-          ? () => new Contract(SPIN_THE_WHEEL_ADDRESS, SpinTheWheelABI, provider).active()
-          : () => Promise.resolve(false),
-        FREGS_LIQUIDITY_ADDRESS
-          ? () => new Contract(FREGS_LIQUIDITY_ADDRESS, FregsLiquidityABI, provider).active()
-          : () => Promise.resolve(false),
-        FREG_SHOP_ADDRESS
-          ? () => new Contract(FREG_SHOP_ADDRESS, FregShopABI, provider).shopActive()
-          : () => Promise.resolve(false),
-      ]
-
-      const results = await Promise.allSettled(calls.map(fn => fn()))
-      const [chestRes, mintPhaseRes, spinRes, liquidityRes, shopRes] = results
-
-      setFlags(prev => ({
-        chestOpeningActive:
-          chestRes.status === "fulfilled" ? Boolean(chestRes.value) : prev.chestOpeningActive,
-        mintActive:
-          mintPhaseRes.status === "fulfilled" ? Number(mintPhaseRes.value) > 0 : prev.mintActive,
-        spinActive:
-          spinRes.status === "fulfilled" ? Boolean(spinRes.value) : prev.spinActive,
-        liquidityActive:
-          liquidityRes.status === "fulfilled" ? Boolean(liquidityRes.value) : prev.liquidityActive,
-        shopActive:
-          shopRes.status === "fulfilled" ? Boolean(shopRes.value) : prev.shopActive,
-      }))
+      setFlags(prev => {
+        const next = { ...prev }
+        SPECS.forEach((spec, i) => {
+          const res = results[i]
+          if (res.status === "fulfilled") {
+            next[spec.key] = spec.transform(res.value)
+            failureCountsRef.current.delete(spec.key)
+          } else {
+            failureCountsRef.current.set(
+              spec.key,
+              (failureCountsRef.current.get(spec.key) ?? 0) + 1,
+            )
+          }
+        })
+        return next
+      })
 
       const failures = results.filter(r => r.status === "rejected")
       if (failures.length > 0) {
@@ -120,7 +159,8 @@ export function useFeatureFlags() {
 
   useEffect(() => {
     if (walletProvider) {
-      fetchFlags()
+      failureCountsRef.current.clear()
+      void fetchFlags()
     }
     return () => {
       clearRetryTimer()

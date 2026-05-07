@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react"
 import { BrowserProvider, Contract } from "ethers"
-import {
-  FREGS_ITEMS_ADDRESS,
-  FregsItemsABI,
-} from "../config/contracts"
+import { FREGS_ITEMS_ADDRESS, FregsItemsABI } from "../config/contracts"
+import { readWithFallback, getFallbackProvider } from "../lib/rpc"
+
+const INITIAL_RETRY_DELAY_MS = 2000
+const MAX_RETRY_DELAY_MS = 30000
+const WALLET_ATTEMPTS_BEFORE_FALLBACK = 2
 
 export function useUnclaimedKitties() {
   const { address, isConnected } = useAppKitAccount()
@@ -13,8 +15,22 @@ export function useUnclaimedKitties() {
   const [unclaimedIds, setUnclaimedIds] = useState<number[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
+  const retryTimerRef = useRef<number | undefined>(undefined)
+  const retryDelayRef = useRef<number>(INITIAL_RETRY_DELAY_MS)
+  const failureCountRef = useRef(0)
+
+  const clearRetryTimer = useCallback(() => {
+    if (retryTimerRef.current !== undefined) {
+      window.clearTimeout(retryTimerRef.current)
+      retryTimerRef.current = undefined
+    }
+  }, [])
 
   const fetchUnclaimed = useCallback(async () => {
+    clearRetryTimer()
+    const requestId = ++requestIdRef.current
+
     if (!walletProvider || !address) {
       setUnclaimedIds([])
       return
@@ -23,29 +39,51 @@ export function useUnclaimedKitties() {
     setIsLoading(true)
     setError(null)
 
+    const wallet = new BrowserProvider(walletProvider as any)
+    const preferFallback = failureCountRef.current >= WALLET_ATTEMPTS_BEFORE_FALLBACK
+      && getFallbackProvider() !== null
+
     try {
-      const provider = new BrowserProvider(walletProvider as any)
-      const contract = new Contract(FREGS_ITEMS_ADDRESS, FregsItemsABI, provider)
+      const result = await readWithFallback(
+        wallet,
+        (provider) => new Contract(FREGS_ITEMS_ADDRESS, FregsItemsABI, provider).getUnclaimedFregs(address),
+        preferFallback,
+      )
 
-      const result = await contract.getUnclaimedFregs(address)
-      const ids = result.map((id: bigint) => Number(id))
+      if (requestId !== requestIdRef.current) return
 
-      setUnclaimedIds(ids)
+      setUnclaimedIds(result.map((id: bigint) => Number(id)))
+      failureCountRef.current = 0
+      retryDelayRef.current = INITIAL_RETRY_DELAY_MS
     } catch (err) {
       console.error("Error fetching unclaimed fregs:", err)
+      if (requestId !== requestIdRef.current) return
+      failureCountRef.current += 1
       setError(err instanceof Error ? err.message : "Failed to fetch unclaimed fregs")
+      const delay = retryDelayRef.current
+      retryTimerRef.current = window.setTimeout(() => {
+        retryTimerRef.current = undefined
+        void fetchUnclaimed()
+      }, delay)
+      retryDelayRef.current = Math.min(delay * 2, MAX_RETRY_DELAY_MS)
     } finally {
-      setIsLoading(false)
+      if (requestId === requestIdRef.current) setIsLoading(false)
     }
-  }, [walletProvider, address])
+  }, [walletProvider, address, clearRetryTimer])
 
   useEffect(() => {
     if (isConnected && walletProvider && address) {
-      fetchUnclaimed()
+      failureCountRef.current = 0
+      void fetchUnclaimed()
     } else {
+      requestIdRef.current += 1
+      clearRetryTimer()
       setUnclaimedIds([])
     }
-  }, [fetchUnclaimed, isConnected, walletProvider, address])
+    return () => {
+      clearRetryTimer()
+    }
+  }, [fetchUnclaimed, isConnected, walletProvider, address, clearRetryTimer])
 
   return { unclaimedIds, isLoading, error, refetch: fetchUnclaimed }
 }
