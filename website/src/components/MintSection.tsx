@@ -86,7 +86,7 @@ export default function MintSection(): React.JSX.Element {
     const { address, isConnected } = useAppKitAccount()
     const { open } = useAppKit()
     const contracts = useContracts()
-    const { data: contractData, isLoading: dataLoading, refetch } = useContractData()
+    const { data: contractData, isLoading: dataLoading, wrongNetwork, refetch } = useContractData()
     const { kitties, refetch: refetchKitties } = useOwnedKitties()
     const { refetch: refetchUnclaimed } = useUnclaimedKitties()
 
@@ -197,6 +197,7 @@ export default function MintSection(): React.JSX.Element {
 
     const handleMint = async () => {
         if (!isConnected || !address) { open(); return }
+        if (wrongNetwork) { open({ view: "Networks" }); return }
         if (!contracts || !contractData) return
 
         dismissedMintRef.current = false
@@ -305,6 +306,15 @@ export default function MintSection(): React.JSX.Element {
 
                 {/* Mint Controls */}
                 <div className="space-y-2 xl:space-y-6 flex flex-col justify-center">
+
+                    {isConnected && wrongNetwork && (
+                        <div className="rounded-xl border-2 border-red-400/60 bg-red-500/10 px-4 py-3 text-center">
+                            <p className="font-bangers text-lg xl:text-xl text-red-400">Wrong network</p>
+                            <p className="font-righteous text-xs xl:text-sm text-red-300 mt-1">
+                                Switch your wallet to Base to mint.
+                            </p>
+                        </div>
+                    )}
 
                     {/* Passes + Phase + Price row */}
                     <div className={`grid gap-3 ${isConnected && !dataLoading && mintPhase < 2 ? "grid-cols-3" : "grid-cols-2"}`}>
@@ -489,10 +499,11 @@ export default function MintSection(): React.JSX.Element {
                     <Button
                         onClick={handleMint}
                         disabled={
+                            (isConnected && wrongNetwork) ||
                             (isConnected && !isValidHexColor(skinColor)) ||
                             mintStatus !== 'idle' ||
-                            (isConnected && mintPhase === 0) ||
-                            (isConnected && mintPhase === 1 && !hasFreeMint && !hasMintPass)
+                            (isConnected && !wrongNetwork && mintPhase === 0) ||
+                            (isConnected && !wrongNetwork && mintPhase === 1 && !hasFreeMint && !hasMintPass)
                         }
                         className="w-full py-3 xl:py-7 rounded-xl xl:rounded-2xl font-bangers text-lg xl:text-2xl
                             btn-theme-primary
@@ -505,6 +516,8 @@ export default function MintSection(): React.JSX.Element {
                                 <Sparkles className="w-5 h-5 xl:w-6 xl:h-6 mr-2" />
                                 CONNECT TO MINT
                             </>
+                        ) : wrongNetwork ? (
+                            "SWITCH TO BASE"
                         ) : mintPhase === 0 ? (
                             "MINTING NOT STARTED"
                         ) : mintPhase === 1 && !hasFreeMint && !hasMintPass ? (
