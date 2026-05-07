@@ -597,12 +597,15 @@ export default function MyKittiesSection(): React.JSX.Element {
             let tx
 
             const gasOpts = { gasLimit: 500000n }
+            // Head reroll does extra work (VRF request + prepare + burn + mappings) and has
+            // been observed to OOG at 500k on Base. Mirror the 1M limit used by claimItem.
+            const vrfGasOpts = { gasLimit: 1000000n }
 
             if (selectedItem.itemType === ITEM_TYPES.COLOR_CHANGE) {
                 if (!isValidHexColor(newColor)) throw new Error("Invalid hex color")
                 tx = await contract.useColorChange(selectedItem.tokenId, selectedKitty.tokenId, newColor, gasOpts)
             } else if (selectedItem.itemType === ITEM_TYPES.HEAD_REROLL) {
-                tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
+                tx = await contract.useHeadReroll(selectedItem.tokenId, selectedKitty.tokenId, vrfGasOpts)
             } else if (isSkinItem(selectedItem.itemType)) {
                 tx = await contract.useSpecialSkinItem(selectedItem.tokenId, selectedKitty.tokenId, gasOpts)
             } else if (isHeadItem(selectedItem.itemType)) {
