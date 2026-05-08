@@ -3,6 +3,7 @@ const {
   fetchBurnedTokenIds,
   fetchFregData,
   fetchFregDataBatch,
+  fetchHasClaimed,
   fetchItemSvg,
   fetchItemTypeConfig,
   fetchOwnedFregs,
@@ -315,12 +316,13 @@ async function buildItemPayload(req, item) {
 }
 
 async function buildAttributesFromFregData(fregData) {
-  const [backgroundTrait, bodyTrait, headTrait, mouthTrait, bellyTrait] = await Promise.all([
+  const [backgroundTrait, bodyTrait, headTrait, mouthTrait, bellyTrait, claimed] = await Promise.all([
     fregData.background > 0 ? getTraitDescriptor("background", fregData.background) : null,
     fregData.body > 0 ? getTraitDescriptor("body", fregData.body) : null,
     getTraitDescriptor("head", fregData.head),
     fregData.mouth > 0 ? getTraitDescriptor("mouth", fregData.mouth) : null,
-    fregData.belly > 0 && fregData.body === 0 ? getTraitDescriptor("belly", fregData.belly) : null
+    fregData.belly > 0 && fregData.body === 0 ? getTraitDescriptor("belly", fregData.belly) : null,
+    isItemsConfigured() ? fetchHasClaimed(fregData.tokenId) : null
   ]);
 
   if (fregData.background > 0 && !backgroundTrait) {
@@ -366,6 +368,13 @@ async function buildAttributesFromFregData(fregData) {
     attributes.push({
       trait_type: "Belly",
       value: fregData.belly > 0 ? bellyTrait?.name || String(fregData.belly) : "None"
+    });
+  }
+
+  if (claimed !== null) {
+    attributes.push({
+      trait_type: "Item Claimed",
+      value: claimed ? "Yes" : "No"
     });
   }
 

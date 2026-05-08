@@ -22,7 +22,8 @@ const FREGS_ITEMS_ABI = [
   "function svgRenderer() view returns (address)",
   "function totalMinted() view returns (uint256)",
   "function itemType(uint256 tokenId) view returns (uint256)",
-  "function ownerOf(uint256 tokenId) view returns (address)"
+  "function ownerOf(uint256 tokenId) view returns (address)",
+  "function hasClaimed(uint256 fregId) view returns (bool)"
 ];
 
 const FREGS_ITEMS_RENDERER_ABI = [

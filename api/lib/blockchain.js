@@ -309,6 +309,19 @@ async function fetchItemSvg(itemType) {
   return svg;
 }
 
+async function fetchHasClaimed(tokenId) {
+  const contract = getFregsItemsContract();
+  if (!contract) {
+    return null;
+  }
+
+  try {
+    return Boolean(await contract.hasClaimed(tokenId));
+  } catch (error) {
+    return null;
+  }
+}
+
 async function fetchOwnedItems(owner) {
   const normalizedOwner = normalizeWalletAddress(owner);
   const contract = getFregsItemsContract();
@@ -353,6 +366,7 @@ module.exports = {
   fetchBurnedTokenIds,
   fetchFregData,
   fetchFregDataBatch,
+  fetchHasClaimed,
   fetchItemSvg,
   fetchItemTypeConfig,
   fetchOwnedFregs,
