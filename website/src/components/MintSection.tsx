@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react"
-import { useAppKitAccount, useAppKit } from "@reown/appkit/react"
+import { useAppKitAccount, useAppKit, useAppKitProvider } from "@reown/appkit/react"
 import { parseEther } from "ethers"
 import Section from "./Section"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Sparkles, Palette, CheckCircle, XCircle, Gift, CircleHelp } from "lucide-react"
 import { useContractData, useContracts, useOwnedKitties, useUnclaimedKitties } from "../hooks"
+import { ACTIVE_CHAIN_ID } from "../config/contracts"
 import LoadingSpinner from "./LoadingSpinner"
 import KittyRenderer from "./KittyRenderer"
 import TraitRaritiesModal from "./TraitRaritiesModal"
@@ -86,6 +87,7 @@ const parseHexColor = (color: string): { r: number; g: number; b: number } | nul
 export default function MintSection(): React.JSX.Element {
     const { address, isConnected } = useAppKitAccount()
     const { open } = useAppKit()
+    const { walletProvider } = useAppKitProvider("eip155")
     const contracts = useContracts()
     const { data: contractData, isLoading: dataLoading, wrongNetwork, refetch } = useContractData()
     const { kitties, refetch: refetchKitties } = useOwnedKitties()
@@ -212,6 +214,25 @@ export default function MintSection(): React.JSX.Element {
 
         try {
             const contract = await contracts.fregs.write()
+            // Defence-in-depth: verify the signer is actually on the expected chain
+            // before broadcasting. `wrongNetwork` from useContractData can be stale
+            // (chainId undefined immediately after connect), and sending a mint tx
+            // to a non-existent contract on Ethereum would burn the user's ETH.
+            const signerNet = await contract.runner?.provider?.getNetwork()
+            const signerChainId = signerNet ? Number(signerNet.chainId) : undefined
+            if (signerChainId !== ACTIVE_CHAIN_ID) {
+                try {
+                    await (walletProvider as any).request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x' + ACTIVE_CHAIN_ID.toString(16) }],
+                    })
+                } catch {
+                    open({ view: "Networks" })
+                }
+                setErrorMessage("Please switch your wallet to Base and try again.")
+                setMintStatus('error')
+                return
+            }
             const existingTokenIds = new Set(kitties.map(kitty => kitty.tokenId))
             // Only free mint wallets skip ETH payment — everyone else pays
             const needsPayment = !hasFreeMint

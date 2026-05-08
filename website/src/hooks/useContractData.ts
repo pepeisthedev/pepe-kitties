@@ -127,7 +127,12 @@ export function useContractData() {
     : typeof chainId === "number"
       ? chainId
       : undefined
-  const wrongNetwork = walletChainId !== undefined && walletChainId !== ACTIVE_CHAIN_ID
+  // Treat an unresolved chainId as "wrong" while the wallet is connected — otherwise
+  // a tx could be signed on whatever chain the wallet is actually on (e.g. Ethereum)
+  // before Reown has reported chainId to the dApp.
+  const wrongNetwork = isConnected
+    ? walletChainId === undefined || walletChainId !== ACTIVE_CHAIN_ID
+    : false
 
   const clearRetryTimer = useCallback(() => {
     if (retryTimerRef.current !== undefined) {

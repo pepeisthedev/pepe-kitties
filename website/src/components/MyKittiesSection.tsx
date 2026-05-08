@@ -741,6 +741,19 @@ export default function MyKittiesSection(): React.JSX.Element {
                         </div>
                     )}
 
+                    {/* Item Rarities button — its own row so it doesn't crowd the tab toggle on mobile */}
+                    <div className="flex justify-end mb-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsRaritiesOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-theme-muted/40 bg-theme-card px-3 py-1.5 text-theme-muted hover:text-theme-primary hover:border-theme-primary/60 transition-colors cursor-pointer"
+                            aria-label="Show item rarities"
+                        >
+                            <CircleHelp className="w-4 h-4" />
+                            <span className="font-righteous text-xs">Item Rarities</span>
+                        </button>
+                    </div>
+
                     {/* Tab Toggle */}
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex bg-theme-card rounded-xl p-1 gap-1">
@@ -768,45 +781,33 @@ export default function MyKittiesSection(): React.JSX.Element {
                             </button>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setIsRaritiesOpen(true)}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-theme-muted/40 bg-theme-card px-3 py-1.5 text-theme-muted hover:text-theme-primary hover:border-theme-primary/60 transition-colors cursor-pointer"
-                                aria-label="Show item rarities"
-                            >
-                                <CircleHelp className="w-4 h-4" />
-                                <span className="font-righteous text-xs hidden sm:inline">Item Rarities</span>
-                            </button>
-
-                            {/* Grid/Carousel toggle - only in fregs tab */}
-                            {tab === 'fregs' && (
-                                <div className="flex bg-theme-card rounded-lg p-1 gap-1">
-                                    <button
-                                        onClick={() => setViewMode('grid')}
-                                        className={`p-2 rounded-md transition-all ${
-                                            viewMode === 'grid'
-                                                ? 'bg-theme-primary text-theme-button-text'
-                                                : 'text-theme-muted hover:text-theme-primary'
-                                        }`}
-                                        title="Grid View"
-                                    >
-                                        <LayoutGrid className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        onClick={() => setViewMode('carousel')}
-                                        className={`p-2 rounded-md transition-all ${
-                                            viewMode === 'carousel'
-                                                ? 'bg-theme-primary text-theme-button-text'
-                                                : 'text-theme-muted hover:text-theme-primary'
-                                        }`}
-                                        title="Carousel View"
-                                    >
-                                        <Rows className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                        {/* Grid/Carousel toggle - only in fregs tab */}
+                        {tab === 'fregs' && (
+                            <div className="flex bg-theme-card rounded-lg p-1 gap-1">
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    className={`p-2 rounded-md transition-all ${
+                                        viewMode === 'grid'
+                                            ? 'bg-theme-primary text-theme-button-text'
+                                            : 'text-theme-muted hover:text-theme-primary'
+                                    }`}
+                                    title="Grid View"
+                                >
+                                    <LayoutGrid className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('carousel')}
+                                    className={`p-2 rounded-md transition-all ${
+                                        viewMode === 'carousel'
+                                            ? 'bg-theme-primary text-theme-button-text'
+                                            : 'text-theme-muted hover:text-theme-primary'
+                                    }`}
+                                    title="Carousel View"
+                                >
+                                    <Rows className="w-5 h-5" />
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* === FREGS TAB === */}
