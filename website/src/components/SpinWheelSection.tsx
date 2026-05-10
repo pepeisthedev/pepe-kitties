@@ -565,17 +565,15 @@ export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.
       {/* Wheel area — scrollable, centered */}
       <div className="flex-1 overflow-y-auto flex items-center justify-center px-4 pt-20 pb-2 relative z-10">
         {!isConnected ? (
-          <Card className="bg-black/80 border-4 border-purple-400 rounded-3xl">
-            <CardContent className="p-12 text-center flex flex-col items-center gap-4">
-              <p className="font-righteous text-xl text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                Connect your wallet to spin the wheel
+         <Card className="bg-black/80 border-4 border-yellow-400 rounded-3xl">
+            <CardContent className="p-12 text-center">
+              <Lock className="w-12 h-12 mx-auto mb-4 text-yellow-300 opacity-80" />
+              <p className="font-bangers text-3xl text-yellow-300 mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                Freg Vegas has closed its doors
               </p>
-              <Button
-                onClick={() => open()}
-                className="font-bangers text-lg px-8 py-3 rounded-full bg-purple-500 hover:bg-purple-400 text-white border-2 border-purple-300"
-              >
-                Connect Wallet
-              </Button>
+              <p className="font-righteous text-lg text-white/80 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                Thanks for playing!
+              </p>
             </CardContent>
           </Card>
         ) : !spinActive ? (
@@ -583,10 +581,10 @@ export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.
             <CardContent className="p-12 text-center">
               <Lock className="w-12 h-12 mx-auto mb-4 text-yellow-300 opacity-80" />
               <p className="font-bangers text-3xl text-yellow-300 mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                Spin not available yet
+                Freg Vegas has closed its doors
               </p>
               <p className="font-righteous text-lg text-white/80 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                The wheel is coming soon — check back later!
+                Thanks for playing!
               </p>
             </CardContent>
           </Card>
@@ -645,58 +643,7 @@ export default function SpinWheelSection({ spinActive }: SpinWheelProps): React.
           </button>
 
           {/* Center: Big spin button — always visible */}
-          <div className="flex flex-col items-center -mt-8 md:-mt-10">
-            <button
-              onClick={spinPhase === "result" ? handleCloseResult : handleSpin}
-              disabled={!spinActive || isSpinning || spinPhase === "revealing" || !isConnected || (!canSpin && spinPhase !== "result")}
-              className="relative cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Spin the wheel"
-            >
-              {/* Outer ring */}
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center relative"
-                style={{
-                  background: "linear-gradient(135deg, #ff9a00 0%, #ff4500 50%, #cc2200 100%)",
-                  boxShadow: "0 0 0 4px #f5c842, 0 0 0 7px #c47a00, 0 8px 24px rgba(0,0,0,0.6), inset 0 2px 6px rgba(255,255,255,0.3)",
-                }}
-              >
-                {/* Orbiting glow dot */}
-                {isSpinning && (
-                  <span
-                    className="absolute w-3 h-3 rounded-full"
-                    style={{
-                      background: "radial-gradient(circle, #fff 0%, #ffe066 50%, transparent 100%)",
-                      boxShadow: "0 0 6px 3px #ffe066, 0 0 12px 5px #ff9900",
-                      top: "50%",
-                      left: "50%",
-                      marginTop: "-6px",
-                      marginLeft: "-6px",
-                      "--orbit-r": "36px",
-                      animation: "spin-orbit 1.2s linear infinite",
-                    } as React.CSSProperties}
-                  />
-                )}
-                {/* Inner button face */}
-                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center relative z-10"
-                  style={{
-                    background: "linear-gradient(135deg, #ff6030 0%, #cc2200 60%, #991500 100%)",
-                    boxShadow: "inset 0 3px 8px rgba(255,255,255,0.25), inset 0 -3px 6px rgba(0,0,0,0.4)",
-                  }}
-                >
-                  <span className={`font-bangers text-white leading-tight tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] ${
-                    !isSpinning && !canSpin && spinPhase !== "result" ? "text-xs md:text-sm" : "text-lg md:text-xl"
-                  }`}>
-                    {isSpinning
-                      ? (spinPhase === "confirming" ? "CONFIRM" : "SPINNING")
-                      : spinPhase === "result"
-                        ? (canSpin ? "SPIN AGAIN" : "CLOSE")
-                        : !canSpin
-                          ? "NO SPIN TOKENS"
-                          : "SPIN"}
-                  </span>
-                </div>
-              </div>
-            </button>
-          </div>
+         
 
           {/* Right: Coins display */}
           <div className="flex items-center gap-1.5 rounded-full border-2 border-[#3d1a00]/60 bg-[#2b1237] px-3 py-1.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.4)]">
