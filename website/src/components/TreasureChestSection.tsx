@@ -4,7 +4,7 @@ import { useAppKit, useAppKitAccount } from "@reown/appkit/react"
 import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
-import { useOwnedItems, useContractData, useContracts } from "../hooks"
+import { useOwnedItems, useContractData, useContracts, useFregCoinBalance } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import ResultModal from "./ResultModal"
 import { ITEM_TYPES } from "../config/contracts"
@@ -20,6 +20,7 @@ export default function TreasureChestSection({ chestOpeningActive }: Props): Rea
     const contracts = useContracts()
     const { data: contractData } = useContractData()
     const { items, isLoading, refetch } = useOwnedItems()
+    const { balance: fregBalance, refetch: refetchFregBalance } = useFregCoinBalance()
 
     const [burningId, setBurningId] = useState<number | null>(null)
     const [showModal, setShowModal] = useState(false)
@@ -53,6 +54,7 @@ export default function TreasureChestSection({ chestOpeningActive }: Props): Rea
                 message: `You received ${contractData.chestCoinReward} FregCoin!`
             })
             refetch()
+            refetchFregBalance()
         } catch (err: any) {
             setModalData({ success: false, message: err.message || "Burn failed" })
         } finally {
@@ -63,6 +65,14 @@ export default function TreasureChestSection({ chestOpeningActive }: Props): Rea
 
     return (
         <Section id="treasure-chests">
+            {isConnected && (
+                <div className="fixed top-25 right-4 z-40 flex items-center gap-2 bg-black/70 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg">
+                    <img src="/coin.svg" alt="FREG" className="w-6 h-6" />
+                    <span className="font-bangers text-xl text-yellow-400">
+                        {Number(formatEther(fregBalance)).toLocaleString()}
+                    </span>
+                </div>
+            )}
             {/* $FREG Token Info */}
             <div className="text-center mb-12">
                 <h2 className="font-bangers text-5xl md:text-7xl text-theme-primary mb-4">
@@ -87,10 +97,7 @@ export default function TreasureChestSection({ chestOpeningActive }: Props): Rea
                 <h3 className="font-bangers text-4xl md:text-5xl text-theme-primary mb-4">
                     YOUR TREASURE CHESTS
                 </h3>
-                <p className="font-righteous text-xl md:text-2xl text-theme-muted max-w-2xl mx-auto mb-2">
-                    Open your treasure chest to claim FregCoin!
-                </p>
-            
+      
             </div>
 
 
@@ -114,7 +121,7 @@ export default function TreasureChestSection({ chestOpeningActive }: Props): Rea
                 </div>
             ) : chests.length === 0 ? (
                 <Card className="bg-theme-card border-4 border-theme rounded-3xl">
-                    <CardContent className="p-12 text-center">
+          <CardContent className="p-12 text-center">
                         <p className="font-bangers text-3xl text-theme-muted mb-4">No Treasure Chests</p>
                         <p className="font-righteous text-lg text-theme-subtle">
                             Treasure chests can be obtained by spinning the wheel or claiming an item!
