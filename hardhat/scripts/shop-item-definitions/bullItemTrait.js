@@ -10,7 +10,7 @@ module.exports = {
     isClaimable: false,
     claimWeight: 0,
     trait: {
-        name: "Bull Head",
+        name: "Bull Suit",
         classPrefix: "bullhead",
         sourceSvgPath: path.join(__dirname, "assets/bull-head.svg"),
     },

@@ -2,7 +2,7 @@ const path = require("path");
 
 module.exports = {
     key: "wizard",
-    name: "Wizard hat",
+    name: "Wizard",
     description: "Make your Freg a magical Freg.",
     category: "head",
     targetTraitType: 2,
@@ -10,7 +10,7 @@ module.exports = {
     isClaimable: false,
     claimWeight: 0,
     trait: {
-        name: "Wizard Head",
+        name: "Wizard",
         classPrefix: "wizardhead",
         sourceSvgPath: path.join(__dirname, "assets/wizard-head.svg"),
     },
