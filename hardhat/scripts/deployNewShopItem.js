@@ -50,10 +50,11 @@ async function sendTx(txFn, confirmations = 1) {
     }, 3, 5000);
 }
 
-async function deployContract(factory, args = [], name = "Contract") {
+async function deployContract(factory, args = [], name = "Contract", signer = null) {
     return await retryWithBackoff(async () => {
         console.log(`  Deploying ${name}...`);
-        const contract = await factory.deploy(...args);
+        const factoryWithSigner = signer ? factory.connect(signer) : factory;
+        const contract = await factoryWithSigner.deploy(...args);
         await contract.waitForDeployment();
 
         if (network.name !== "localhost" && network.name !== "hardhat") {
@@ -64,6 +65,19 @@ async function deployContract(factory, args = [], name = "Contract") {
         console.log(`  ${name} deployed: ${await contract.getAddress()}`);
         return contract;
     }, 3, 5000);
+}
+
+function resolveRouterSigner() {
+    const envKeyByNetwork = {
+        base: "BASE_ART_PRIVATE_KEY",
+        baseSepolia: "BASE_SEPOLIA_ART_PRIVATE_KEY",
+    };
+    const envKey = envKeyByNetwork[network.name];
+    if (!envKey) return null;
+    const raw = process.env[envKey];
+    if (!raw) return null;
+    const normalized = raw.startsWith("0x") ? raw : `0x${raw}`;
+    return new ethers.Wallet(normalized, ethers.provider);
 }
 
 function resolveDefinitionPath() {
@@ -154,14 +168,14 @@ function getTargetTraitConfig(category) {
     return config;
 }
 
-async function getOrCreateTraitRouter(svgRenderer, category, status) {
+async function getOrCreateTraitRouter(svgRenderer, category, status, routerSigner) {
     const config = getTargetTraitConfig(category);
     let routerAddress = await svgRenderer[config.contractMethod]();
 
     if (!routerAddress || routerAddress === ethers.ZeroAddress) {
         console.log(`\n--- Deploying SVGRouter for ${category} ---`);
         const SVGRouterFactory = await ethers.getContractFactory("SVGRouter");
-        const router = await deployContract(SVGRouterFactory, [], `SVGRouter (${category})`);
+        const router = await deployContract(SVGRouterFactory, [], `SVGRouter (${category})`, routerSigner);
         routerAddress = await router.getAddress();
         await sendTx(() => svgRenderer[config.setterMethod](routerAddress));
         console.log(`  Registered ${category} router on SVG renderer`);
@@ -170,7 +184,10 @@ async function getOrCreateTraitRouter(svgRenderer, category, status) {
         saveDeploymentStatus(status, network.name);
     }
 
-    const router = await ethers.getContractAt("SVGRouter", routerAddress);
+    let router = await ethers.getContractAt("SVGRouter", routerAddress);
+    if (routerSigner) {
+        router = router.connect(routerSigner);
+    }
     return { config, router, routerAddress };
 }
 
@@ -246,6 +263,8 @@ async function main() {
     const deployerAddress = await deployer.getAddress();
     const networkInfo = await ethers.provider.getNetwork();
     const chainId = Number(networkInfo.chainId);
+    const routerSigner = resolveRouterSigner();
+    const routerSignerAddress = routerSigner ? await routerSigner.getAddress() : deployerAddress;
 
     console.log("=".repeat(60));
     console.log(`Deploy New Shop Item: ${definition.name}`);
@@ -253,15 +272,23 @@ async function main() {
     console.log(`Definition: ${definitionPath}`);
     console.log(`Network: ${network.name}`);
     console.log(`Chain ID: ${chainId}`);
-    console.log(`Deployer: ${deployerAddress}`);
+    console.log(`Deployer (contracts owner): ${deployerAddress}`);
+    if (routerSigner) {
+        console.log(`Router signer (art wallet):  ${routerSignerAddress}`);
+    } else {
+        console.log(`Router signer:               (using deployer)`);
+    }
 
     const fregsItems = await ethers.getContractAt("FregsItems", status.contracts.fregsItems);
     const fregShop = await ethers.getContractAt("FregShop", status.contracts.fregShop);
     const fregCoin = await ethers.getContractAt("FregCoin", status.contracts.fregCoin);
     const svgRenderer = await ethers.getContractAt("FregsSVGRenderer", status.contracts.svgRenderer);
-    const itemsRouter = await ethers.getContractAt("SVGRouter", status.routers.items);
+    let itemsRouter = await ethers.getContractAt("SVGRouter", status.routers.items);
+    if (routerSigner) {
+        itemsRouter = itemsRouter.connect(routerSigner);
+    }
 
-    const { router: traitRouter, routerAddress: traitRouterAddress } = await getOrCreateTraitRouter(svgRenderer, definition.category, status);
+    const { router: traitRouter, routerAddress: traitRouterAddress } = await getOrCreateTraitRouter(svgRenderer, definition.category, status, routerSigner);
 
     console.log("\n--- Deploying Trait SVG ---");
     const SVGPartWriter = await ethers.getContractFactory("SVGPartWriter");

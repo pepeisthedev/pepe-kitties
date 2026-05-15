@@ -1,7 +1,44 @@
 {
   "byChainId": {
     "8453": {
-      "items": []
+      "items": [
+        {
+          "id": 101,
+          "name": "Wizard",
+          "description": "Make your Freg a magical Freg.",
+          "category": "head",
+          "svgFile": "wizard.svg",
+          "targetTraitType": 2,
+          "traitFileName": "4.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true
+        },
+        {
+          "id": 102,
+          "name": "Shiba Inu Suit",
+          "description": "A comfy Shiba Inu suit for your Freg.",
+          "category": "head",
+          "svgFile": "shibainu.svg",
+          "targetTraitType": 2,
+          "traitFileName": "5.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true
+        },
+        {
+          "id": 103,
+          "name": "Bull Suit",
+          "description": "Suit up your Freg for the upcoming Bullmarket!",
+          "category": "head",
+          "svgFile": "bull.svg",
+          "targetTraitType": 2,
+          "traitFileName": "6.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true
+        }
+      ]
     },
     "31337": {
       "items": []
