@@ -371,7 +371,7 @@ export default function MintSection(): React.JSX.Element {
                                 <LoadingSpinner size="sm" />
                             ) : (
                                 <span className="font-bangers text-2xl xl:text-5xl text-theme-primary">
-                                    {mintPhase === 0 ? "PAUSED" : mintPhase === 1 ? "WHITELIST" : "PUBLIC"}
+                                    {mintPhase === 0 ? "Mint Complete" : mintPhase === 1 ? "WHITELIST" : "PUBLIC"}
                                 </span>
                             )}
                         </div>
@@ -528,45 +528,7 @@ export default function MintSection(): React.JSX.Element {
                         )}
                     </div>
 
-                    {/* Mint Button */}
-                    <Button
-                        onClick={handleMint}
-                        disabled={
-                            (isConnected && wrongNetwork) ||
-                            (isConnected && !isValidHexColor(skinColor)) ||
-                            mintStatus !== 'idle' ||
-                            (isConnected && !wrongNetwork && mintPhase === 0) ||
-                            (isConnected && !wrongNetwork && mintPhase === 1 && !hasFreeMint && !hasMintPass)
-                        }
-                        className="w-full py-3 xl:py-7 rounded-xl xl:rounded-2xl font-bangers text-lg xl:text-2xl
-                            btn-theme-primary
-                            transform hover:scale-105 transition-all duration-300
-                            shadow-lg
-                            disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                    >
-                        {!isConnected ? (
-                            <>
-                                <Sparkles className="w-5 h-5 xl:w-6 xl:h-6 mr-2" />
-                                CONNECT TO MINT
-                            </>
-                        ) : wrongNetwork ? (
-                            "SWITCH TO BASE"
-                        ) : mintPhase === 0 ? (
-                            "MINTING NOT STARTED"
-                        ) : mintPhase === 1 && !hasFreeMint && !hasMintPass ? (
-                            "WHITELIST ONLY"
-                        ) : hasFreeMint ? (
-                            <>
-                                <Gift className="w-5 h-5 xl:w-6 xl:h-6 mr-2" />
-                                MINT FREE!
-                            </>
-                        ) : (
-                            <>
-                                <Sparkles className="w-5 h-5 xl:w-6 xl:h-6 mr-2" />
-                                MINT ({contractData?.mintPrice || "0"} ETH)
-                            </>
-                        )}
-                    </Button>
+                  
 
                     {/* Stats - inline */}
                     <div className="flex justify-center gap-6 xl:gap-12 text-center pt-1 xl:pt-6">
@@ -578,11 +540,8 @@ export default function MintSection(): React.JSX.Element {
                                     <p className="font-bangers text-xl xl:text-4xl text-theme-primary">{contractData?.totalMinted?.toLocaleString() || "0"}</p>
                                     <p className="font-righteous text-theme-subtle text-xs xl:text-base">Minted</p>
                                 </div>
-                                <div className="text-theme-subtle text-xl xl:text-3xl self-center">/</div>
-                                <div>
-                                    <p className="font-bangers text-xl xl:text-4xl text-theme-muted">{contractData?.supply?.toLocaleString() || "0"}</p>
-                                    <p className="font-righteous text-theme-subtle text-xs xl:text-base">Supply</p>
-                                </div>
+                 
+                        
                             </>
                         )}
                     </div>
