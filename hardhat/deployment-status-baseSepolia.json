@@ -1,6 +1,6 @@
 {
   "network": "baseSepolia",
-  "lastUpdated": "2026-04-21T15:31:31.329Z",
+  "lastUpdated": "2026-05-15T11:45:42.334Z",
   "contracts": {
     "fregs": "0xaEf8342D03a547115Ad1496954DD8E2D815de6a4",
     "fregsItems": "0x45AD572718BeDe49CEE3565b02AA21F9a812D672",
@@ -259,6 +259,91 @@
       }
     }
   },
-  "addedTraits": {},
-  "itemTypes": {}
+  "addedTraits": {
+    "head": {
+      "26.svg": {
+        "definitionKey": "wizard",
+        "fileName": "4.svg",
+        "name": "Wizard",
+        "rendererAddress": "0x9Dc8b7D199D7D12d11DDE33081b8D338776BadFE",
+        "routerId": 26,
+        "source": "from_items"
+      },
+      "27.svg": {
+        "definitionKey": "shibainu",
+        "fileName": "5.svg",
+        "name": "Shiba Inu Suit",
+        "rendererAddress": "0xFA9aAb3b4dDF66946717d1B3Fa60a03b089e79a5",
+        "routerId": 27,
+        "source": "from_items"
+      },
+      "28.svg": {
+        "definitionKey": "bull",
+        "fileName": "6.svg",
+        "name": "Bull Suit",
+        "rendererAddress": "0xEEdb914fffd9700f7854d296920d9E3091951449",
+        "routerId": 28,
+        "source": "from_items"
+      }
+    }
+  },
+  "itemTypes": {
+    "101": {
+      "category": "head",
+      "claimWeight": 0,
+      "definitionKey": "wizard",
+      "description": "Make your Freg a magical Freg.",
+      "iconRendererAddress": "0x3A175528c91334960E6Fa286Cb2FA87c2A1a24a1",
+      "iconRouterSlot": 101,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Wizard",
+      "shopIsActive": true,
+      "shopMaxSupply": 10,
+      "shopPrice": "401100000.0",
+      "svgFile": "wizard.svg",
+      "targetTraitType": 2,
+      "traitFileName": "4.svg",
+      "traitRendererAddress": "0x9Dc8b7D199D7D12d11DDE33081b8D338776BadFE",
+      "traitValue": 26
+    },
+    "102": {
+      "category": "head",
+      "claimWeight": 0,
+      "definitionKey": "shibainu",
+      "description": "A comfy Shiba Inu suit for your Freg.",
+      "iconRendererAddress": "0xbf77e9489fF66216a62Aec02b0026517401730Dc",
+      "iconRouterSlot": 102,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Shiba Inu Suit",
+      "shopIsActive": true,
+      "shopMaxSupply": 10,
+      "shopPrice": "401100000.0",
+      "svgFile": "shibainu.svg",
+      "targetTraitType": 2,
+      "traitFileName": "5.svg",
+      "traitRendererAddress": "0xFA9aAb3b4dDF66946717d1B3Fa60a03b089e79a5",
+      "traitValue": 27
+    },
+    "103": {
+      "category": "head",
+      "claimWeight": 0,
+      "definitionKey": "bull",
+      "description": "Suit up your Freg for the upcoming Bullmarket!",
+      "iconRendererAddress": "0xC4097efbDFda95dCcd6cDb6AEC1d8e3e90c4b263",
+      "iconRouterSlot": 103,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Bull Suit",
+      "shopIsActive": true,
+      "shopMaxSupply": 10,
+      "shopPrice": "401100000.0",
+      "svgFile": "bull.svg",
+      "targetTraitType": 2,
+      "traitFileName": "6.svg",
+      "traitRendererAddress": "0xEEdb914fffd9700f7854d296920d9E3091951449",
+      "traitValue": 28
+    }
+  }
 }

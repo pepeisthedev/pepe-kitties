@@ -12,17 +12,27 @@
       "head": [],
       "mouth": [],
       "skin": [],
-      "stomach": [
-      ]
+      "stomach": []
     },
     "84532": {
       "background": [],
-      "head": [],
+      "head": [
+        {
+          "fileName": "4.svg",
+          "name": "Wizard"
+        },
+        {
+          "fileName": "5.svg",
+          "name": "Shiba Inu Suit"
+        },
+        {
+          "fileName": "6.svg",
+          "name": "Bull Suit"
+        }
+      ],
       "mouth": [],
       "skin": [],
-      "stomach": [
-  
-      ]
+      "stomach": []
     }
   }
 }
