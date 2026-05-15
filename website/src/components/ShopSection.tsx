@@ -42,7 +42,7 @@ function ActiveShopSection(): React.JSX.Element {
     const { isConnected } = useAppKitAccount()
     const { open } = useAppKit()
     const contracts = useContracts()
-    const { items: shopItems, isLoading: shopLoading, refetch: refetchShop } = useShopItems()
+    const { items: shopItems, isLoading: shopLoading, refetch: refetchShop, incrementMintCount } = useShopItems()
     const { balance: fregBalance, isLoading: balanceLoading, refetch: refetchBalance } = useFregCoinBalance()
 
     const [buyingItemId, setBuyingItemId] = useState<number | null>(null)
@@ -127,6 +127,7 @@ function ActiveShopSection(): React.JSX.Element {
             const tx = await fregShopWrite.buyItem(itemTypeId, deadline, v, r, s)
             await tx.wait()
 
+            incrementMintCount(itemTypeId)
             setBuyStatus("success")
             setStatusMessage("Item purchased!")
             refetchShop()

@@ -47,7 +47,13 @@ export function useShopItems() {
         })
       }
 
-      setItems(shopItems)
+      setItems(prev => shopItems.map(fresh => {
+        const existing = prev.find(p => p.itemTypeId === fresh.itemTypeId)
+        if (existing && existing.mintCount > fresh.mintCount) {
+          return { ...fresh, mintCount: existing.mintCount }
+        }
+        return fresh
+      }))
     } catch (err) {
       console.error("Error fetching shop items:", err)
       setError(err instanceof Error ? err.message : "Failed to fetch shop items")
@@ -57,9 +63,17 @@ export function useShopItems() {
     }
   }, [contracts])
 
+  const incrementMintCount = useCallback((itemTypeId: number) => {
+    setItems(prev => prev.map(item =>
+      item.itemTypeId === itemTypeId
+        ? { ...item, mintCount: item.mintCount + 1 }
+        : item
+    ))
+  }, [])
+
   useEffect(() => {
     fetchItems()
   }, [fetchItems])
 
-  return { items, isLoading, error, refetch: fetchItems }
+  return { items, isLoading, error, refetch: fetchItems, incrementMintCount }
 }
