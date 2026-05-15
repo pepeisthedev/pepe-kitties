@@ -43,7 +43,7 @@ function saveDeploymentStatus(status, networkName) {
     }
 
     status.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(filePath, JSON.stringify(status, null, 2));
+    fs.writeFileSync(filePath, JSON.stringify(status, (_, v) => typeof v === "bigint" ? v.toString() : v, 2));
     console.log(`  Deployment status saved to: ${filePath}`);
 }
 
