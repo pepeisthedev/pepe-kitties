@@ -28,17 +28,7 @@ interface ConfirmItem {
     note: string
 }
 
-interface ShopSectionProps {
-    shopActive: boolean
-}
-
-export default function ShopSection({ shopActive }: ShopSectionProps): React.JSX.Element | null {
-    if (!shopActive) return null
-
-    return <ActiveShopSection />
-}
-
-function ActiveShopSection(): React.JSX.Element {
+export default function ShopSection(): React.JSX.Element {
     const { isConnected } = useAppKitAccount()
     const { open } = useAppKit()
     const contracts = useContracts()

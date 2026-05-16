@@ -18,7 +18,7 @@ const allNavItems: { id: SectionId; label: string; flagKey?: keyof FeatureFlags;
     { id: "my-kitties", label: "My Fregs", flagKey: "mintActive" },
     { id: "treasure-chests", label: "$FREG", flagKey: "chestOpeningActive" },
     { id: "spin-wheel", label: "Spin", flagKey: "spinActive" },
-    { id: "shop", label: "Shop", flagKey: "shopActive", hideWhenInactive: true },
+    { id: "shop", label: "Shop" },
 ]
 
 export default function Header({ activeSection, onSectionChange, featureFlags }: HeaderProps): React.JSX.Element {
