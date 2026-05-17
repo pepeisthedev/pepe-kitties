@@ -24,7 +24,8 @@
           "traitFileName": "5.svg",
           "isClaimable": false,
           "claimWeight": 0,
-          "isOwnerMintable": true
+          "isOwnerMintable": true,
+          "incompatibleWithSkins": [4]
         },
         {
           "id": 103,
@@ -36,7 +37,8 @@
           "traitFileName": "6.svg",
           "isClaimable": false,
           "claimWeight": 0,
-          "isOwnerMintable": true
+          "isOwnerMintable": true,
+          "incompatibleWithSkins": [4]
         }
       ]
     },
@@ -67,7 +69,8 @@
           "traitFileName": "5.svg",
           "isClaimable": false,
           "claimWeight": 0,
-          "isOwnerMintable": true
+          "isOwnerMintable": true,
+          "incompatibleWithSkins": [4]
         },
         {
           "id": 103,
@@ -79,7 +82,8 @@
           "traitFileName": "6.svg",
           "isClaimable": false,
           "claimWeight": 0,
-          "isOwnerMintable": true
+          "isOwnerMintable": true,
+          "incompatibleWithSkins": [4]
         }
       ]
     }

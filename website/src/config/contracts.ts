@@ -144,7 +144,7 @@ export function checkItemIncompatibility(
   if (itemConfig.incompatibleWithSkins?.includes(fregBody)) {
     return {
       incompatible: true,
-      reason: "Skeleton fregs don't wear clothes!"
+      reason: "Skeleton fregs rarely wear clothes!"
     }
   }
 
@@ -152,7 +152,7 @@ export function checkItemIncompatibility(
   if (itemConfig.incompatibleWithHeads?.includes(fregHead)) {
     return {
       incompatible: true,
-      reason: "Skeleton fregs don't wear clothes!"
+      reason: "Skeleton fregs rarely wear clothes!"
     }
   }
 
