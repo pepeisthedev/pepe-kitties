@@ -66,11 +66,13 @@ export default function TreasureChestSection({ chestOpeningActive }: Props): Rea
     return (
         <Section id="treasure-chests">
             {isConnected && (
-                <div className="fixed top-25 right-4 z-40 flex items-center gap-2 bg-black/70 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg">
-                    <img src="/coin.svg" alt="FREG" className="w-6 h-6" />
-                    <span className="font-bangers text-xl text-yellow-400">
-                        {Number(formatEther(fregBalance)).toLocaleString()}
-                    </span>
+                <div className="flex justify-end mb-4">
+                    <div className="flex items-center gap-2 bg-black/70 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg">
+                        <img src="/coin.svg" alt="FREG" className="w-6 h-6" />
+                        <span className="font-bangers text-xl text-yellow-400">
+                            {Number(formatEther(fregBalance)).toLocaleString()}
+                        </span>
+                    </div>
                 </div>
             )}
             {/* $FREG Token Info */}
