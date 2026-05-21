@@ -12,7 +12,7 @@ import {
     FREG_MARKET_CHAIN_SLUG,
     ITEM_TYPES,
 } from "../config/contracts"
-import { ArrowUpRight, BarChart3, Check, Copy, Flame, Lock, RefreshCw } from "lucide-react"
+import { ArrowUpRight, BarChart3, Check, Copy, Flame, Lock, PieChart, RefreshCw } from "lucide-react"
 
 interface Props {
     chestOpeningActive: boolean
@@ -51,6 +51,12 @@ interface DexScreenerPairResponse {
 const BASE_WETH_ADDRESS = "0x4200000000000000000000000000000000000006"
 const DEXSCREENER_API_BASE = "https://api.dexscreener.com"
 const MARKET_REFRESH_MS = 45_000
+const TOKENOMICS_ALLOCATIONS = [
+    { label: "LP", percent: 30, barClass: "bg-lime-400", percentClass: "text-lime-400" },
+    { label: "Airdrop", percent: 26, barClass: "bg-sky-400", percentClass: "text-sky-400" },
+    { label: "Chests", percent: 10, barClass: "bg-yellow-400", percentClass: "text-yellow-400" },
+    { label: "Liquidity Vault", percent: 34, barClass: "bg-pink-400", percentClass: "text-pink-400" },
+]
 
 function getNumber(value: unknown): number {
     const parsed = Number(value)
@@ -356,6 +362,31 @@ export default function TreasureChestSection({ chestOpeningActive }: Props): Rea
                         </a>
                     </Button>
                 </div>
+
+                <Card className="max-w-6xl mx-auto mb-6 bg-theme-card border-4 border-theme rounded-3xl">
+                    <CardContent className="p-5 md:p-6">
+                        <div className="flex items-center gap-3 mb-5 text-left">
+                            <PieChart className="w-6 h-6 text-theme-primary" />
+                            <h3 className="font-bangers text-3xl text-theme-primary">Tokenomics</h3>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            {TOKENOMICS_ALLOCATIONS.map((item) => (
+                                <div key={item.label} className="rounded-2xl border-2 border-theme bg-black/30 p-4 text-left">
+                                    <div className="flex items-center justify-between gap-3 mb-3">
+                                        <p className="font-righteous text-sm text-theme-muted">{item.label}</p>
+                                        <p className={`font-bangers text-3xl ${item.percentClass}`}>{item.percent}%</p>
+                                    </div>
+                                    <div className="h-3 overflow-hidden rounded-full bg-black/40">
+                                        <div
+                                            className={`h-full rounded-full ${item.barClass}`}
+                                            style={{ width: `${item.percent}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
 
                 <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)] gap-6 max-w-6xl mx-auto text-left">
                     <Card className="bg-theme-card border-4 border-theme rounded-3xl overflow-hidden">
