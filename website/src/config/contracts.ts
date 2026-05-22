@@ -15,6 +15,10 @@ function parseChainId(value: unknown, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function getMarketChainSlug(chainId: number): string {
+  return chainId === 8453 ? "base" : "sepolia-base"
+}
+
 function getDynamicItemsForChain(chainId: number): ItemConfig[] {
   const parsedData = dynamicItemsData as {
     byChainId?: Record<string, { items?: ItemConfig[] }>
@@ -40,6 +44,8 @@ export const FREG_COIN_ADDRESS = import.meta.env.VITE_FREGCOIN_ADDRESS as string
 export const FREG_AIRDROP_ADDRESS = import.meta.env.VITE_FREG_AIRDROP_ADDRESS as string
 export const FREGS_RANDOMIZER_ADDRESS = import.meta.env.VITE_FREGS_RANDOMIZER_ADDRESS as string
 export const ACTIVE_CHAIN_ID = parseChainId(import.meta.env.VITE_CHAIN_ID, 84532)
+export const FREG_MARKET_CHAIN_SLUG = getMarketChainSlug(ACTIVE_CHAIN_ID)
+export const FREG_MARKET_ADDRESS = FREG_COIN_ADDRESS
 
 // Export ABIs
 export { FregsABI, FregsItemsABI, FregsMintPassABI, SpinTheWheelABI, FregsLiquidityABI, FregShopABI, FregCoinABI, FregsAirdropABI, FregsRandomizerABI }
