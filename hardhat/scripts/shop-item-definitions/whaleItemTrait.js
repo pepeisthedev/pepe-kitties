@@ -9,6 +9,7 @@ module.exports = {
     isOwnerMintable: true,
     isClaimable: false,
     claimWeight: 0,
+    hiddenInShop: true,
     trait: {
         name: "Whale Suit",
         classPrefix: "whalehead",
@@ -20,7 +21,7 @@ module.exports = {
     },
     shop: {
         isActive: true,
-        maxSupply: 10,
-        priceFreg: "400000000",
+        maxSupply: 5,
+        priceFreg: "1",
     },
 };

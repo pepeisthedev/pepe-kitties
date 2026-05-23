@@ -240,6 +240,7 @@ function buildDynamicItemEntry(itemTypeId, definition, traitFileName) {
         isClaimable: Boolean(definition.isClaimable),
         claimWeight: Number(definition.claimWeight || 0),
         isOwnerMintable: Boolean(definition.isOwnerMintable),
+        hiddenInShop: Boolean(definition.hiddenInShop),
     };
 }
 
@@ -408,6 +409,7 @@ async function main() {
         claimWeight: Number(definition.claimWeight || 0),
         definitionKey: definition.key || null,
         description: definition.description,
+        hiddenInShop: Boolean(definition.hiddenInShop),
         iconRendererAddress,
         iconRouterSlot: iconSlot,
         isClaimable: Boolean(definition.isClaimable),

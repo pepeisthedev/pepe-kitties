@@ -76,6 +76,7 @@ export interface ItemConfig {
   isClaimable: boolean
   claimWeight: number
   isOwnerMintable: boolean
+  hiddenInShop?: boolean
   maxSupply?: number
   incompatibleWithSkins?: number[]  // Body trait values that make this item unusable
   incompatibleWithHeads?: number[]  // Head trait values that make this item unusable
