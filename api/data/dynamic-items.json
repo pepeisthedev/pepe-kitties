@@ -37,6 +37,22 @@
           "isClaimable": false,
           "claimWeight": 0,
           "isOwnerMintable": true
+        },
+        {
+          "id": 104,
+          "name": "Whale Suit",
+          "description": "Got Fregs stacked to the gills? Time to dress like the whale you are.",
+          "category": "head",
+          "svgFile": "whale.svg",
+          "targetTraitType": 2,
+          "traitFileName": "7.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true,
+          "hiddenInShop": true,
+          "incompatibleWithSkins": [
+            4
+          ]
         }
       ]
     },
