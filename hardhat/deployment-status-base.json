@@ -1,6 +1,6 @@
 {
   "network": "base",
-  "lastUpdated": "2026-05-15T13:27:58.126Z",
+  "lastUpdated": "2026-05-23T20:00:00.246Z",
   "contracts": {
     "fregs": "0xBEe938d12c06e281b03ee81F857e16341Ba2eAD1",
     "fregsItems": "0x942152224447a3dE9074aF878dCe81E0C154b1Fb",
@@ -284,6 +284,14 @@
         "rendererAddress": "0x163B25a5857ce693564619A7451DEb54d11D51f6",
         "routerId": 28,
         "source": "from_items"
+      },
+      "29.svg": {
+        "definitionKey": "whale",
+        "fileName": "7.svg",
+        "name": "Whale Suit",
+        "rendererAddress": "0xA3F580a190C96C0f99072c4A3104EBC43ebaCB2A",
+        "routerId": 29,
+        "source": "from_items"
       }
     }
   },
@@ -344,6 +352,26 @@
       "traitFileName": "6.svg",
       "traitRendererAddress": "0x163B25a5857ce693564619A7451DEb54d11D51f6",
       "traitValue": 28
+    },
+    "104": {
+      "category": "head",
+      "claimWeight": 0,
+      "definitionKey": "whale",
+      "description": "Got Fregs stacked to the gills? Time to dress like the whale you are.",
+      "hiddenInShop": true,
+      "iconRendererAddress": "0x1E8E3741497CBc501590A9592532E644C99ad6bD",
+      "iconRouterSlot": 104,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Whale Suit",
+      "shopIsActive": true,
+      "shopMaxSupply": 5,
+      "shopPrice": "1.0",
+      "svgFile": "whale.svg",
+      "targetTraitType": 2,
+      "traitFileName": "7.svg",
+      "traitRendererAddress": "0xA3F580a190C96C0f99072c4A3104EBC43ebaCB2A",
+      "traitValue": 29
     }
   }
 }

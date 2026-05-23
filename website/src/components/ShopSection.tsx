@@ -42,7 +42,12 @@ export default function ShopSection(): React.JSX.Element {
     const [confirmItem, setConfirmItem] = useState<ConfirmItem | null>(null)
     const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set())
 
-    const activeItems = shopItems.filter(item => item.isActive)
+    const activeItems = shopItems.filter(item => {
+        if (!item.isActive) return false
+        const cfg = ITEMS.find(i => i.id === item.itemTypeId)
+        if (cfg?.hiddenInShop) return false
+        return true
+    })
 
     const toggleFlip = (itemTypeId: number) => {
         setFlippedCards(prev => {
