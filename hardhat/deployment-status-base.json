@@ -1,6 +1,6 @@
 {
   "network": "base",
-  "lastUpdated": "2026-05-23T20:00:00.246Z",
+  "lastUpdated": "2026-05-24T19:02:48.161Z",
   "contracts": {
     "fregs": "0xBEe938d12c06e281b03ee81F857e16341Ba2eAD1",
     "fregsItems": "0x942152224447a3dE9074aF878dCe81E0C154b1Fb",
@@ -292,6 +292,22 @@
         "rendererAddress": "0xA3F580a190C96C0f99072c4A3104EBC43ebaCB2A",
         "routerId": 29,
         "source": "from_items"
+      },
+      "30.svg": {
+        "definitionKey": "gorilla",
+        "fileName": "8.svg",
+        "name": "Gorilla Suit",
+        "rendererAddress": "0x0446D149f96296d3e811A7E2b717D51F8bE79922",
+        "routerId": 30,
+        "source": "from_items"
+      },
+      "31.svg": {
+        "definitionKey": "laser",
+        "fileName": "9.svg",
+        "name": "Laser eyes",
+        "rendererAddress": "0x62df6336Ce882ad7ea999E824f2febeA20186773",
+        "routerId": 31,
+        "source": "from_items"
       }
     }
   },
@@ -372,6 +388,46 @@
       "traitFileName": "7.svg",
       "traitRendererAddress": "0xA3F580a190C96C0f99072c4A3104EBC43ebaCB2A",
       "traitValue": 29
+    },
+    "105": {
+      "category": "head",
+      "claimWeight": 0,
+      "definitionKey": "gorilla",
+      "description": "Who like bananas?",
+      "hiddenInShop": false,
+      "iconRendererAddress": "0xcd076FE1BC82A46152A52e28D589460fa4B4eaCD",
+      "iconRouterSlot": 105,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Gorilla Suit",
+      "shopIsActive": true,
+      "shopMaxSupply": 10,
+      "shopPrice": "500000000.0",
+      "svgFile": "gorilla.svg",
+      "targetTraitType": 2,
+      "traitFileName": "8.svg",
+      "traitRendererAddress": "0x0446D149f96296d3e811A7E2b717D51F8bE79922",
+      "traitValue": 30
+    },
+    "106": {
+      "category": "head",
+      "claimWeight": 0,
+      "definitionKey": "laser",
+      "description": "Is it getting hot in here?",
+      "hiddenInShop": false,
+      "iconRendererAddress": "0x87747FEd1c93b0e29AE286786FB20d8cbA01462B",
+      "iconRouterSlot": 106,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Laser eyes",
+      "shopIsActive": true,
+      "shopMaxSupply": 10,
+      "shopPrice": "500000000.0",
+      "svgFile": "laser.svg",
+      "targetTraitType": 2,
+      "traitFileName": "9.svg",
+      "traitRendererAddress": "0x62df6336Ce882ad7ea999E824f2febeA20186773",
+      "traitValue": 31
     }
   }
 }
