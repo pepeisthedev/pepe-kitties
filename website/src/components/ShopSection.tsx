@@ -45,7 +45,8 @@ export default function ShopSection(): React.JSX.Element {
     const activeItems = shopItems.filter(item => {
         if (!item.isActive) return false
         const cfg = ITEMS.find(i => i.id === item.itemTypeId)
-        if (cfg?.hiddenInShop) return false
+        if (!cfg) return false
+        if (cfg.hiddenInShop) return false
         return true
     })
 
