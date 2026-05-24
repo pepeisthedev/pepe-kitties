@@ -1,6 +1,6 @@
 {
   "network": "base",
-  "lastUpdated": "2026-05-24T19:02:48.161Z",
+  "lastUpdated": "2026-05-24T19:59:01.742Z",
   "contracts": {
     "fregs": "0xBEe938d12c06e281b03ee81F857e16341Ba2eAD1",
     "fregsItems": "0x942152224447a3dE9074aF878dCe81E0C154b1Fb",
@@ -305,7 +305,7 @@
         "definitionKey": "laser",
         "fileName": "9.svg",
         "name": "Laser eyes",
-        "rendererAddress": "0x62df6336Ce882ad7ea999E824f2febeA20186773",
+        "rendererAddress": "0x55a6A039062Ed59C372F01990183D9Dbcd6D6262",
         "routerId": 31,
         "source": "from_items"
       }
@@ -426,7 +426,7 @@
       "svgFile": "laser.svg",
       "targetTraitType": 2,
       "traitFileName": "9.svg",
-      "traitRendererAddress": "0x62df6336Ce882ad7ea999E824f2febeA20186773",
+      "traitRendererAddress": "0x55a6A039062Ed59C372F01990183D9Dbcd6D6262",
       "traitValue": 31
     }
   }

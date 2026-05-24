@@ -1,6 +1,6 @@
 {
   "network": "baseSepolia",
-  "lastUpdated": "2026-05-24T18:47:34.399Z",
+  "lastUpdated": "2026-05-24T19:56:54.234Z",
   "contracts": {
     "fregs": "0xaEf8342D03a547115Ad1496954DD8E2D815de6a4",
     "fregsItems": "0x45AD572718BeDe49CEE3565b02AA21F9a812D672",
@@ -305,7 +305,7 @@
         "definitionKey": "laser",
         "fileName": "9.svg",
         "name": "Laser eyes",
-        "rendererAddress": "0xBb3d422CF1086B32486Ce3Ec6E90d1A9F5C5B563",
+        "rendererAddress": "0xc788fEb2675255e836fC6187dabf81A5A7CA91F9",
         "routerId": 31,
         "source": "from_items"
       }
@@ -426,7 +426,7 @@
       "svgFile": "laser.svg",
       "targetTraitType": 2,
       "traitFileName": "9.svg",
-      "traitRendererAddress": "0xBb3d422CF1086B32486Ce3Ec6E90d1A9F5C5B563",
+      "traitRendererAddress": "0xc788fEb2675255e836fC6187dabf81A5A7CA91F9",
       "traitValue": 31
     }
   }
