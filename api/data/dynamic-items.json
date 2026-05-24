@@ -96,6 +96,51 @@
           "isClaimable": false,
           "claimWeight": 0,
           "isOwnerMintable": true
+        },
+        {
+          "id": 104,
+          "name": "Whale Suit",
+          "description": "Got Fregs stacked to the gills? Time to dress like the whale you are.",
+          "category": "head",
+          "svgFile": "whale.svg",
+          "targetTraitType": 2,
+          "traitFileName": "7.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true,
+          "hiddenInShop": true,
+          "incompatibleWithSkins": [
+            4
+          ]
+        },
+        {
+          "id": 105,
+          "name": "Gorilla Suit",
+          "description": "Who like bananas?",
+          "category": "head",
+          "svgFile": "gorilla.svg",
+          "targetTraitType": 2,
+          "traitFileName": "8.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true,
+          "hiddenInShop": false,
+          "incompatibleWithSkins": [
+            4
+          ]
+        },
+        {
+          "id": 106,
+          "name": "Laser eyes",
+          "description": "Is it getting hot in here?",
+          "category": "head",
+          "svgFile": "laser.svg",
+          "targetTraitType": 2,
+          "traitFileName": "9.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true,
+          "hiddenInShop": false
         }
       ]
     }
