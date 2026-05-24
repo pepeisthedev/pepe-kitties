@@ -229,7 +229,7 @@ async function computeTraitFileName(svgRenderer, category, traitValue) {
 }
 
 function buildDynamicItemEntry(itemTypeId, definition, traitFileName) {
-    return {
+    const entry = {
         id: itemTypeId,
         name: definition.name,
         description: definition.description,
@@ -242,6 +242,13 @@ function buildDynamicItemEntry(itemTypeId, definition, traitFileName) {
         isOwnerMintable: Boolean(definition.isOwnerMintable),
         hiddenInShop: Boolean(definition.hiddenInShop),
     };
+    if (Array.isArray(definition.incompatibleWithSkins) && definition.incompatibleWithSkins.length > 0) {
+        entry.incompatibleWithSkins = definition.incompatibleWithSkins.map(Number);
+    }
+    if (Array.isArray(definition.incompatibleWithHeads) && definition.incompatibleWithHeads.length > 0) {
+        entry.incompatibleWithHeads = definition.incompatibleWithHeads.map(Number);
+    }
+    return entry;
 }
 
 async function main() {
