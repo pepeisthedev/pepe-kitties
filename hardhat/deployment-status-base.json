@@ -1,6 +1,6 @@
 {
   "network": "base",
-  "lastUpdated": "2026-05-24T19:59:01.742Z",
+  "lastUpdated": "2026-05-27T17:59:30.337Z",
   "contracts": {
     "fregs": "0xBEe938d12c06e281b03ee81F857e16341Ba2eAD1",
     "fregsItems": "0x942152224447a3dE9074aF878dCe81E0C154b1Fb",
@@ -308,6 +308,32 @@
         "rendererAddress": "0x55a6A039062Ed59C372F01990183D9Dbcd6D6262",
         "routerId": 31,
         "source": "from_items"
+      },
+      "32.svg": {
+        "definitionKey": "dollar",
+        "fileName": "10.svg",
+        "name": "Dollar eyes",
+        "rendererAddress": "0x2419A35DBd2F6dEeA0517FC84624e12fd2b8f898",
+        "routerId": 32,
+        "source": "from_items"
+      }
+    },
+    "background": {
+      "2.svg": {
+        "definitionKey": "normiesbackground",
+        "fileName": "2.svg",
+        "name": "Normie tribute",
+        "rendererAddress": "0xE36f30f007A24B0191318D3Fbba45F7dF5ee94C6",
+        "routerId": 2,
+        "source": "from_items"
+      },
+      "3.svg": {
+        "definitionKey": "vegasbackground",
+        "fileName": "3.svg",
+        "name": "Vegas",
+        "rendererAddress": "0x1E2E97bd50505ffea88958BC48d8d6cC61E1eA4C",
+        "routerId": 3,
+        "source": "from_items"
       }
     }
   },
@@ -428,6 +454,66 @@
       "traitFileName": "9.svg",
       "traitRendererAddress": "0x55a6A039062Ed59C372F01990183D9Dbcd6D6262",
       "traitValue": 31
+    },
+    "107": {
+      "category": "head",
+      "claimWeight": 0,
+      "definitionKey": "dollar",
+      "description": "Going for the dough",
+      "hiddenInShop": false,
+      "iconRendererAddress": "0x95e247CDf19b3D2625084b9A7477D492FdD796eF",
+      "iconRouterSlot": 107,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Dollar eyes",
+      "shopIsActive": true,
+      "shopMaxSupply": 20,
+      "shopPrice": "300000000.0",
+      "svgFile": "dollar.svg",
+      "targetTraitType": 2,
+      "traitFileName": "10.svg",
+      "traitRendererAddress": "0x2419A35DBd2F6dEeA0517FC84624e12fd2b8f898",
+      "traitValue": 32
+    },
+    "108": {
+      "category": "background",
+      "claimWeight": 0,
+      "definitionKey": "normiesbackground",
+      "description": "Fregs like Normies.",
+      "hiddenInShop": false,
+      "iconRendererAddress": "0xd6f857D11443f3b95028eE5e0860415e027Eda34",
+      "iconRouterSlot": 108,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Normie tribute",
+      "shopIsActive": true,
+      "shopMaxSupply": 10,
+      "shopPrice": "500000000.0",
+      "svgFile": "normies.svg",
+      "targetTraitType": 0,
+      "traitFileName": "2.svg",
+      "traitRendererAddress": "0xE36f30f007A24B0191318D3Fbba45F7dF5ee94C6",
+      "traitValue": 2
+    },
+    "109": {
+      "category": "background",
+      "claimWeight": 0,
+      "definitionKey": "vegasbackground",
+      "description": "What happens in Freg Vegas, stays in Freg vegas.",
+      "hiddenInShop": false,
+      "iconRendererAddress": "0x05e11bE13CE305568258E7bbA9f8a28C8AB2b7Db",
+      "iconRouterSlot": 109,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Vegas",
+      "shopIsActive": true,
+      "shopMaxSupply": 10,
+      "shopPrice": "500000000.0",
+      "svgFile": "vegas.svg",
+      "targetTraitType": 0,
+      "traitFileName": "3.svg",
+      "traitRendererAddress": "0x1E2E97bd50505ffea88958BC48d8d6cC61E1eA4C",
+      "traitValue": 3
     }
   }
 }

@@ -1,7 +1,16 @@
 {
   "byChainId": {
     "8453": {
-      "background": [],
+      "background": [
+        {
+          "fileName": "2.svg",
+          "name": "Normie tribute"
+        },
+        {
+          "fileName": "3.svg",
+          "name": "Vegas"
+        }
+      ],
       "head": [
         {
           "fileName": "4.svg",
@@ -26,6 +35,10 @@
         {
           "fileName": "9.svg",
           "name": "Laser eyes"
+        },
+        {
+          "fileName": "10.svg",
+          "name": "Dollar eyes"
         }
       ],
       "mouth": [],
@@ -40,7 +53,16 @@
       "stomach": []
     },
     "84532": {
-      "background": [],
+      "background": [
+        {
+          "fileName": "2.svg",
+          "name": "Normie tribute"
+        },
+        {
+          "fileName": "3.svg",
+          "name": "vegas"
+        }
+      ],
       "head": [
         {
           "fileName": "4.svg",
@@ -65,6 +87,10 @@
         {
           "fileName": "9.svg",
           "name": "Laser eyes"
+        },
+        {
+          "fileName": "10.svg",
+          "name": "Dollar eyes"
         }
       ],
       "mouth": [],
