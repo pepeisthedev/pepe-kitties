@@ -390,6 +390,12 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
           tx = await contract.setActive(!featureFlags.spinActive)
           break
         }
+        case 'slotMachine': {
+          if (!contracts.slotMachine) throw new Error("SlotMachine contract not configured")
+          const contract = await contracts.slotMachine.write()
+          tx = await contract.setActive(!featureFlags.slotMachineActive)
+          break
+        }
         case 'chestOpening': {
           const contract = await contracts.items.write()
           tx = await contract.setChestOpeningActive(!featureFlags.chestOpeningActive)
@@ -994,6 +1000,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
             <CardContent className="p-6 pt-0 space-y-3">
               {[
                 { key: 'spin', label: 'Spin the Wheel', active: featureFlags.spinActive, disabled: !contracts?.spinTheWheel },
+                { key: 'slotMachine', label: 'Slot Machine', active: featureFlags.slotMachineActive, disabled: !contracts?.slotMachine },
                 { key: 'chestOpening', label: 'Open Chests', active: featureFlags.chestOpeningActive },
                 { key: 'liquidity', label: 'Liquidity', active: featureFlags.liquidityActive, disabled: !contracts?.liquidity },
                 { key: 'shop', label: 'Shop', active: featureFlags.shopActive, disabled: !contracts?.fregShop },

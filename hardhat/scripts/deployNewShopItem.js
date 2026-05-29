@@ -80,7 +80,11 @@ function resolveRouterSigner() {
     return new ethers.Wallet(normalized, ethers.provider);
 }
 
-function resolveDefinitionPath() {
+function resolveDefinitionPath(definitionPathOverride = null) {
+    if (definitionPathOverride) {
+        return path.resolve(process.cwd(), definitionPathOverride);
+    }
+
     const extraArgs = process.argv.slice(2);
     const definitionArgIndex = extraArgs.findIndex((arg) => arg === "--definition");
 
@@ -105,8 +109,8 @@ function resolveDefinitionPath() {
     return DEFAULT_DEFINITION_PATH;
 }
 
-function loadItemDefinition() {
-    const definitionPath = resolveDefinitionPath();
+function loadItemDefinition(definitionPathOverride = null) {
+    const definitionPath = resolveDefinitionPath(definitionPathOverride);
     if (!fs.existsSync(definitionPath)) {
         throw new Error(`Item definition not found: ${definitionPath}`);
     }
@@ -251,8 +255,8 @@ function buildDynamicItemEntry(itemTypeId, definition, traitFileName) {
     return entry;
 }
 
-async function main() {
-    const { definition, definitionPath } = loadItemDefinition();
+async function main(options = {}) {
+    const { definition, definitionPath } = loadItemDefinition(options.definitionPath);
     validateItemDefinition(definition, definitionPath);
 
     const status = loadDeploymentStatus(network.name);

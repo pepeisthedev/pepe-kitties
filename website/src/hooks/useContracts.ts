@@ -6,6 +6,7 @@ import {
   FREGS_ITEMS_ADDRESS,
   FREGS_MINTPASS_ADDRESS,
   SPIN_THE_WHEEL_ADDRESS,
+  SLOT_MACHINE_ADDRESS,
   FREGS_LIQUIDITY_ADDRESS,
   FREG_SHOP_ADDRESS,
   FREG_COIN_ADDRESS,
@@ -15,6 +16,7 @@ import {
   FregsItemsABI,
   FregsMintPassABI,
   SpinTheWheelABI,
+  SlotMachineABI,
   FregsLiquidityABI,
   FregShopABI,
   FregCoinABI,
@@ -61,6 +63,13 @@ export function useContracts() {
         write: async () => {
           const signer = await getSigner()
           return new Contract(SPIN_THE_WHEEL_ADDRESS, SpinTheWheelABI, signer)
+        },
+      } : null,
+      slotMachine: SLOT_MACHINE_ADDRESS ? {
+        read: new Contract(SLOT_MACHINE_ADDRESS, SlotMachineABI, provider),
+        write: async () => {
+          const signer = await getSigner()
+          return new Contract(SLOT_MACHINE_ADDRESS, SlotMachineABI, signer)
         },
       } : null,
       liquidity: FREGS_LIQUIDITY_ADDRESS ? {
