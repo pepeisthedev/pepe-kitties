@@ -69,15 +69,16 @@ type ReelTween = {
 const NO_WIN_SYMBOL: SlotSymbol = {
   key: "no-win",
   name: "No Win",
-  image: "/items/skeleton.svg",
+  image: "/items/placeholder.svg",
 }
 
-const DEFAULT_SYMBOLS: SlotSymbol[] = [
-  { key: "freg", name: "Freg", image: "/fregs.svg" },
-  { key: "shiba", name: "Shiba Inu Suit", image: "/items/shibainu.svg" },
-  { key: "bull", name: "Bull Suit", image: "/items/bull.svg" },
-  NO_WIN_SYMBOL,
+const LOSING_SYMBOLS: SlotSymbol[] = [
+  { key: "loss-neon", name: "Neon", image: "/items/neon.svg" },
+  { key: "loss-placeholder", name: "No Win", image: "/items/placeholder.svg" },
+  { key: "loss-fregs", name: "Fregs", image: "/fregs.svg" },
 ]
+
+const DEFAULT_SYMBOLS: SlotSymbol[] = LOSING_SYMBOLS
 
 const STATUS_TEXT: Record<SlotPhase, string> = {
   idle: "Pull",
@@ -133,8 +134,8 @@ function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3)
 }
 
-function getLosingSymbols(symbols: SlotSymbol[]): SlotSymbol[] {
-  const available = symbols.length > 1 ? symbols : DEFAULT_SYMBOLS
+function getLosingSymbols(): SlotSymbol[] {
+  const available = LOSING_SYMBOLS.length > 1 ? LOSING_SYMBOLS : DEFAULT_SYMBOLS
   const result = Array.from({ length: REEL_COUNT }, () => getRandomSymbol(available))
   const allSame = result.every(symbol => symbol.key === result[0].key)
 
@@ -291,7 +292,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
         image: getPrizeImage(prize.name, prize.prizeType),
         prizeId: prize.prizeId,
       })),
-      NO_WIN_SYMBOL,
+      ...LOSING_SYMBOLS,
     ]
   }, [prizes])
 
@@ -436,7 +437,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
     const winningSymbol = availableSymbols.find(symbol => symbol.prizeId === result.prizeId)
     const finalSymbols = result.won && winningSymbol
       ? [winningSymbol, winningSymbol, winningSymbol]
-      : getLosingSymbols(availableSymbols)
+      : getLosingSymbols()
 
     resultRevealPendingRef.current = true
 
