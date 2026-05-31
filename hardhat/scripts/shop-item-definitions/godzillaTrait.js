@@ -10,6 +10,7 @@ module.exports = {
     isClaimable: false,
     claimWeight: 0,
     hiddenInShop: true,
+    incompatibleWithSkins: [4],
     trait: {
         name: "Godzilla Suit",
         classPrefix: "godzilla",

@@ -1,6 +1,6 @@
 {
   "network": "baseSepolia",
-  "lastUpdated": "2026-05-27T15:26:48.810Z",
+  "lastUpdated": "2026-05-30T07:47:28.225Z",
   "contracts": {
     "fregs": "0xaEf8342D03a547115Ad1496954DD8E2D815de6a4",
     "fregsItems": "0x45AD572718BeDe49CEE3565b02AA21F9a812D672",
@@ -14,7 +14,8 @@
     "svgRenderer": "0x6DD30A0b2c35Ab425D7Fe37DEC5b3876C338E725",
     "vrfCoordinator": "0x5C210eF41CD1a72de73bF76eC39637bB0d3d7BEE",
     "vrfSubscriptionId": "55598271862630847143226407304455041330031568601199114955144408906676729705221",
-    "svgPartWriter": "0x546B5083d479B81FBAF6180F673321c55C35D182"
+    "svgPartWriter": "0x546B5083d479B81FBAF6180F673321c55C35D182",
+    "slotMachine": "0x52770f151abA0BB66D6b609D52A40F66eC8a3C7b"
   },
   "routers": {
     "background": "0xB0d0B5c7B658C547087f6897C643A221b5aFf0aA",
@@ -316,6 +317,14 @@
         "rendererAddress": "0x8F05FaB14f560e272C37b3bBDE48D17d8cCff529",
         "routerId": 32,
         "source": "from_items"
+      },
+      "33.svg": {
+        "definitionKey": "godzilla",
+        "fileName": "11.svg",
+        "name": "Godzilla Suit",
+        "rendererAddress": "0x74DaFBfFfb80b2C4dE8d021BcFCB3F4c901E47ee",
+        "routerId": 33,
+        "source": "from_items"
       }
     },
     "background": {
@@ -514,6 +523,26 @@
       "traitFileName": "3.svg",
       "traitRendererAddress": "0xC10a069E262198B0a80Cd72d748a8619B9ce8d71",
       "traitValue": 3
+    },
+    "110": {
+      "category": "head",
+      "claimWeight": 0,
+      "definitionKey": "godzilla",
+      "description": "Roooooaaarrrr!",
+      "hiddenInShop": true,
+      "iconRendererAddress": "0x68CD56b0C6FDf6A28D37F04d64F310E99C21F5EF",
+      "iconRouterSlot": 110,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Godzilla Suit",
+      "shopIsActive": true,
+      "shopMaxSupply": 0,
+      "shopPrice": null,
+      "svgFile": "godzilla.svg",
+      "targetTraitType": 2,
+      "traitFileName": "11.svg",
+      "traitRendererAddress": "0x74DaFBfFfb80b2C4dE8d021BcFCB3F4c901E47ee",
+      "traitValue": 33
     }
   }
 }

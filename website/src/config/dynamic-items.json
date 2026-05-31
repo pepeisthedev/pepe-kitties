@@ -131,7 +131,21 @@
       ]
     },
     "31337": {
-      "items": []
+      "items": [
+        {
+          "id": 101,
+          "name": "Godzilla Suit",
+          "description": "Roooooaaarrrr!",
+          "category": "head",
+          "svgFile": "godzilla.svg",
+          "targetTraitType": 2,
+          "traitFileName": "11.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true,
+          "hiddenInShop": true
+        }
+      ]
     },
     "84532": {
       "items": [
@@ -260,6 +274,19 @@
           "claimWeight": 0,
           "isOwnerMintable": true,
           "hiddenInShop": false
+        },
+        {
+          "id": 110,
+          "name": "Godzilla Suit",
+          "description": "Roooooaaarrrr!",
+          "category": "head",
+          "svgFile": "godzilla.svg",
+          "targetTraitType": 2,
+          "traitFileName": "11.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true,
+          "hiddenInShop": true
         }
       ]
     }

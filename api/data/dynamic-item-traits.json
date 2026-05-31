@@ -47,7 +47,12 @@
     },
     "31337": {
       "background": [],
-      "head": [],
+      "head": [
+        {
+          "fileName": "11.svg",
+          "name": "Godzilla Suit"
+        }
+      ],
       "mouth": [],
       "skin": [],
       "stomach": []
@@ -91,6 +96,10 @@
         {
           "fileName": "10.svg",
           "name": "Dollar eyes"
+        },
+        {
+          "fileName": "11.svg",
+          "name": "Godzilla Suit"
         }
       ],
       "mouth": [],

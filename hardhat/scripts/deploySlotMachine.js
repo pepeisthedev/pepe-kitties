@@ -16,16 +16,69 @@ const DEFAULT_VRF_KEY_HASHES = {
 };
 
 const SPIN_COST = ethers.parseEther(process.env.SLOT_SPIN_COST_FREG || "100000000");
-const CALLBACK_GAS_LIMIT = Number(process.env.SLOT_CALLBACK_GAS_LIMIT || 500000);
-const REQUEST_CONFIRMATIONS = Number(process.env.SLOT_REQUEST_CONFIRMATIONS || 3);
+const CALLBACK_GAS_LIMIT = Number(process.env.SLOT_CALLBACK_GAS_LIMIT || 1000000);
+const REQUEST_CONFIRMATIONS = Number(process.env.SLOT_REQUEST_CONFIRMATIONS || 1);
 const CONFIGURE_DEFAULT_PRIZES = process.env.CONFIGURE_DEFAULT_SLOT_PRIZES !== "false";
+const CONFIGURE_SLOT_MINT_AUTH = process.env.CONFIGURE_SLOT_MINT_AUTH !== "false";
 const VERIFY_CONTRACTS = process.env.VERIFY_CONTRACTS === "true";
 const DEFAULT_PRIZE_WEIGHTS = {
   godzilla: Number(process.env.SLOT_GODZILLA_WEIGHT_BPS || 300),
-  freg: Number(process.env.SLOT_FREG_WEIGHT_BPS || 300),
-  shibainu: Number(process.env.SLOT_SHIBA_WEIGHT_BPS || 1000),
-  bull: Number(process.env.SLOT_BULL_WEIGHT_BPS || 1500),
 };
+const GODZILLA_MAX_SUPPLY = Number(process.env.SLOT_GODZILLA_MAX_SUPPLY || process.env.SLOT_GODZILLA_PRIZE_COUNT || 1);
+
+function normalizePrivateKey(privateKey) {
+  if (!privateKey) return null;
+  return privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`;
+}
+
+function envFlag(name) {
+  return ["1", "true", "yes"].includes(String(process.env[name] || "").toLowerCase());
+}
+
+function sameAddress(left, right) {
+  return String(left || "").toLowerCase() === String(right || "").toLowerCase();
+}
+
+function parseOptionalAddress(label, value) {
+  if (!value) return null;
+  try {
+    return ethers.getAddress(value);
+  } catch {
+    throw new Error(`${label} is not a valid address: ${value}`);
+  }
+}
+
+function getChainlinkSubscriptionOwnerConfig() {
+  if (network.name === "baseSepolia") {
+    return {
+      owner: process.env.BASE_SEPOLIA_CHAINLINK_SUBSCRIPTION_OWNER ||
+   
+    
+        null,
+      privateKey: normalizePrivateKey(
+        process.env.BASE_SEPOLIA_CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY 
+
+      ),
+    };
+  }
+
+  if (network.name === "base") {
+    return {
+      owner: process.env.BASE_CHAINLINK_SUBSCRIPTION_OWNER ||
+     
+        null,
+      privateKey: normalizePrivateKey(
+        process.env.BASE_CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY 
+   
+      ),
+    };
+  }
+
+  return {
+    owner: process.env.CHAINLINK_SUBSCRIPTION_OWNER || null,
+    privateKey: normalizePrivateKey(process.env.CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY),
+  };
+}
 
 function getVrfConfig() {
   if (network.name === "localhost" || network.name === "hardhat") {
@@ -94,19 +147,62 @@ function requireStatusItemType(status, definitionKey, name) {
   return itemTypeId;
 }
 
-async function maybeAddChainlinkConsumer(coordinatorAddress, subscriptionId, slotMachineAddress) {
+async function getChainlinkConsumerSigner(deployer) {
+  const deployerAddress = await deployer.getAddress();
+  const { owner, privateKey } = getChainlinkSubscriptionOwnerConfig();
+  const configuredOwner = parseOptionalAddress("Chainlink subscription owner", owner);
+
+  if (privateKey) {
+    const signer = new ethers.Wallet(privateKey, ethers.provider);
+    const signerAddress = await signer.getAddress();
+    if (configuredOwner && !sameAddress(configuredOwner, signerAddress)) {
+      throw new Error(
+        `Configured Chainlink subscription owner is ${configuredOwner}, but ` +
+        `the subscription owner private key resolves to ${signerAddress}.`
+      );
+    }
+    return {
+      signer,
+      signerAddress,
+      configuredOwner: configuredOwner || signerAddress,
+      reason: "using Chainlink subscription owner private key",
+    };
+  }
+
+  if (configuredOwner && !sameAddress(configuredOwner, deployerAddress)) {
+    throw new Error(
+      `Configured Chainlink subscription owner is ${configuredOwner}, but deployer is ${deployerAddress}. ` +
+      "Set BASE_CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY for Base, " +
+      "BASE_SEPOLIA_CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY for Base Sepolia, " +
+      "or SKIP_CHAINLINK_ADD_CONSUMER=true and add the consumer manually."
+    );
+  }
+
+  return {
+    signer: deployer,
+    signerAddress: deployerAddress,
+    configuredOwner,
+    reason: "using deployer",
+  };
+}
+
+async function maybeAddChainlinkConsumer(coordinatorAddress, subscriptionId, slotMachineAddress, deployer) {
   if (network.name === "localhost" || network.name === "hardhat") {
     return;
   }
 
-  if (process.env.SKIP_VRF_ADD_CONSUMER === "true" || process.env.SKIP_CHAINLINK_ADD_CONSUMER === "true") {
+  if (envFlag("SKIP_VRF_ADD_CONSUMER") || envFlag("SKIP_CHAINLINK_ADD_CONSUMER")) {
     console.log("  Skipping Chainlink addConsumer by env flag.");
     console.log(`  Add this consumer manually to subscription ${subscriptionId}: ${slotMachineAddress}`);
     return;
   }
 
-  const coordinator = await ethers.getContractAt("IVRFCoordinatorV2Plus", coordinatorAddress);
+  const { signer, signerAddress, configuredOwner, reason } = await getChainlinkConsumerSigner(deployer);
+  const coordinator = await ethers.getContractAt("IVRFCoordinatorV2Plus", coordinatorAddress, signer);
   console.log("Adding SlotMachine as Chainlink VRF subscription consumer...");
+  console.log("  Chainlink subscription owner:", configuredOwner || "(not configured)");
+  console.log("  addConsumer signer:", signerAddress);
+  console.log("  addConsumer mode:", reason);
   await sendTx(() => coordinator.addConsumer(subscriptionId, slotMachineAddress));
   console.log("  SlotMachine added as VRF consumer");
 }
@@ -174,41 +270,34 @@ async function main() {
   if (isLocalhost) {
     await sendTx(() => slotMachine.setAutoFulfill(true));
   } else {
-    await maybeAddChainlinkConsumer(coordinatorAddress, vrf.subscriptionId, slotMachineAddress);
+    await maybeAddChainlinkConsumer(coordinatorAddress, vrf.subscriptionId, slotMachineAddress, deployer);
   }
 
   if (CONFIGURE_DEFAULT_PRIZES) {
-    const fregsAddress = process.env.VITE_FREGS_ADDRESS || status.contracts?.fregs;
     const fregsItemsAddress = process.env.VITE_FREGS_ITEMS_ADDRESS || status.contracts?.fregsItems;
     const godzillaItemType = requireStatusItemType(status, "godzilla", "Godzilla Suit");
-    const shibainuItemType = requireStatusItemType(status, "shibainu", "Shiba Inu Suit");
-    const bullItemType = requireStatusItemType(status, "bull", "Bull Suit");
 
     console.log("\n--- Configuring default prizes ---");
-    await sendTx(() => slotMachine.addERC721ItemPrize(
+    await sendTx(() => slotMachine.addERC721MintPrize(
       "Godzilla Suit",
       requireAddress(fregsItemsAddress, "FregsItems address"),
       godzillaItemType,
-      DEFAULT_PRIZE_WEIGHTS.godzilla
+      DEFAULT_PRIZE_WEIGHTS.godzilla,
+      GODZILLA_MAX_SUPPLY
     ));
-    await sendTx(() => slotMachine.addERC721Prize("Freg", requireAddress(fregsAddress, "Fregs address"), DEFAULT_PRIZE_WEIGHTS.freg));
-    await sendTx(() => slotMachine.addERC721ItemPrize(
-      "Shiba Inu Suit",
-      requireAddress(fregsItemsAddress, "FregsItems address"),
-      shibainuItemType,
-      DEFAULT_PRIZE_WEIGHTS.shibainu
-    ));
-    await sendTx(() => slotMachine.addERC721ItemPrize(
-      "Bull Suit",
-      requireAddress(fregsItemsAddress, "FregsItems address"),
-      bullItemType,
-      DEFAULT_PRIZE_WEIGHTS.bull
-    ));
+
+    if (CONFIGURE_SLOT_MINT_AUTH) {
+      requireAddress(fregsItemsAddress, "FregsItems address");
+      const fregsItems = await ethers.getContractAt("FregsItems", fregsItemsAddress);
+      console.log("  Setting FregsItems mintFromCoin caller to SlotMachine...");
+      await sendTx(() => fregsItems.setSpinTheWheelContract(slotMachineAddress));
+    }
+
     const configuredWeight = Object.values(DEFAULT_PRIZE_WEIGHTS).reduce((sum, weight) => sum + weight, 0);
-    console.log(`  Godzilla Suit: ${DEFAULT_PRIZE_WEIGHTS.godzilla / 100}% (prize 1, itemType ${godzillaItemType})`);
-    console.log(`  Freg: ${DEFAULT_PRIZE_WEIGHTS.freg / 100}%`);
-    console.log(`  Shiba Inu Suit: ${DEFAULT_PRIZE_WEIGHTS.shibainu / 100}% (itemType ${shibainuItemType})`);
-    console.log(`  Bull Suit: ${DEFAULT_PRIZE_WEIGHTS.bull / 100}% (itemType ${bullItemType})`);
+    console.log(
+      `  Godzilla Suit: ${DEFAULT_PRIZE_WEIGHTS.godzilla / 100}% ` +
+      `(prize 1, itemType ${godzillaItemType}, mint-on-win max ${GODZILLA_MAX_SUPPLY})`
+    );
     console.log(`  Lose: ${(10000 - configuredWeight) / 100}% plus any stocked-out prize weight`);
   }
 
@@ -241,9 +330,12 @@ async function main() {
 
   console.log("\nNext steps:");
   console.log(`  VITE_SLOT_MACHINE_ADDRESS=${slotMachineAddress}`);
-  console.log("  Fund Godzilla with FregsItems.ownerMint(slotMachine, godzillaItemType, amount), then registerERC721Prize(1, tokenId).");
-  console.log("  Other ERC721 prizes can be funded with depositERC721Prize(prizeId, tokenIds).");
-  console.log("  Activate with setActive(true) when funded and ready.");
+  if (!CONFIGURE_SLOT_MINT_AUTH) {
+    console.log("  Mint-on-win auth was not changed. Before activating, set:");
+    console.log(`    FregsItems.setSpinTheWheelContract(${slotMachineAddress})`);
+    console.log("  Or rerun without CONFIGURE_SLOT_MINT_AUTH=false to do that owner config transaction automatically.");
+  }
+  console.log("  Activate with setActive(true) when mint auth is configured and ready.");
 }
 
 main().catch((error) => {

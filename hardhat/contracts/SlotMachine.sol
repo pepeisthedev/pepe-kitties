@@ -20,6 +20,11 @@ interface ISlotMachineERC721Item {
     function itemType(uint256 tokenId) external view returns (uint256);
 }
 
+interface ISlotMachineMintableItem {
+    function mintFromCoin(address to, uint256 itemType) external;
+    function totalMinted() external view returns (uint256);
+}
+
 contract SlotMachine is Ownable, ReentrancyGuard, ERC721Holder, VRFConsumerBaseV2Plus {
     using SafeERC20 for IERC20;
 
@@ -54,8 +59,8 @@ contract SlotMachine is Ownable, ReentrancyGuard, ERC721Holder, VRFConsumerBaseV
 
     uint256 public subscriptionId;
     bytes32 public keyHash;
-    uint32 public callbackGasLimit = 500_000;
-    uint16 public requestConfirmations = 3;
+    uint32 public callbackGasLimit = 1_000_000;
+    uint16 public requestConfirmations = 1;
     bool public autoFulfill;
 
     Prize[] private prizes;
@@ -66,6 +71,9 @@ contract SlotMachine is Ownable, ReentrancyGuard, ERC721Holder, VRFConsumerBaseV
 
     mapping(uint256 => uint256[]) private erc721PrizeTokenIds;
     mapping(uint256 => mapping(uint256 => uint256)) private erc721TokenIndexPlusOne;
+    mapping(uint256 => bool) public erc721PrizeMintsOnWin;
+    mapping(uint256 => uint256) public erc721PrizeMaxSupply;
+    mapping(uint256 => uint256) public erc721PrizeMintCount;
 
     event ActiveSet(bool active);
     event PaymentConfigSet(address indexed fregCoin, address indexed liquidityVault, uint256 spinCost);
@@ -88,6 +96,7 @@ contract SlotMachine is Ownable, ReentrancyGuard, ERC721Holder, VRFConsumerBaseV
     event PrizeActiveSet(uint256 indexed prizeId, bool active);
     event ERC20PrizeAmountSet(uint256 indexed prizeId, uint256 erc20Amount);
     event ERC721PrizeItemTypeSet(uint256 indexed prizeId, uint256 itemTypeId);
+    event ERC721PrizeMintConfigSet(uint256 indexed prizeId, bool mintOnWin, uint256 maxSupply);
 
     event ERC721PrizeFunded(uint256 indexed prizeId, address indexed token, uint256 indexed tokenId);
     event ERC721PrizeReceivedUntracked(address indexed token, uint256 indexed tokenId);
@@ -184,8 +193,9 @@ contract SlotMachine is Ownable, ReentrancyGuard, ERC721Holder, VRFConsumerBaseV
             }
 
             if (prize.prizeType == PrizeTokenType.ERC721) {
-                uint256 tokenId = _removeRandomERC721Prize(prizeId, randomWord, player);
-                IERC721(prize.token).safeTransferFrom(address(this), player, tokenId);
+                uint256 tokenId = erc721PrizeMintsOnWin[prizeId]
+                    ? _mintERC721Prize(prizeId, prize, player)
+                    : _transferERC721Prize(prizeId, prize, player);
                 emit SpinResult(player, requestId, true, prizeId, prize.prizeType, prize.token, tokenId, 0);
                 return;
             }
@@ -224,6 +234,9 @@ contract SlotMachine is Ownable, ReentrancyGuard, ERC721Holder, VRFConsumerBaseV
 
     function _hasPrizeStock(uint256 prizeId, Prize storage prize) internal view returns (bool) {
         if (prize.prizeType == PrizeTokenType.ERC721) {
+            if (erc721PrizeMintsOnWin[prizeId]) {
+                return erc721PrizeMintCount[prizeId] < erc721PrizeMaxSupply[prizeId];
+            }
             return erc721PrizeTokenIds[prizeId].length > 0;
         }
 
@@ -234,14 +247,36 @@ contract SlotMachine is Ownable, ReentrancyGuard, ERC721Holder, VRFConsumerBaseV
         return false;
     }
 
-    function _removeRandomERC721Prize(uint256 prizeId, uint256 randomWord, address player) internal returns (uint256) {
+    function _mintERC721Prize(uint256 prizeId, Prize storage prize, address player) internal returns (uint256 tokenId) {
+        require(prize.erc721ItemTypeId != 0, "Item type required");
+        require(erc721PrizeMintCount[prizeId] < erc721PrizeMaxSupply[prizeId], "Prize out of stock");
+
+        tokenId = _readNextMintTokenId(prize.token);
+        erc721PrizeMintCount[prizeId] += 1;
+        ISlotMachineMintableItem(prize.token).mintFromCoin(player, prize.erc721ItemTypeId);
+    }
+
+    function _transferERC721Prize(uint256 prizeId, Prize storage prize, address player) internal returns (uint256 tokenId) {
+        tokenId = _reserveNextERC721Prize(prizeId);
+        IERC721(prize.token).transferFrom(address(this), player, tokenId);
+    }
+
+    function _readNextMintTokenId(address token) internal view returns (uint256) {
+        try ISlotMachineMintableItem(token).totalMinted() returns (uint256 tokenId) {
+            return tokenId;
+        } catch {
+            return 0;
+        }
+    }
+
+    function _reserveNextERC721Prize(uint256 prizeId) internal returns (uint256 tokenId) {
         uint256[] storage tokenIds = erc721PrizeTokenIds[prizeId];
         require(tokenIds.length > 0, "Prize out of stock");
 
-        uint256 index = uint256(keccak256(abi.encode(randomWord, prizeId, player))) % tokenIds.length;
-        uint256 tokenId = tokenIds[index];
-        _removeERC721PrizeAt(prizeId, index);
-        return tokenId;
+        uint256 index = tokenIds.length - 1;
+        tokenId = tokenIds[index];
+        tokenIds.pop();
+        delete erc721TokenIndexPlusOne[prizeId][tokenId];
     }
 
     function _removeERC721PrizeAt(uint256 prizeId, uint256 index) internal {
@@ -463,6 +498,26 @@ contract SlotMachine is Ownable, ReentrancyGuard, ERC721Holder, VRFConsumerBaseV
         prizeId = _addERC721Prize(name, token, weightBps, itemTypeId);
     }
 
+    function addERC721MintPrize(
+        string calldata name,
+        address token,
+        uint256 itemTypeId,
+        uint256 weightBps,
+        uint256 maxSupply
+    )
+        external
+        onlyOwner
+        noPendingSpins
+        returns (uint256 prizeId)
+    {
+        require(itemTypeId != 0, "Item type required");
+        require(maxSupply > 0, "Max supply required");
+        prizeId = _addERC721Prize(name, token, weightBps, itemTypeId);
+        erc721PrizeMintsOnWin[prizeId] = true;
+        erc721PrizeMaxSupply[prizeId] = maxSupply;
+        emit ERC721PrizeMintConfigSet(prizeId, true, maxSupply);
+    }
+
     function addERC20Prize(string calldata name, address token, uint256 weightBps, uint256 amountPerWin)
         external
         onlyOwner
@@ -521,6 +576,22 @@ contract SlotMachine is Ownable, ReentrancyGuard, ERC721Holder, VRFConsumerBaseV
         require(prize.prizeType == PrizeTokenType.ERC721, "Prize is not ERC721");
         prize.erc721ItemTypeId = itemTypeId;
         emit ERC721PrizeItemTypeSet(prizeId, itemTypeId);
+    }
+
+    function setERC721PrizeMintConfig(uint256 prizeId, bool mintOnWin, uint256 maxSupply)
+        external
+        onlyOwner
+        noPendingSpins
+    {
+        Prize storage prize = _getPrize(prizeId);
+        require(prize.prizeType == PrizeTokenType.ERC721, "Prize is not ERC721");
+        if (mintOnWin) {
+            require(prize.erc721ItemTypeId != 0, "Item type required");
+            require(maxSupply >= erc721PrizeMintCount[prizeId] && maxSupply > 0, "Invalid max supply");
+        }
+        erc721PrizeMintsOnWin[prizeId] = mintOnWin;
+        erc721PrizeMaxSupply[prizeId] = maxSupply;
+        emit ERC721PrizeMintConfigSet(prizeId, mintOnWin, maxSupply);
     }
 
     // ============ Funding and withdrawals ============
@@ -620,6 +691,14 @@ contract SlotMachine is Ownable, ReentrancyGuard, ERC721Holder, VRFConsumerBaseV
     function getPrizeStock(uint256 prizeId) public view returns (uint256) {
         Prize storage prize = _getPrize(prizeId);
         if (prize.prizeType == PrizeTokenType.ERC721) {
+            if (erc721PrizeMintsOnWin[prizeId]) {
+                uint256 maxSupply = erc721PrizeMaxSupply[prizeId];
+                uint256 minted = erc721PrizeMintCount[prizeId];
+                if (minted >= maxSupply) {
+                    return 0;
+                }
+                return maxSupply - minted;
+            }
             return erc721PrizeTokenIds[prizeId].length;
         }
 
@@ -641,6 +720,15 @@ contract SlotMachine is Ownable, ReentrancyGuard, ERC721Holder, VRFConsumerBaseV
     function getERC721PrizeTokenIds(uint256 prizeId) external view returns (uint256[] memory) {
         _getPrize(prizeId);
         return erc721PrizeTokenIds[prizeId];
+    }
+
+    function getERC721PrizeMintConfig(uint256 prizeId)
+        external
+        view
+        returns (bool mintOnWin, uint256 maxSupply, uint256 minted)
+    {
+        _getPrize(prizeId);
+        return (erc721PrizeMintsOnWin[prizeId], erc721PrizeMaxSupply[prizeId], erc721PrizeMintCount[prizeId]);
     }
 
     function getLoseWeightBps() external view returns (uint256) {

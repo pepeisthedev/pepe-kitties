@@ -41,6 +41,35 @@ describe("SlotMachine", function () {
     ]);
   }
 
+  async function spinAndGetResult(slot, player) {
+    const tx = await slot.connect(player).spin();
+    const receipt = await tx.wait();
+    let result = null;
+
+    for (const log of receipt.logs) {
+      try {
+        const parsed = slot.interface.parseLog(log);
+        if (parsed?.name === "SpinResult") {
+          result = {
+            player: parsed.args.player,
+            requestId: parsed.args.requestId,
+            won: parsed.args.won,
+            prizeId: parsed.args.prizeId,
+            prizeType: parsed.args.prizeType,
+            prizeToken: parsed.args.prizeToken,
+            tokenId: parsed.args.tokenId,
+            amount: parsed.args.amount,
+          };
+        }
+      } catch {
+        // Ignore logs from other contracts in the same transaction.
+      }
+    }
+
+    expect(result).to.not.equal(null);
+    return result;
+  }
+
   it("routes the FREG spin cost to the liquidity vault", async function () {
     const { player, liquidityVault, fregCoin, slot } = await deployFixture();
 
@@ -62,10 +91,12 @@ describe("SlotMachine", function () {
     await nft.setApprovalForAll(slot.target, true);
     await slot.depositERC721Prize(1, [0, 1]);
 
-    await expect(slot.connect(player).spin())
-      .to.emit(slot, "SpinResult")
-      .withArgs(player.address, anyValue, true, 1, 1, nft.target, anyValue, 0);
+    const result = await spinAndGetResult(slot, player);
 
+    expect(result.won).to.equal(true);
+    expect(result.prizeId).to.equal(1n);
+    expect(result.prizeType).to.equal(1n);
+    expect(result.prizeToken).to.equal(nft.target);
     expect(await nft.balanceOf(player.address)).to.equal(1);
     expect(await slot.getPrizeStock(1)).to.equal(1);
     expect(await fregCoin.balanceOf(liquidityVault.address)).to.equal(SPIN_COST);
@@ -95,9 +126,13 @@ describe("SlotMachine", function () {
     await nft.setApprovalForAll(slot.target, true);
     await slot.depositERC721Prize(1, [0, 1]);
 
-    await slot.connect(player).spin();
-    await slot.connect(player).spin();
-    await slot.connect(player).spin();
+    const first = await spinAndGetResult(slot, player);
+    const second = await spinAndGetResult(slot, player);
+    const third = await spinAndGetResult(slot, player);
+
+    expect(first.won).to.equal(true);
+    expect(second.won).to.equal(true);
+    expect(third.won).to.equal(false);
 
     expect(await nft.balanceOf(player.address)).to.equal(2);
     expect(await slot.getPrizeStock(1)).to.equal(0);
@@ -126,6 +161,26 @@ describe("SlotMachine", function () {
     expect(await slot.getERC721PrizeTokenIds(1)).to.deep.equal([0n]);
   });
 
+  it("can mint ERC721 item prizes on win without a separate claim", async function () {
+    const { owner, player, slot } = await deployFixture();
+    const items = await deployItemsContract(owner);
+
+    await items.addItemType("Godzilla Suit", "Prize", 2, 23, true, false, 0);
+    await slot.addERC721MintPrize("Godzilla Suit", items.target, 101, 10_000, 1);
+    await items.setSpinTheWheelContract(slot.target);
+
+    const result = await spinAndGetResult(slot, player);
+
+    expect(result.won).to.equal(true);
+    expect(result.prizeId).to.equal(1n);
+    expect(result.prizeType).to.equal(1n);
+    expect(result.prizeToken).to.equal(items.target);
+    expect(result.tokenId).to.equal(0n);
+    expect(await items.ownerOf(0)).to.equal(player.address);
+    expect(await items.balanceOf(player.address)).to.equal(1);
+    expect(await slot.getPrizeStock(1)).to.equal(0);
+  });
+
   it("rejects ERC721 item prizes with the wrong item type", async function () {
     const { owner, slot } = await deployFixture();
     const items = await deployItemsContract(owner);
@@ -147,11 +202,15 @@ describe("SlotMachine", function () {
     await prizeCoin.approve(slot.target, prizeAmount);
     await slot.depositERC20Prize(1, prizeAmount);
 
-    await expect(slot.connect(player).spin())
-      .to.emit(slot, "SpinResult")
-      .withArgs(player.address, anyValue, true, 1, 2, prizeCoin.target, 0, prizeAmount);
+    const result = await spinAndGetResult(slot, player);
 
+    expect(result.won).to.equal(true);
+    expect(result.prizeId).to.equal(1n);
+    expect(result.prizeType).to.equal(2n);
+    expect(result.prizeToken).to.equal(prizeCoin.target);
+    expect(result.amount).to.equal(prizeAmount);
     expect(await prizeCoin.balanceOf(player.address)).to.equal(prizeAmount);
+    expect(await slot.getPrizeStock(1)).to.equal(0);
     expect(await prizeCoin.balanceOf(owner.address)).to.equal(await prizeCoin.MAX_SUPPLY() - prizeAmount);
   });
 

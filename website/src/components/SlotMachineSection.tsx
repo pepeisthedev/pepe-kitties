@@ -16,6 +16,7 @@ import { ArrowDownRight, CircleHelp, Coins, Lock, X } from "lucide-react"
 
 const PRIZE_TYPE_ERC721 = 1
 const PRIZE_TYPE_ERC20 = 2
+const WEIGHT_DENOMINATOR = 10_000
 const REEL_COUNT = 3
 const STOP_DELAY_MS = 650
 const RESULT_DELAY_MS = 900
@@ -44,6 +45,7 @@ type PrizeInfo = {
 }
 
 type SlotResult = {
+  requestId: bigint
   won: boolean
   prizeId: number
   prizeType: number
@@ -82,12 +84,18 @@ const DEFAULT_SYMBOLS: SlotSymbol[] = LOSING_SYMBOLS
 
 const STATUS_TEXT: Record<SlotPhase, string> = {
   idle: "Pull",
-  approving: "Approve FREG",
+  approving: "Approve $FREG",
   confirming: "Confirm Spin",
   spinning: "",
   stopping: "",
   result: "",
 }
+
+let persistedReelOffsets = [0, 1, 2]
+let persistedSpinCost = 0n
+let persistedPrizes: PrizeInfo[] = []
+let persistedLoseWeightBps = WEIGHT_DENOMINATOR
+let persistedEffectiveWinWeightBps = 0
 
 function getPrizeImage(name: string, prizeType: number): string {
   const normalized = name.toLowerCase()
@@ -164,6 +172,7 @@ function parseReceiptEvents(receipt: any, contract: any) {
 
       if (parsed?.name === "SpinResult") {
         result = {
+          requestId: BigInt(parsed.args.requestId),
           won: Boolean(parsed.args.won),
           prizeId: Number(parsed.args.prizeId),
           prizeType: Number(parsed.args.prizeType),
@@ -259,22 +268,22 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
   const { refetch: refetchKitties } = useOwnedKitties()
 
   const [slotPhase, setSlotPhase] = useState<SlotPhase>("idle")
-  const [spinCost, setSpinCost] = useState<bigint>(0n)
-  const [prizes, setPrizes] = useState<PrizeInfo[]>([])
-  const [loseWeightBps, setLoseWeightBps] = useState(WEIGHT_DENOMINATOR)
-  const [effectiveWinWeightBps, setEffectiveWinWeightBps] = useState(0)
+  const [spinCost, setSpinCost] = useState<bigint>(() => persistedSpinCost)
+  const [prizes, setPrizes] = useState<PrizeInfo[]>(() => [...persistedPrizes])
+  const [loseWeightBps, setLoseWeightBps] = useState(() => persistedLoseWeightBps)
+  const [effectiveWinWeightBps, setEffectiveWinWeightBps] = useState(() => persistedEffectiveWinWeightBps)
   const [slotError, setSlotError] = useState<string | null>(null)
   const [slotResult, setSlotResult] = useState<SlotResult | null>(null)
   const [isInfoOpen, setIsInfoOpen] = useState(false)
   const [isPrizeInfoLoading, setIsPrizeInfoLoading] = useState(false)
   const [armPulled, setArmPulled] = useState(false)
   const [hasPulledThisVisit, setHasPulledThisVisit] = useState(false)
-  const [reelOffsets, setReelOffsets] = useState<number[]>([0, 1, 2])
+  const [reelOffsets, setReelOffsets] = useState<number[]>(() => [...persistedReelOffsets])
   const [stoppedReels, setStoppedReels] = useState<boolean[]>([true, true, true])
 
   const reelAnimationRef = useRef<number>()
   const reelLastTimeRef = useRef<number>(0)
-  const reelOffsetsRef = useRef<number[]>([0, 1, 2])
+  const reelOffsetsRef = useRef<number[]>([...persistedReelOffsets])
   const reelSpinningRef = useRef<boolean[]>([false, false, false])
   const reelTweensRef = useRef<(ReelTween | null)[]>([null, null, null])
   const stopTimersRef = useRef<number[]>([])
@@ -298,10 +307,6 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
 
   const loadSlotData = useCallback(async () => {
     if (!contracts?.slotMachine?.read) {
-      setSpinCost(0n)
-      setPrizes([])
-      setLoseWeightBps(WEIGHT_DENOMINATOR)
-      setEffectiveWinWeightBps(0)
       return
     }
 
@@ -331,22 +336,28 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
         })
       }
 
-      setSpinCost(BigInt(cost))
+      const nextSpinCost = BigInt(cost)
+      const nextLoseWeightBps = Number(loseWeightRaw)
+      const nextEffectiveWinWeightBps = Number(effectiveWinWeightRaw)
+
+      persistedSpinCost = nextSpinCost
+      persistedPrizes = loadedPrizes
+      persistedLoseWeightBps = nextLoseWeightBps
+      persistedEffectiveWinWeightBps = nextEffectiveWinWeightBps
+
+      setSpinCost(nextSpinCost)
       setPrizes(loadedPrizes)
-      setLoseWeightBps(Number(loseWeightRaw))
-      setEffectiveWinWeightBps(Number(effectiveWinWeightRaw))
+      setLoseWeightBps(nextLoseWeightBps)
+      setEffectiveWinWeightBps(nextEffectiveWinWeightBps)
     } catch (error) {
       console.error("Error loading slot machine data:", error)
-      setSpinCost(0n)
-      setPrizes([])
-      setLoseWeightBps(WEIGHT_DENOMINATOR)
-      setEffectiveWinWeightBps(0)
     } finally {
       setIsPrizeInfoLoading(false)
     }
   }, [contracts])
 
   const clearReelTimers = useCallback(() => {
+    persistedReelOffsets = [...reelOffsetsRef.current]
     for (const timer of stopTimersRef.current) {
       window.clearTimeout(timer)
     }
@@ -390,6 +401,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
     }
 
     reelOffsetsRef.current = nextOffsets
+    persistedReelOffsets = [...nextOffsets]
     setReelOffsets(nextOffsets)
 
     if (completedStop) {
@@ -414,21 +426,13 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
     }
   }, [])
 
-  const startReels = useCallback((availableSymbols: SlotSymbol[]) => {
+  const startReels = useCallback(() => {
     clearReelTimers()
     setStoppedReels([false, false, false])
     resultRevealPendingRef.current = false
     reelSpinningRef.current = [true, true, true]
     reelTweensRef.current = [null, null, null]
     reelLastTimeRef.current = performance.now()
-
-    const nextOffsets = reelOffsetsRef.current.map((offset, index) => {
-      const symbol = availableSymbols[index % availableSymbols.length] || NO_WIN_SYMBOL
-      const symbolIndex = Math.max(0, availableSymbols.findIndex(entry => entry.key === symbol.key))
-      return Math.max(offset, 0) + symbolIndex
-    })
-    reelOffsetsRef.current = nextOffsets
-    setReelOffsets(nextOffsets)
 
     reelAnimationRef.current = window.requestAnimationFrame(runReelAnimation)
   }, [clearReelTimers, runReelAnimation])
@@ -472,14 +476,6 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
     return () => clearReelTimers()
   }, [clearReelTimers])
 
-  useEffect(() => {
-    if (symbols.length >= REEL_COUNT && slotPhase === "idle") {
-      const nextOffsets = [0, 1, 2]
-      reelOffsetsRef.current = nextOffsets
-      setReelOffsets(nextOffsets)
-    }
-  }, [symbols, slotPhase])
-
   if (!SLOT_MACHINE_ADDRESS) {
     return null
   }
@@ -506,6 +502,19 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
       return
     }
 
+    if (isPrizeInfoLoading) {
+      setArmPulled(false)
+      return
+    }
+
+    const noAvailablePrizes = !isPrizeInfoLoading && (prizes.length === 0 || effectiveWinWeightBps <= 0)
+    if (noAvailablePrizes) {
+      setSlotError("No prizes left")
+      setSlotPhase("result")
+      setArmPulled(false)
+      return
+    }
+
     if (spinCost <= 0n) {
       setSlotError("Spin cost is not configured")
       setSlotPhase("result")
@@ -514,7 +523,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
     }
 
     if (fregBalance < spinCost) {
-      setSlotError("Not enough FREG")
+      setSlotError("Not enough $FREG")
       setSlotPhase("result")
       setArmPulled(false)
       return
@@ -539,7 +548,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
       const tx = await slotWrite.spin({ gasLimit: 650000n })
 
       setSlotPhase("spinning")
-      startReels(symbols)
+      startReels()
 
       const receipt = await tx.wait()
       setArmPulled(false)
@@ -557,6 +566,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
         })
 
         result = {
+          requestId: BigInt(resultEvent.args.requestId),
           won: Boolean(resultEvent.args.won),
           prizeId: Number(resultEvent.args.prizeId),
           prizeType: Number(resultEvent.args.prizeType),
@@ -564,6 +574,10 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
           tokenId: BigInt(resultEvent.args.tokenId),
           amount: BigInt(resultEvent.args.amount),
         }
+      }
+
+      if (!result) {
+        throw new Error("Missing slot machine result")
       }
 
       setSlotResult(result)
@@ -618,12 +632,16 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
   }
 
   const isBusy = slotPhase === "approving" || slotPhase === "confirming" || slotPhase === "spinning" || slotPhase === "stopping"
+  const slotSoldOut = slotMachineActive && !isPrizeInfoLoading && (prizes.length === 0 || effectiveWinWeightBps <= 0)
+  const slotControlsDisabled = isBusy || isPrizeInfoLoading || slotSoldOut
   const canAfford = spinCost > 0n && fregBalance >= spinCost
   const displayedCost = spinCost > 0n ? formatFregAmount(spinCost) : "..."
   const displayedBalance = balanceLoading ? "..." : formatFregAmount(fregBalance)
   const resultPrize = slotResult?.won ? prizes.find(prize => prize.prizeId === slotResult.prizeId) : null
-  const showLeverPrompt = !hasPulledThisVisit && !isBusy
+  const showLeverPrompt = !hasPulledThisVisit && !slotControlsDisabled
   const effectiveLoseWeightBps = Math.max(0, WEIGHT_DENOMINATOR - effectiveWinWeightBps)
+  const statusText = isBusy ? STATUS_TEXT[slotPhase] : isPrizeInfoLoading ? "Loading" : slotSoldOut ? "Out of prizes" : canAfford ? "" : "Need $FREG"
+  const actionText = !isConnected ? "Connect" : isPrizeInfoLoading ? "Loading" : slotSoldOut ? "Out of prizes" : STATUS_TEXT[slotPhase]
 
   return (
     <section id="slot-machine" className="relative flex h-full flex-col overflow-hidden bg-[#120815]">
@@ -655,7 +673,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
             <div className="flex w-full max-w-2xl items-center justify-between gap-3 rounded-xl border-2 border-yellow-300/60 bg-black/55 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.42)]">
               <div className="flex min-w-0 items-center gap-2">
                 <Coins className="h-5 w-5 shrink-0 text-lime-300" />
-                <span className="truncate font-bangers text-xl text-lime-300 md:text-3xl">{displayedBalance} FREG</span>
+                <span className="truncate font-bangers text-xl text-lime-300 md:text-3xl">{displayedBalance} $FREG</span>
               </div>
               <div className="shrink-0 font-bangers text-xl text-yellow-200 md:text-3xl">
                 {displayedCost} / spin
@@ -665,7 +683,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
             <div className="relative aspect-square w-full max-w-[44rem] drop-shadow-[0_24px_60px_rgba(0,0,0,0.68)]">
               <img
                 src={SLOT_MACHINE_IMAGE}
-                alt="FREG slot machine"
+                alt="$FREG slot machine"
                 className="absolute inset-0 z-10 h-full w-full select-none object-contain"
                 draggable={false}
               />
@@ -695,7 +713,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
               <button
                 type="button"
                 onClick={handlePull}
-                disabled={isBusy}
+                disabled={slotControlsDisabled}
                 className="absolute right-[4.2%] top-[34%] z-40 h-[30%] w-[10.8%] cursor-pointer rounded-full outline-none transition-transform hover:scale-105 focus-visible:ring-4 focus-visible:ring-yellow-200/80 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100"
                 aria-label="Pull slot machine arm"
               />
@@ -712,7 +730,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
 
             <div className="flex min-h-10 items-center justify-center">
               <p className="font-bangers text-2xl text-yellow-200 drop-shadow-[0_3px_0_rgba(0,0,0,0.8)] md:text-4xl">
-                {isBusy ? STATUS_TEXT[slotPhase] : canAfford ? "" : "Need FREG"}
+                {statusText}
               </p>
             </div>
           </div>
@@ -739,10 +757,10 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
 
           <Button
             onClick={handlePull}
-            disabled={isBusy || (isConnected && (!slotMachineActive || spinCost <= 0n || !canAfford))}
+            disabled={isBusy || (isConnected && (isPrizeInfoLoading || !slotMachineActive || slotSoldOut || spinCost <= 0n || !canAfford))}
             className="rounded-2xl bg-gradient-to-r from-lime-500 to-yellow-300 px-8 py-5 font-bangers text-2xl text-black shadow-lg hover:from-lime-400 hover:to-yellow-200 disabled:cursor-not-allowed disabled:opacity-50 md:px-14 md:text-3xl"
           >
-            {!isConnected ? "Connect" : STATUS_TEXT[slotPhase]}
+            {actionText}
           </Button>
 
           <div className="flex items-center gap-1.5 rounded-full border-2 border-[#3d1a00]/60 bg-[#2b1237] px-3 py-1.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.4)]">
@@ -786,7 +804,13 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
                     className="h-full w-full object-contain"
                   />
                 </div>
-                <p className="font-bangers text-3xl text-lime-300">{resultPrize?.name || "Prize"}</p>
+                {slotResult.prizeType === PRIZE_TYPE_ERC20 ? (
+                  <p className="font-bangers text-3xl text-lime-300">
+                    You won {formatFregAmount(slotResult.amount)} $FREG
+                  </p>
+                ) : (
+                  <p className="font-bangers text-3xl text-lime-300">{resultPrize?.name || "Prize"}</p>
+                )}
                 {slotResult.prizeType === PRIZE_TYPE_ERC721 && slotResult.tokenId >= 0n && (
                   <p className="mt-2 font-righteous text-sm text-white/65">Token #{slotResult.tokenId.toString()}</p>
                 )}
@@ -817,7 +841,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
               FREG Slot
             </DialogTitle>
             <DialogDescription className="font-righteous text-white/75 text-base leading-relaxed">
-              Pull the lever for a chance to win prizes. It costs {displayedCost} FREG to play.
+              Pull the lever for a chance to win prizes. It costs {displayedCost} $FREG to play.
             </DialogDescription>
           </DialogHeader>
 

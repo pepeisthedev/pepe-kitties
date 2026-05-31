@@ -96,6 +96,61 @@ const DEFAULT_VRF_KEY_HASHES = {
   base: "0x00b81b5a830cb0a4009fbd8904de511e28631e62ce5ad231373d3cdad373ccab",
 };
 
+function normalizePrivateKey(privateKey) {
+    if (!privateKey) return null;
+    return privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`;
+}
+
+function envFlag(name) {
+    return ["1", "true", "yes"].includes(String(process.env[name] || "").toLowerCase());
+}
+
+function sameAddress(left, right) {
+    return String(left || "").toLowerCase() === String(right || "").toLowerCase();
+}
+
+function parseOptionalAddress(label, value) {
+    if (!value) return null;
+    try {
+        return ethers.getAddress(value);
+    } catch {
+        throw new Error(`${label} is not a valid address: ${value}`);
+    }
+}
+
+function getChainlinkSubscriptionOwnerConfig() {
+    if (network.name === "baseSepolia") {
+        return {
+            owner: process.env.BASE_SEPOLIA_CHAINLINK_SUBSCRIPTION_OWNER ||
+                process.env.BASE_CHAINLINK_SUBSCRIPTION_OWNER ||
+                process.env.CHAINLINK_SUBSCRIPTION_OWNER ||
+                null,
+            privateKey: normalizePrivateKey(
+                process.env.BASE_SEPOLIA_CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY ||
+                process.env.BASE_CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY ||
+                process.env.CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY
+            ),
+        };
+    }
+
+    if (network.name === "base") {
+        return {
+            owner: process.env.BASE_CHAINLINK_SUBSCRIPTION_OWNER ||
+                process.env.CHAINLINK_SUBSCRIPTION_OWNER ||
+                null,
+            privateKey: normalizePrivateKey(
+                process.env.BASE_CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY ||
+                process.env.CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY
+            ),
+        };
+    }
+
+    return {
+        owner: process.env.CHAINLINK_SUBSCRIPTION_OWNER || null,
+        privateKey: normalizePrivateKey(process.env.CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY),
+    };
+}
+
 function getVrfConfig() {
     if (network.name === "localhost" || network.name === "hardhat") {
         return { coordinator: null, subscriptionId: 0, keyHash: ethers.ZeroHash };
@@ -119,6 +174,62 @@ function getVrfConfig() {
         subscriptionId: BigInt(process.env.VRF_SUBSCRIPTION_ID || 0),
         keyHash: process.env.VRF_KEY_HASH || ethers.ZeroHash,
     };
+}
+
+async function getChainlinkConsumerSigner(deployer) {
+    const deployerAddress = await deployer.getAddress();
+    const { owner, privateKey } = getChainlinkSubscriptionOwnerConfig();
+    const configuredOwner = parseOptionalAddress("Chainlink subscription owner", owner);
+
+    if (privateKey) {
+        const signer = new ethers.Wallet(privateKey, ethers.provider);
+        const signerAddress = await signer.getAddress();
+        if (configuredOwner && !sameAddress(configuredOwner, signerAddress)) {
+            throw new Error(
+                `Configured Chainlink subscription owner is ${configuredOwner}, but ` +
+                `the subscription owner private key resolves to ${signerAddress}.`
+            );
+        }
+        return {
+            shouldAddConsumer: true,
+            signer,
+            signerAddress,
+            configuredOwner: configuredOwner || signerAddress,
+            reason: "using Chainlink subscription owner private key",
+        };
+    }
+
+    if (configuredOwner && !sameAddress(configuredOwner, deployerAddress)) {
+        throw new Error(
+            `Configured Chainlink subscription owner is ${configuredOwner}, but deployer is ${deployerAddress}. ` +
+            "Set BASE_CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY for Base, " +
+            "BASE_SEPOLIA_CHAINLINK_SUBSCRIPTION_OWNER_PRIVATE_KEY for Base Sepolia, " +
+            "or SKIP_CHAINLINK_ADD_CONSUMER=true and add the consumer manually."
+        );
+    }
+
+    return {
+        shouldAddConsumer: true,
+        signer: deployer,
+        signerAddress: deployerAddress,
+        configuredOwner,
+        reason: "using deployer",
+    };
+}
+
+async function prepareChainlinkConsumerRegistration(deployer) {
+    if (envFlag("SKIP_VRF_ADD_CONSUMER") || envFlag("SKIP_CHAINLINK_ADD_CONSUMER")) {
+        const { owner } = getChainlinkSubscriptionOwnerConfig();
+        return {
+            shouldAddConsumer: false,
+            signer: null,
+            signerAddress: null,
+            configuredOwner: parseOptionalAddress("Chainlink subscription owner", owner),
+            reason: "SKIP_VRF_ADD_CONSUMER/SKIP_CHAINLINK_ADD_CONSUMER is set",
+        };
+    }
+
+    return await getChainlinkConsumerSigner(deployer);
 }
 
 // ============ LOAD TRAITS FROM JSON ============
@@ -688,6 +799,16 @@ async function main() {
         if (!vrfConfig.coordinator) throw new Error(`Missing VRF coordinator for ${network.name}. Set BASE_VRF_COORDINATOR in .env.`);
         if (!vrfConfig.subscriptionId || vrfConfig.subscriptionId === 0n) throw new Error(`Missing VRF subscription ID for ${network.name}. Set BASE_VRF_SUBSCRIPTION_ID in .env.`);
     }
+    const vrfConsumerRegistration = isLocalhost
+        ? { shouldAddConsumer: false, signer: null, signerAddress: null, configuredOwner: null, reason: "localhost mock VRF" }
+        : await prepareChainlinkConsumerRegistration(deployer);
+
+    if (!isLocalhost) {
+        console.log("\n--- VRF Consumer Registration Preflight ---");
+        console.log("  Chainlink subscription owner:", vrfConsumerRegistration.configuredOwner || "(not configured)");
+        console.log("  addConsumer signer:", vrfConsumerRegistration.signerAddress || "(skipped)");
+        console.log("  addConsumer mode:", vrfConsumerRegistration.shouldAddConsumer ? vrfConsumerRegistration.reason : `skipped (${vrfConsumerRegistration.reason})`);
+    }
 
     let vrfCoordinatorAddress = vrfConfig.coordinator;
     let vrfSubscriptionId = vrfConfig.subscriptionId;
@@ -777,10 +898,20 @@ async function main() {
     console.log("  VRF subscription ID:", vrfSubscriptionId);
 
     if (!isLocalhost) {
-        console.log("Adding FregsRandomizer as VRF subscription consumer...");
-        const coordinator = await ethers.getContractAt("IVRFCoordinatorV2Plus", vrfCoordinatorAddress);
-        await sendTx(() => coordinator.addConsumer(vrfSubscriptionId, fregsRandomizerAddress));
-        console.log("  FregsRandomizer added as consumer!");
+        if (vrfConsumerRegistration.shouldAddConsumer) {
+            console.log("Adding FregsRandomizer as VRF subscription consumer...");
+            console.log("  addConsumer signer:", vrfConsumerRegistration.signerAddress);
+            const coordinator = await ethers.getContractAt(
+                "IVRFCoordinatorV2Plus",
+                vrfCoordinatorAddress,
+                vrfConsumerRegistration.signer
+            );
+            await sendTx(() => coordinator.addConsumer(vrfSubscriptionId, fregsRandomizerAddress));
+            console.log("  FregsRandomizer added as consumer!");
+        } else {
+            console.log("  Skipping Chainlink addConsumer.");
+            console.log(`  Add this consumer manually from the subscription owner: ${fregsRandomizerAddress}`);
+        }
     }
 
     console.log("Setting items contract on Fregs...");

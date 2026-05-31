@@ -6,20 +6,13 @@ const { main: deployNewShopItem } = require("./deployNewShopItem");
 
 const WEBSITE_ABI_PATH = path.join(__dirname, "../../website/src/assets/abis");
 const GODZILLA_DEFINITION = path.join(__dirname, "shop-item-definitions/godzillaTrait.js");
-const BULL_DEFINITION = path.join(__dirname, "shop-item-definitions/bullItemTrait.js");
-const WHALE_DEFINITION = path.join(__dirname, "shop-item-definitions/whaleItemTrait.js");
 
 const SPIN_COST = ethers.parseEther(process.env.SLOT_SPIN_COST_FREG || "100000000");
+const CALLBACK_GAS_LIMIT = Number(process.env.LOCAL_SLOT_CALLBACK_GAS_LIMIT || process.env.SLOT_CALLBACK_GAS_LIMIT || 1000000);
 const GODZILLA_PRIZE_COUNT = Number(process.env.LOCAL_SLOT_GODZILLA_PRIZE_COUNT || 1);
-const FREG_PRIZE_COUNT = Number(process.env.LOCAL_SLOT_FREG_PRIZE_COUNT || 3);
-const BULL_PRIZE_COUNT = Number(process.env.LOCAL_SLOT_BULL_PRIZE_COUNT || 5);
-const WHALE_PRIZE_COUNT = Number(process.env.LOCAL_SLOT_WHALE_PRIZE_COUNT || 5);
 
 const PRIZE_WEIGHTS = {
   godzilla: Number(process.env.LOCAL_SLOT_GODZILLA_WEIGHT_BPS || 300),
-  freg: Number(process.env.LOCAL_SLOT_FREG_WEIGHT_BPS || 300),
-  bull: Number(process.env.LOCAL_SLOT_BULL_WEIGHT_BPS || 1000),
-  whale: Number(process.env.LOCAL_SLOT_WHALE_WEIGHT_BPS || 1500),
 };
 
 async function sendTx(txFactoryOrPromise, confirmations = 1) {
@@ -97,11 +90,6 @@ async function ensureDynamicItem(definitionPath, definitionKey, name) {
   return deployedItemType;
 }
 
-async function getOwnedFregIds(fregs, owner) {
-  const result = await fregs.getOwnedFregs(owner);
-  return result[0].map((id) => Number(id));
-}
-
 async function getOwnedItemIdsByType(fregsItems, owner, itemTypeId) {
   const [tokenIds, itemTypes] = await fregsItems.getOwnedItems(owner);
   const ids = [];
@@ -116,55 +104,6 @@ async function getOwnedItemIdsByType(fregsItems, owner, itemTypeId) {
 function diffIds(after, before) {
   const beforeSet = new Set(before.map(Number));
   return after.filter((id) => !beforeSet.has(Number(id)));
-}
-
-async function mintFregsForPrize(fregs, randomizer, ownerAddress, count) {
-  if (count <= 0) return [];
-
-  console.log(`  Minting ${count} Freg NFT prize${count === 1 ? "" : "s"}...`);
-  try {
-    await sendTx(() => randomizer.setAutoFulfill(true));
-  } catch (error) {
-    console.log(`  Could not set randomizer autoFulfill: ${error.message}`);
-  }
-
-  const previousMintPhase = Number(await fregs.mintPhase());
-  if (previousMintPhase !== 0) {
-    await sendTx(() => fregs.setMintPhase(0));
-  }
-
-  const before = await getOwnedFregIds(fregs, ownerAddress);
-  const colors = ["#85d45c", "#f5c842", "#d946ef", "#38bdf8", "#fb7185", "#a3e635"];
-
-  for (let i = 0; i < count; i += 1) {
-    await sendTx(() => fregs.mint(colors[i % colors.length]));
-  }
-
-  if (previousMintPhase !== 0) {
-    await sendTx(() => fregs.setMintPhase(previousMintPhase));
-  }
-
-  const after = await getOwnedFregIds(fregs, ownerAddress);
-  const minted = diffIds(after, before);
-  if (minted.length !== count) {
-    throw new Error(`Expected ${count} new Fregs, found ${minted.length}`);
-  }
-  return minted;
-}
-
-async function mintItemsForPrize(fregsItems, ownerAddress, itemTypeId, count, label) {
-  if (count <= 0) return [];
-
-  console.log(`  Minting ${count} ${label} item prize${count === 1 ? "" : "s"}...`);
-  const before = await getOwnedItemIdsByType(fregsItems, ownerAddress, itemTypeId);
-  await sendTx(() => fregsItems.ownerMint(ownerAddress, itemTypeId, count));
-  const after = await getOwnedItemIdsByType(fregsItems, ownerAddress, itemTypeId);
-  const minted = diffIds(after, before);
-
-  if (minted.length !== count) {
-    throw new Error(`Expected ${count} new ${label} items, found ${minted.length}`);
-  }
-  return minted;
 }
 
 async function mintItemsDirectlyToSlotMachine(fregsItems, slotMachine, slotMachineAddress, prizeId, itemTypeId, count, label) {
@@ -183,16 +122,6 @@ async function mintItemsDirectlyToSlotMachine(fregsItems, slotMachine, slotMachi
     await sendTx(() => slotMachine.registerERC721Prize(prizeId, tokenId));
   }
   return minted;
-}
-
-async function depositERC721Prize(slotMachine, tokenContract, prizeId, tokenIds, label) {
-  if (tokenIds.length === 0) return;
-
-  console.log(`  Funding prize ${prizeId} (${label}) with token IDs: ${tokenIds.join(", ")}`);
-  await sendTx(() => tokenContract.setApprovalForAll(slotMachine.target, true));
-  await sendTx(() => slotMachine.depositERC721Prize(prizeId, tokenIds));
-  const stock = await slotMachine.getPrizeStock(prizeId);
-  console.log(`  Prize ${prizeId} stock: ${stock.toString()}`);
 }
 
 async function disableLocalTransferValidator(contract, label) {
@@ -233,35 +162,26 @@ async function main() {
   console.log("=".repeat(60));
 
   const [deployer] = await ethers.getSigners();
-  const deployerAddress = await deployer.getAddress();
   let status = loadDeploymentStatus(network.name);
 
-  const fregsAddress = requireStatusAddress(status, "fregs");
   const fregsItemsAddress = requireStatusAddress(status, "fregsItems");
   const fregCoinAddress = requireStatusAddress(status, "fregCoin");
   const liquidityAddress = requireStatusAddress(status, "fregsLiquidity");
-  const randomizerAddress = requireStatusAddress(status, "fregsRandomizer");
   const coordinatorAddress = await deployMockCoordinatorIfNeeded(status);
 
-  console.log("  Deployer:", deployerAddress);
-  console.log("  Fregs:", fregsAddress);
+  console.log("  Deployer:", await deployer.getAddress());
   console.log("  FregsItems:", fregsItemsAddress);
   console.log("  FregCoin:", fregCoinAddress);
   console.log("  Liquidity vault:", liquidityAddress);
   console.log("  VRF coordinator:", coordinatorAddress);
 
-  const fregs = await ethers.getContractAt("Fregs", fregsAddress);
   const fregsItems = await ethers.getContractAt("FregsItems", fregsItemsAddress);
-  const randomizer = await ethers.getContractAt("FregsRandomizer", randomizerAddress);
 
   console.log("\n--- Preparing local transfer rules ---");
-  await disableLocalTransferValidator(fregs, "Fregs");
   await disableLocalTransferValidator(fregsItems, "FregsItems");
 
   console.log("\n--- Ensuring dynamic prize item traits ---");
   const godzillaItemType = await ensureDynamicItem(GODZILLA_DEFINITION, "godzilla", "Godzilla Suit");
-  const bullItemType = await ensureDynamicItem(BULL_DEFINITION, "bull", "Bull Suit");
-  const whaleItemType = await ensureDynamicItem(WHALE_DEFINITION, "whale", "Whale Suit");
 
   status = loadDeploymentStatus(network.name);
 
@@ -278,6 +198,7 @@ async function main() {
   await slotMachine.waitForDeployment();
   const slotMachineAddress = await slotMachine.getAddress();
 
+  await sendTx(() => slotMachine.setCallbackGasLimit(CALLBACK_GAS_LIMIT));
   await sendTx(() => slotMachine.setRequestConfirmations(1));
   await sendTx(() => slotMachine.setAutoFulfill(true));
 
@@ -285,29 +206,16 @@ async function main() {
   console.log("  Spin cost:", ethers.formatEther(SPIN_COST), "FREG");
 
   console.log("\n--- Configuring slot prizes ---");
-  await sendTx(() => slotMachine.addERC721ItemPrize("Godzilla Suit", fregsItemsAddress, godzillaItemType, PRIZE_WEIGHTS.godzilla));
-  await sendTx(() => slotMachine.addERC721Prize("Freg", fregsAddress, PRIZE_WEIGHTS.freg));
-  await sendTx(() => slotMachine.addERC721ItemPrize("Bull Suit", fregsItemsAddress, bullItemType, PRIZE_WEIGHTS.bull));
-  await sendTx(() => slotMachine.addERC721ItemPrize("Whale Suit", fregsItemsAddress, whaleItemType, PRIZE_WEIGHTS.whale));
-
-  console.log("\n--- Minting and funding prizes ---");
-  const godzillaItemTokenIds = await mintItemsDirectlyToSlotMachine(
-    fregsItems,
-    slotMachine,
-    slotMachineAddress,
-    1,
+  await sendTx(() => slotMachine.addERC721MintPrize(
+    "Godzilla Suit",
+    fregsItemsAddress,
     godzillaItemType,
-    GODZILLA_PRIZE_COUNT,
-    "Godzilla Suit"
-  );
-  const fregTokenIds = await mintFregsForPrize(fregs, randomizer, deployerAddress, FREG_PRIZE_COUNT);
-  const bullItemTokenIds = await mintItemsForPrize(fregsItems, deployerAddress, bullItemType, BULL_PRIZE_COUNT, "Bull Suit");
-  const whaleItemTokenIds = await mintItemsForPrize(fregsItems, deployerAddress, whaleItemType, WHALE_PRIZE_COUNT, "Whale Suit");
+    PRIZE_WEIGHTS.godzilla,
+    GODZILLA_PRIZE_COUNT
+  ));
+  await sendTx(() => fregsItems.setSpinTheWheelContract(slotMachineAddress));
 
   console.log(`  Prize 1 (Godzilla Suit) stock: ${(await slotMachine.getPrizeStock(1)).toString()}`);
-  await depositERC721Prize(slotMachine, fregs, 2, fregTokenIds, "Freg");
-  await depositERC721Prize(slotMachine, fregsItems, 3, bullItemTokenIds, "Bull Suit");
-  await depositERC721Prize(slotMachine, fregsItems, 4, whaleItemTokenIds, "Whale Suit");
 
   await sendTx(() => slotMachine.setActive(true));
   copyABI("SlotMachine");
@@ -321,10 +229,14 @@ async function main() {
     lastFundedAt: new Date().toISOString(),
     spinCostFreg: ethers.formatEther(SPIN_COST),
     prizes: {
-      1: { name: "Godzilla Suit", token: fregsItemsAddress, itemType: godzillaItemType, weightBps: PRIZE_WEIGHTS.godzilla, tokenIds: godzillaItemTokenIds },
-      2: { name: "Freg", token: fregsAddress, weightBps: PRIZE_WEIGHTS.freg, tokenIds: fregTokenIds },
-      3: { name: "Bull Suit", token: fregsItemsAddress, itemType: bullItemType, weightBps: PRIZE_WEIGHTS.bull, tokenIds: bullItemTokenIds },
-      4: { name: "Whale Suit", token: fregsItemsAddress, itemType: whaleItemType, weightBps: PRIZE_WEIGHTS.whale, tokenIds: whaleItemTokenIds },
+      1: {
+        name: "Godzilla Suit",
+        token: fregsItemsAddress,
+        itemType: godzillaItemType,
+        weightBps: PRIZE_WEIGHTS.godzilla,
+        mintOnWin: true,
+        maxSupply: GODZILLA_PRIZE_COUNT,
+      },
     },
   };
   saveDeploymentStatus(status, network.name);
@@ -333,10 +245,7 @@ async function main() {
   console.log("LOCAL SLOT MACHINE READY");
   console.log("=".repeat(60));
   console.log(`VITE_SLOT_MACHINE_ADDRESS=${slotMachineAddress}`);
-  console.log(`Prize 1 Godzilla stock: ${godzillaItemTokenIds.length}`);
-  console.log(`Prize 2 Freg stock: ${fregTokenIds.length}`);
-  console.log(`Prize 3 Bull stock: ${bullItemTokenIds.length}`);
-  console.log(`Prize 4 Whale stock: ${whaleItemTokenIds.length}`);
+  console.log(`Prize 1 Godzilla mint-on-win supply: ${GODZILLA_PRIZE_COUNT}`);
   console.log("Set the website env above or restart your local website with that value.");
 }
 

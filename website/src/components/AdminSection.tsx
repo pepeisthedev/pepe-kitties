@@ -4,23 +4,114 @@ import Section from "./Section"
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { Input } from "./ui/input"
-import { Settings, Package, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users, Dices, Droplets, Power, Gem, Coins } from "lucide-react"
+import { Settings, Package, ChevronDown, ChevronUp, CheckCircle, XCircle, Ticket, Shield, Users, Dices, Droplets, Power, Gem, Coins, Trophy } from "lucide-react"
 import { useContractData, useContracts } from "../hooks"
 import type { FeatureFlags } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog"
-import { ITEM_TYPES, FREG_COIN_ADDRESS } from "../config/contracts"
+import { FREG_COIN_ADDRESS, SLOT_MACHINE_ADDRESS } from "../config/contracts"
 
 type TxStatus = 'idle' | 'pending' | 'confirming' | 'success' | 'error'
+const WEIGHT_DENOMINATOR = 10_000
+const PRIZE_TYPE_ERC721 = 1
+const PRIZE_TYPE_ERC20 = 2
 
 interface ItemType {
   id: number
   name: string
 }
 
+interface SlotPrizeInfo {
+  prizeId: number
+  name: string
+  token: string
+  prizeType: number
+  weightBps: number
+  erc20Amount: bigint
+  stock: bigint
+  active: boolean
+  itemTypeId: number
+  mintOnWin: boolean
+  mintMaxSupply: bigint
+  mintCount: bigint
+}
+
 interface AdminSectionProps {
   featureFlags: FeatureFlags
   onFeatureFlagsChange: () => void
+}
+
+async function loadSlotPrizeInfo(slotMachine: any): Promise<SlotPrizeInfo[]> {
+  const count = Number(await slotMachine.getPrizesCount())
+  const prizes: SlotPrizeInfo[] = []
+
+  for (let prizeId = 1; prizeId <= count; prizeId += 1) {
+    const info = await slotMachine.getPrizeInfo(prizeId)
+    let itemTypeId = 0
+    let mintOnWin = false
+    let mintMaxSupply = 0n
+    let mintCount = 0n
+    try {
+      itemTypeId = Number(await slotMachine.getPrizeItemTypeId(prizeId))
+    } catch {}
+    try {
+      const mintConfig = await slotMachine.getERC721PrizeMintConfig(prizeId)
+      mintOnWin = Boolean(mintConfig[0])
+      mintMaxSupply = BigInt(mintConfig[1])
+      mintCount = BigInt(mintConfig[2])
+    } catch {}
+
+    prizes.push({
+      prizeId,
+      name: String(info[0]),
+      token: String(info[1]),
+      prizeType: Number(info[2]),
+      weightBps: Number(info[3]),
+      erc20Amount: BigInt(info[4]),
+      stock: BigInt(info[6]),
+      active: Boolean(info[5]),
+      itemTypeId,
+      mintOnWin,
+      mintMaxSupply,
+      mintCount,
+    })
+  }
+
+  return prizes
+}
+
+function parseTokenIdInput(value: string): string[] {
+  return Array.from(new Set(
+    value
+      .split(/[\n,\s]+/)
+      .map(token => token.trim())
+      .filter(token => /^\d+$/.test(token))
+  ))
+}
+
+function formatWeightPercent(weightBps: number): string {
+  const value = weightBps / 100
+  return Number.isInteger(value) ? `${value}%` : `${value.toFixed(2)}%`
+}
+
+function formatShortAddress(address: string): string {
+  if (!address) return "Not configured"
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
+function getSlotPrizeTypeLabel(prize: SlotPrizeInfo): string {
+  if (prize.prizeType === PRIZE_TYPE_ERC20) return addressesEqual(prize.token, FREG_COIN_ADDRESS) ? "FREG" : "ERC20"
+  if (prize.mintOnWin) return "Mint ERC721"
+  if (prize.prizeType === PRIZE_TYPE_ERC721) return "ERC721"
+  return "Prize"
+}
+
+function addressesEqual(a: string, b: string): boolean {
+  return Boolean(a && b) && a.toLowerCase() === b.toLowerCase()
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 export default function AdminSection({ featureFlags, onFeatureFlagsChange }: AdminSectionProps): React.JSX.Element {
@@ -34,6 +125,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const [showMintItems, setShowMintItems] = useState(false)
   const [showMintPass, setShowMintPass] = useState(false)
   const [showFeatureToggles, setShowFeatureToggles] = useState(true)
+  const [showSlotMachine, setShowSlotMachine] = useState(true)
 
   // Settings form
   const [mintPrice, setMintPrice] = useState("")
@@ -47,6 +139,26 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const [mintAmount, setMintAmount] = useState("1")
   const [mintProgress, setMintProgress] = useState({ current: 0, total: 0 })
   const [itemTypes, setItemTypes] = useState<ItemType[]>([])
+
+  // Slot machine prize inventory
+  const [slotPrizes, setSlotPrizes] = useState<SlotPrizeInfo[]>([])
+  const [slotPrizeId, setSlotPrizeId] = useState("1")
+  const [slotPrizeWeightPercent, setSlotPrizeWeightPercent] = useState("")
+  const [slotPrizeMaxSupply, setSlotPrizeMaxSupply] = useState("")
+  const [slotFregPrizeWeightPercent, setSlotFregPrizeWeightPercent] = useState("")
+  const [slotFregPrizeAmount, setSlotFregPrizeAmount] = useState("")
+  const [slotFregDepositAmount, setSlotFregDepositAmount] = useState("")
+  const [slotSelectedErc20DepositAmount, setSlotSelectedErc20DepositAmount] = useState("")
+  const [slotFregContractBalance, setSlotFregContractBalance] = useState("0")
+  const [slotSelectedErc20Amount, setSlotSelectedErc20Amount] = useState("")
+  const [slotRegisterTokenIds, setSlotRegisterTokenIds] = useState("")
+  const [slotMintItemType, setSlotMintItemType] = useState<number>(101)
+  const [slotMintAmount, setSlotMintAmount] = useState("1")
+  const [slotRegistrationProgress, setSlotRegistrationProgress] = useState({ current: 0, total: 0 })
+  const [slotCallbackGasLimit, setSlotCallbackGasLimit] = useState("1000000")
+  const [slotRequestConfirmations, setSlotRequestConfirmations] = useState("3")
+  const [slotPendingSpinCount, setSlotPendingSpinCount] = useState("0")
+  const [slotResolveRequestId, setSlotResolveRequestId] = useState("")
 
   // Free mint wallets form
   const [freeMintAddresses, setFreeMintAddresses] = useState("")
@@ -120,6 +232,17 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const [txMessage, setTxMessage] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
 
+  const refreshSlotFregBalance = async () => {
+    if (!contracts?.slotMachine || !FREG_COIN_ADDRESS) return
+
+    const slotAddress = await contracts.slotMachine.read.getAddress()
+    const fregCoin = new Contract(FREG_COIN_ADDRESS, [
+      "function balanceOf(address) view returns (uint256)",
+    ], contracts.provider)
+    const balance = await fregCoin.balanceOf(slotAddress)
+    setSlotFregContractBalance(formatEther(balance))
+  }
+
   // Load initial values from contract
   useEffect(() => {
     if (contractData) {
@@ -155,6 +278,25 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
         }
 
         setItemTypes(types)
+
+        if (contracts.slotMachine) {
+          try {
+            const slotRead = contracts.slotMachine.read
+            const [prizes, callbackGas, confirmations, pendingCount] = await Promise.all([
+              loadSlotPrizeInfo(slotRead),
+              slotRead.callbackGasLimit(),
+              slotRead.requestConfirmations(),
+              slotRead.pendingSpinCount(),
+            ])
+            setSlotPrizes(prizes)
+            const selectedPrize = prizes.find(prize => prize.prizeId === Number(slotPrizeId))
+            setSlotPrizeMaxSupply(selectedPrize?.mintOnWin ? selectedPrize.mintMaxSupply.toString() : "")
+            setSlotCallbackGasLimit(callbackGas.toString())
+            setSlotRequestConfirmations(confirmations.toString())
+            setSlotPendingSpinCount(pendingCount.toString())
+            await refreshSlotFregBalance()
+          } catch {}
+        }
 
         // Fetch mint pass data
         const totalMinted = await contracts.mintPass.read.totalMinted()
@@ -202,6 +344,22 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
 
     fetchData()
   }, [contracts])
+
+  useEffect(() => {
+    const godzilla = itemTypes.find(type => type.name.toLowerCase().includes("godzilla"))
+    if (godzilla) {
+      setSlotMintItemType(godzilla.id)
+    }
+  }, [itemTypes])
+
+  useEffect(() => {
+    const prize = slotPrizes.find(p => p.prizeId === Number(slotPrizeId))
+    if (prize?.itemTypeId) {
+      setSlotMintItemType(prize.itemTypeId)
+    }
+    setSlotPrizeMaxSupply(prize?.mintOnWin ? prize.mintMaxSupply.toString() : "")
+    setSlotSelectedErc20Amount(prize?.prizeType === PRIZE_TYPE_ERC20 ? formatEther(prize.erc20Amount) : "")
+  }, [slotPrizeId, slotPrizes])
 
   const handleUpdateMintPrice = async () => {
     if (!contracts) return
@@ -311,6 +469,677 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
       setMintProgress({ current: 0, total: 0 })
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to mint items")
+      setTxStatus('error')
+    }
+  }
+
+  const getOwnedItemIdsByType = async (owner: string, itemTypeId: number): Promise<string[]> => {
+    if (!contracts) return []
+    const [tokenIds, itemTypes] = await contracts.items.read.getOwnedItems(owner)
+    const ids: string[] = []
+
+    for (let i = 0; i < tokenIds.length; i += 1) {
+      if (Number(itemTypes[i]) === Number(itemTypeId)) {
+        ids.push(tokenIds[i].toString())
+      }
+    }
+
+    return ids
+  }
+
+  const getOwnerMintedTokenIdsFromReceipt = (
+    receipt: any,
+    recipient: string,
+    itemTypeId: number,
+    expectedAmount: number
+  ): string[] => {
+    if (!contracts?.items?.read || !receipt?.logs) return []
+
+    for (const log of receipt.logs) {
+      try {
+        const parsed = contracts.items.read.interface.parseLog({
+          topics: log.topics as string[],
+          data: log.data,
+        })
+
+        if (parsed?.name !== "OwnerMinted") continue
+        if (String(parsed.args.to).toLowerCase() !== recipient.toLowerCase()) continue
+        if (Number(parsed.args.itemType) !== Number(itemTypeId)) continue
+
+        const mintedAmount = Number(parsed.args.amount)
+        if (mintedAmount !== expectedAmount) continue
+
+        const startTokenId = BigInt(parsed.args.itemTokenId)
+        return Array.from({ length: mintedAmount }, (_, index) => (startTokenId + BigInt(index)).toString())
+      } catch {
+        // Ignore logs from other contracts in the mint transaction.
+      }
+    }
+
+    return []
+  }
+
+  const waitForMintedItemIds = async (
+    owner: string,
+    itemTypeId: number,
+    before: string[],
+    expectedAmount: number
+  ): Promise<string[]> => {
+    const beforeSet = new Set(before)
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      if (attempt > 0) {
+        await wait(1500)
+      }
+
+      const after = await getOwnedItemIdsByType(owner, itemTypeId)
+      const mintedTokenIds = after.filter(tokenId => !beforeSet.has(tokenId))
+      if (mintedTokenIds.length >= expectedAmount) {
+        return mintedTokenIds.slice(0, expectedAmount)
+      }
+    }
+
+    return []
+  }
+
+  const waitForTokenItemTypes = async (tokenIds: string[], expectedItemTypeId: number): Promise<void> => {
+    if (!contracts?.items?.read || expectedItemTypeId === 0) return
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      if (attempt > 0) {
+        await wait(1500)
+      }
+
+      const actualTypes = await Promise.all(
+        tokenIds.map(async tokenId => Number(await contracts.items.read.itemType(tokenId)))
+      )
+      const mismatchIndex = actualTypes.findIndex(actualType => actualType !== expectedItemTypeId)
+
+      if (mismatchIndex === -1) {
+        return
+      }
+
+      const hasUnsetType = actualTypes.some(actualType => actualType === 0)
+      if (!hasUnsetType) {
+        throw new Error(
+          `Token ${tokenIds[mismatchIndex]} has item type ${actualTypes[mismatchIndex]}, ` +
+          `but prize ${slotPrizeId} expects item type ${expectedItemTypeId}.`
+        )
+      }
+    }
+
+    throw new Error(`Minted token item types did not update to ${expectedItemTypeId} yet. Use Find Unregistered, then Register Tokens.`)
+  }
+
+  const refreshSlotPrizes = async () => {
+    if (!contracts?.slotMachine) return
+    const slotRead = contracts.slotMachine.read
+    const [prizes, callbackGas, confirmations, pendingCount] = await Promise.all([
+      loadSlotPrizeInfo(slotRead),
+      slotRead.callbackGasLimit(),
+      slotRead.requestConfirmations(),
+      slotRead.pendingSpinCount(),
+    ])
+    setSlotPrizes(prizes)
+    const selectedPrize = prizes.find(prize => prize.prizeId === Number(slotPrizeId))
+    setSlotPrizeMaxSupply(selectedPrize?.mintOnWin ? selectedPrize.mintMaxSupply.toString() : "")
+    setSlotCallbackGasLimit(callbackGas.toString())
+    setSlotRequestConfirmations(confirmations.toString())
+    setSlotPendingSpinCount(pendingCount.toString())
+    await refreshSlotFregBalance()
+  }
+
+  const handleSetSlotCallbackGasLimit = async () => {
+    if (!contracts?.slotMachine) return
+
+    const gasLimit = Number(slotCallbackGasLimit)
+    if (!Number.isInteger(gasLimit) || gasLimit <= 0) {
+      setErrorMessage("Slot callback gas limit must be a positive number")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Setting slot callback gas limit to ${gasLimit}...`)
+
+    try {
+      const contract = await contracts.slotMachine.write()
+      const tx = await contract.setCallbackGasLimit(gasLimit)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Slot callback gas limit set to ${gasLimit}!`)
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to set slot callback gas limit")
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetSlotRequestConfirmations = async () => {
+    if (!contracts?.slotMachine) return
+
+    const confirmations = Number(slotRequestConfirmations)
+    if (!Number.isInteger(confirmations) || confirmations <= 0) {
+      setErrorMessage("Slot request confirmations must be a positive number")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Setting slot request confirmations to ${confirmations}...`)
+
+    try {
+      const contract = await contracts.slotMachine.write()
+      const tx = await contract.setRequestConfirmations(confirmations)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Slot request confirmations set to ${confirmations}!`)
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to set slot request confirmations")
+      setTxStatus('error')
+    }
+  }
+
+  const handleResolveSlotPendingSpin = async () => {
+    if (!contracts?.slotMachine) return
+
+    const requestId = slotResolveRequestId.trim()
+    if (!/^\d+$/.test(requestId)) {
+      setErrorMessage("Request ID must be a number")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Resolving pending slot spin ${requestId} as loss...`)
+
+    try {
+      const contract = await contracts.slotMachine.write()
+      const tx = await contract.resolvePendingSpinAsLoss(requestId)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Resolved pending slot spin ${requestId}.`)
+      setSlotResolveRequestId("")
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to resolve pending slot spin")
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetSlotPrizeWeight = async () => {
+    if (!contracts?.slotMachine) return
+
+    const prizeId = Number(slotPrizeId)
+    const percentage = Number(slotPrizeWeightPercent)
+
+    if (!Number.isInteger(prizeId) || prizeId <= 0) {
+      setErrorMessage("Prize ID must be a positive number")
+      setTxStatus('error')
+      return
+    }
+
+    if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+      setErrorMessage("Win percentage must be between 0 and 100")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Setting prize ${prizeId} odds to ${percentage}%...`)
+
+    try {
+      const contract = await contracts.slotMachine.write()
+      const weightBps = Math.round(percentage * 100)
+      const tx = await contract.setPrizeWeight(prizeId, weightBps)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Prize ${prizeId} odds set to ${percentage}%!`)
+      setSlotPrizeWeightPercent("")
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to set prize odds")
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetSlotPrizeActive = async (active: boolean) => {
+    if (!contracts?.slotMachine || !selectedSlotPrize) return
+
+    setTxStatus('pending')
+    setTxMessage(`${active ? "Activating" : "Deactivating"} prize ${selectedSlotPrize.prizeId}...`)
+
+    try {
+      const contract = await contracts.slotMachine.write()
+      const tx = await contract.setPrizeActive(selectedSlotPrize.prizeId, active)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Prize ${selectedSlotPrize.prizeId} ${active ? "activated" : "deactivated"}!`)
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to update prize active state")
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetSlotPrizeMaxSupply = async () => {
+    if (!contracts?.slotMachine) return
+
+    const prizeId = Number(slotPrizeId)
+    const prize = slotPrizes.find(p => p.prizeId === prizeId)
+    const maxSupplyInput = slotPrizeMaxSupply.trim()
+
+    if (!Number.isInteger(prizeId) || prizeId <= 0) {
+      setErrorMessage("Prize ID must be a positive number")
+      setTxStatus('error')
+      return
+    }
+
+    if (!prize?.mintOnWin) {
+      setErrorMessage("Selected prize does not mint on win")
+      setTxStatus('error')
+      return
+    }
+
+    if (!/^\d+$/.test(maxSupplyInput)) {
+      setErrorMessage("Max prizes must be a whole number")
+      setTxStatus('error')
+      return
+    }
+
+    const maxSupply = BigInt(maxSupplyInput)
+    if (maxSupply <= 0n) {
+      setErrorMessage("Max prizes must be greater than 0")
+      setTxStatus('error')
+      return
+    }
+
+    if (maxSupply < prize.mintCount) {
+      setErrorMessage(`Max prizes cannot be below already minted count (${prize.mintCount.toString()})`)
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Setting prize ${prizeId} max supply to ${maxSupply.toString()}...`)
+
+    try {
+      const contract = await contracts.slotMachine.write()
+      const tx = await contract.setERC721PrizeMintConfig(prizeId, true, maxSupply)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Prize ${prizeId} max supply set to ${maxSupply.toString()}!`)
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to set prize max supply")
+      setTxStatus('error')
+    }
+  }
+
+  const handleAddSlotFregPrize = async () => {
+    if (!contracts?.slotMachine || !FREG_COIN_ADDRESS) return
+
+    const percentage = Number(slotFregPrizeWeightPercent)
+    if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+      setErrorMessage("FREG prize percentage must be between 0 and 100")
+      setTxStatus('error')
+      return
+    }
+
+    const weightBps = Math.round(percentage * 100)
+    const configuredWeight = slotPrizes.reduce((total, prize) => total + prize.weightBps, 0)
+    if (configuredWeight + weightBps > WEIGHT_DENOMINATOR) {
+      setErrorMessage("Total configured slot odds cannot exceed 100%")
+      setTxStatus('error')
+      return
+    }
+
+    let amountPerWin: bigint
+    try {
+      amountPerWin = parseEther(slotFregPrizeAmount.trim())
+    } catch {
+      setErrorMessage("FREG win amount must be a valid token amount")
+      setTxStatus('error')
+      return
+    }
+
+    if (amountPerWin <= 0n) {
+      setErrorMessage("FREG win amount must be greater than 0")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Adding FREG prize with ${percentage}% odds...`)
+
+    try {
+      const contract = await contracts.slotMachine.write()
+      const prizeId = BigInt(await contract.addERC20Prize.staticCall("FREG", FREG_COIN_ADDRESS, weightBps, amountPerWin))
+      const tx = await contract.addERC20Prize("FREG", FREG_COIN_ADDRESS, weightBps, amountPerWin)
+      setTxStatus('confirming')
+      await tx.wait()
+
+      setTxStatus('success')
+      setTxMessage(`FREG prize ${prizeId.toString()} added! Fund the SlotMachine FREG balance separately.`)
+      setSlotPrizeId(prizeId.toString())
+      setSlotPrizeWeightPercent(String(percentage))
+      setSlotSelectedErc20Amount(slotFregPrizeAmount)
+      setSlotFregPrizeWeightPercent("")
+      setSlotFregPrizeAmount("")
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to add FREG prize")
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetSlotERC20PrizeAmount = async () => {
+    if (!contracts?.slotMachine || !selectedSlotPrize) return
+
+    if (selectedSlotPrize.prizeType !== PRIZE_TYPE_ERC20) {
+      setErrorMessage("Selected prize is not an ERC20 prize")
+      setTxStatus('error')
+      return
+    }
+
+    let amountPerWin: bigint
+    try {
+      amountPerWin = parseEther(slotSelectedErc20Amount.trim())
+    } catch {
+      setErrorMessage("ERC20 win amount must be a valid token amount")
+      setTxStatus('error')
+      return
+    }
+
+    if (amountPerWin <= 0n) {
+      setErrorMessage("ERC20 win amount must be greater than 0")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Setting prize ${selectedSlotPrize.prizeId} win amount...`)
+
+    try {
+      const contract = await contracts.slotMachine.write()
+      const tx = await contract.setERC20PrizeAmount(selectedSlotPrize.prizeId, amountPerWin)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Prize ${selectedSlotPrize.prizeId} win amount updated!`)
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to set ERC20 prize amount")
+      setTxStatus('error')
+    }
+  }
+
+  const handleFundSlotFreg = async () => {
+    if (!contracts?.slotMachine || !FREG_COIN_ADDRESS) return
+
+    let amount: bigint
+    try {
+      amount = parseEther(slotFregDepositAmount.trim())
+    } catch {
+      setErrorMessage("FREG funding amount must be a valid token amount")
+      setTxStatus('error')
+      return
+    }
+
+    if (amount <= 0n) {
+      setErrorMessage("FREG funding amount must be greater than 0")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Funding SlotMachine with ${slotFregDepositAmount} FREG...`)
+
+    try {
+      const slotAddress = await contracts.slotMachine.read.getAddress()
+      const signer = await contracts.getSigner()
+      const fregCoin = new Contract(FREG_COIN_ADDRESS, [
+        "function transfer(address, uint256) returns (bool)",
+      ], signer)
+      const tx = await fregCoin.transfer(slotAddress, amount)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Funded SlotMachine with ${slotFregDepositAmount} FREG!`)
+      setSlotFregDepositAmount("")
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to fund SlotMachine FREG")
+      setTxStatus('error')
+    }
+  }
+
+  const handleDepositSlotERC20Prize = async () => {
+    if (!contracts?.slotMachine || !selectedSlotPrize) return
+
+    if (selectedSlotPrize.prizeType !== PRIZE_TYPE_ERC20) {
+      setErrorMessage("Selected prize is not an ERC20 prize")
+      setTxStatus('error')
+      return
+    }
+
+    let amount: bigint
+    try {
+      amount = parseEther(slotSelectedErc20DepositAmount.trim())
+    } catch {
+      setErrorMessage("Deposit amount must be a valid token amount")
+      setTxStatus('error')
+      return
+    }
+
+    if (amount <= 0n) {
+      setErrorMessage("Deposit amount must be greater than 0")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Funding SlotMachine with ${slotSelectedErc20DepositAmount} ${selectedSlotPrizeTokenLabel}...`)
+
+    try {
+      const slotAddress = await contracts.slotMachine.read.getAddress()
+      const signer = await contracts.getSigner()
+      const prizeToken = new Contract(selectedSlotPrize.token, [
+        "function transfer(address, uint256) returns (bool)",
+      ], signer)
+      const tx = await prizeToken.transfer(slotAddress, amount)
+      setTxStatus('confirming')
+      await tx.wait()
+
+      setTxStatus('success')
+      setTxMessage(`Funded SlotMachine with ${slotSelectedErc20DepositAmount} ${selectedSlotPrizeTokenLabel}!`)
+      setSlotSelectedErc20DepositAmount("")
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to deposit ERC20 prize funding")
+      setTxStatus('error')
+    }
+  }
+
+  const handleRegisterSlotPrizeTokens = async () => {
+    if (!contracts?.slotMachine) return
+
+    const prizeId = Number(slotPrizeId)
+    const tokenIds = parseTokenIdInput(slotRegisterTokenIds)
+    const prize = slotPrizes.find(p => p.prizeId === prizeId)
+
+    if (prize?.mintOnWin) {
+      setErrorMessage("This prize mints on win, so it does not use registered token inventory.")
+      setTxStatus('error')
+      return
+    }
+
+    if (!Number.isInteger(prizeId) || prizeId <= 0) {
+      setErrorMessage("Prize ID must be a positive number")
+      setTxStatus('error')
+      return
+    }
+
+    if (tokenIds.length === 0) {
+      setErrorMessage("No valid token IDs provided")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setSlotRegistrationProgress({ current: 0, total: tokenIds.length })
+
+    try {
+      if (prize?.itemTypeId) {
+        setTxMessage(`Checking item types for ${tokenIds.length} token${tokenIds.length === 1 ? "" : "s"}...`)
+        await waitForTokenItemTypes(tokenIds, prize.itemTypeId)
+      }
+
+      const contract = await contracts.slotMachine.write()
+
+      for (let i = 0; i < tokenIds.length; i += 1) {
+        setSlotRegistrationProgress({ current: i + 1, total: tokenIds.length })
+        setTxMessage(`Registering token ${tokenIds[i]} as prize ${prizeId} (${i + 1}/${tokenIds.length})...`)
+        const tx = await contract.registerERC721Prize(prizeId, tokenIds[i])
+        setTxStatus('confirming')
+        await tx.wait()
+        if (i < tokenIds.length - 1) {
+          setTxStatus('pending')
+        }
+      }
+
+      setTxStatus('success')
+      setTxMessage(`Registered ${tokenIds.length} prize token${tokenIds.length === 1 ? "" : "s"}!`)
+      setSlotRegisterTokenIds("")
+      setSlotRegistrationProgress({ current: 0, total: 0 })
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to register prize tokens")
+      setTxStatus('error')
+    }
+  }
+
+  const handleFindUnregisteredSlotPrizeTokens = async () => {
+    if (!contracts?.slotMachine || !selectedSlotPrize) return
+
+    if (selectedSlotPrize.mintOnWin) {
+      setErrorMessage("This prize mints on win, so there are no unregistered inventory tokens to find.")
+      setTxStatus('error')
+      return
+    }
+
+    const prizeId = Number(slotPrizeId)
+    const itemTypeId = selectedSlotPrize.itemTypeId || slotMintItemType
+
+    setTxStatus('pending')
+    setTxMessage(`Finding unregistered item tokens for prize ${prizeId}...`)
+
+    try {
+      const slotAddress = await contracts.slotMachine.read.getAddress()
+      const ownedTokenIds = await getOwnedItemIdsByType(slotAddress, itemTypeId)
+      let trackedTokenIds: string[] = []
+
+      try {
+        const tracked = await contracts.slotMachine.read.getERC721PrizeTokenIds(prizeId)
+        trackedTokenIds = tracked.map((tokenId: bigint) => tokenId.toString())
+      } catch {}
+
+      const trackedSet = new Set(trackedTokenIds)
+      const unregisteredTokenIds = ownedTokenIds.filter(tokenId => !trackedSet.has(tokenId))
+      setSlotRegisterTokenIds(unregisteredTokenIds.join("\n"))
+      setTxStatus('success')
+      setTxMessage(`Found ${unregisteredTokenIds.length} unregistered token${unregisteredTokenIds.length === 1 ? "" : "s"} for prize ${prizeId}.`)
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to find unregistered prize tokens")
+      setTxStatus('error')
+    }
+  }
+
+  const handleMintAndRegisterSlotPrize = async () => {
+    if (!contracts?.slotMachine || !contracts?.items) return
+
+    const prizeId = Number(slotPrizeId)
+    const amount = Number(slotMintAmount)
+    const prize = slotPrizes.find(p => p.prizeId === prizeId)
+    const mintItemTypeId = prize?.itemTypeId || slotMintItemType
+
+    if (prize?.mintOnWin) {
+      setErrorMessage("This prize mints on win, so you do not need to mint and register inventory.")
+      setTxStatus('error')
+      return
+    }
+
+    if (!Number.isInteger(prizeId) || prizeId <= 0) {
+      setErrorMessage("Prize ID must be a positive number")
+      setTxStatus('error')
+      return
+    }
+
+    if (!Number.isInteger(amount) || amount <= 0) {
+      setErrorMessage("Mint amount must be greater than 0")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setSlotRegistrationProgress({ current: 0, total: amount })
+    setTxMessage(`Minting ${amount} item${amount === 1 ? "" : "s"} to the slot machine...`)
+
+    try {
+      const slotAddress = await contracts.slotMachine.read.getAddress()
+      const before = await getOwnedItemIdsByType(slotAddress, mintItemTypeId)
+      const itemsWrite = await contracts.items.write()
+      const mintTx = await itemsWrite.ownerMint(slotAddress, mintItemTypeId, amount)
+      setTxStatus('confirming')
+      const mintReceipt = await mintTx.wait()
+
+      let mintedTokenIds = getOwnerMintedTokenIdsFromReceipt(mintReceipt, slotAddress, mintItemTypeId, amount)
+      if (mintedTokenIds.length !== amount) {
+        setTxStatus('pending')
+        setTxMessage("Mint confirmed. Waiting for RPC reads to catch up...")
+        mintedTokenIds = await waitForMintedItemIds(slotAddress, mintItemTypeId, before, amount)
+      }
+
+      if (mintedTokenIds.length !== amount) {
+        throw new Error(
+          `Expected ${amount} minted item tokens, found ${mintedTokenIds.length}. ` +
+          "The mint may still have succeeded; use Find unregistered, then Register Tokens."
+        )
+      }
+
+      if (prize?.itemTypeId) {
+        setTxStatus('pending')
+        setTxMessage(`Checking minted token item types before registration...`)
+        await waitForTokenItemTypes(mintedTokenIds, prize.itemTypeId)
+      }
+
+      const slotWrite = await contracts.slotMachine.write()
+      setTxStatus('pending')
+
+      for (let i = 0; i < mintedTokenIds.length; i += 1) {
+        setSlotRegistrationProgress({ current: i + 1, total: mintedTokenIds.length })
+        setTxMessage(`Registering token ${mintedTokenIds[i]} as prize ${prizeId} (${i + 1}/${mintedTokenIds.length})...`)
+        const registerTx = await slotWrite.registerERC721Prize(prizeId, mintedTokenIds[i])
+        setTxStatus('confirming')
+        await registerTx.wait()
+        if (i < mintedTokenIds.length - 1) {
+          setTxStatus('pending')
+        }
+      }
+
+      setTxStatus('success')
+      setTxMessage(`Minted and registered ${mintedTokenIds.length} slot prize token${mintedTokenIds.length === 1 ? "" : "s"}!`)
+      setSlotRegistrationProgress({ current: 0, total: 0 })
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to mint and register slot prize")
       setTxStatus('error')
     }
   }
@@ -973,6 +1802,27 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     spinAddresses.split('\n').map(a => a.trim()).filter(a => isAddress(a)).map(a => getAddress(a))
   ).size
 
+  const selectedSlotPrize = slotPrizes.find(prize => prize.prizeId === Number(slotPrizeId))
+  const validSlotTokenIds = parseTokenIdInput(slotRegisterTokenIds)
+  const slotConfiguredWinWeightBps = slotPrizes.reduce((total, prize) => total + prize.weightBps, 0)
+  const slotFundedWinWeightBps = slotPrizes.reduce(
+    (total, prize) => total + (prize.active && prize.stock > 0n ? prize.weightBps : 0),
+    0
+  )
+  const txBusy = txStatus === 'pending' || txStatus === 'confirming'
+  const selectedPrizeItemType = selectedSlotPrize?.itemTypeId || 0
+  const slotMintEffectiveItemType = selectedPrizeItemType || slotMintItemType
+  const slotMintItemTypeOptions = itemTypes.some(type => type.id === slotMintEffectiveItemType)
+    ? itemTypes
+    : selectedPrizeItemType > 0
+      ? [{ id: selectedPrizeItemType, name: `Prize item type ${selectedPrizeItemType}` }, ...itemTypes]
+      : itemTypes
+  const selectedSlotPrizeMintsOnWin = Boolean(selectedSlotPrize?.mintOnWin)
+  const selectedSlotPrizeIsERC20 = selectedSlotPrize?.prizeType === PRIZE_TYPE_ERC20
+  const selectedSlotPrizeIsFreg = Boolean(selectedSlotPrize && addressesEqual(selectedSlotPrize.token, FREG_COIN_ADDRESS))
+  const selectedSlotPrizeTokenLabel = selectedSlotPrize && addressesEqual(selectedSlotPrize.token, FREG_COIN_ADDRESS) ? "FREG" : "ERC20"
+  const slotMintButtonDisabled = txBusy || !contracts?.slotMachine || !selectedSlotPrize || selectedSlotPrizeMintsOnWin || slotMintEffectiveItemType <= 0 || Number(slotMintAmount) <= 0
+
   return (
     <Section id="admin">
       <div className="text-center mb-8">
@@ -1032,118 +1882,456 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
           )}
         </Card>
 
-        {/* Mint Phase Panel */}
+        {/* Slot Machine Prize Panel */}
         <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
           <button
-            onClick={() => setShowMintPhase(!showMintPhase)}
+            onClick={() => setShowSlotMachine(!showSlotMachine)}
             className="w-full p-4 flex items-center justify-between text-left"
           >
             <div className="flex items-center gap-3">
-              <Shield className="w-6 h-6 text-orange-400" />
-              <span className="font-bangers text-2xl text-orange-400">Mint Phase</span>
+              <Trophy className="w-6 h-6 text-orange-400" />
+              <span className="font-bangers text-2xl text-orange-400">Slot Machine Prizes</span>
               <span className={`font-righteous text-xs px-2 py-0.5 rounded-full ${
-                currentMintPhase === 0 ? "bg-red-500/20 text-red-400" :
-                currentMintPhase === 1 ? "bg-yellow-500/20 text-yellow-400" :
-                "bg-green-500/20 text-green-400"
+                contracts?.slotMachine ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
               }`}>
-                {['Paused', 'Whitelist', 'Public'][currentMintPhase]}
+                {contracts?.slotMachine ? "Configured" : "Missing Address"}
               </span>
             </div>
-            {showMintPhase ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+            {showSlotMachine ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
           </button>
 
-          {showMintPhase && (
-            <CardContent className="p-6 pt-0 space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <Button
-                  onClick={() => handleSetMintPhase(0)}
-                  className={`font-bangers text-lg py-4 rounded-xl transition-all ${
-                    currentMintPhase === 0
-                      ? "bg-red-500 text-black ring-2 ring-red-300"
-                      : "bg-black/50 border-2 border-red-400/50 text-red-400 hover:bg-red-500/20"
-                  }`}
-                >
-                  Paused
-                </Button>
-                <Button
-                  onClick={() => handleSetMintPhase(1)}
-                  className={`font-bangers text-lg py-4 rounded-xl transition-all ${
-                    currentMintPhase === 1
-                      ? "bg-yellow-500 text-black ring-2 ring-yellow-300"
-                      : "bg-black/50 border-2 border-yellow-400/50 text-yellow-400 hover:bg-yellow-500/20"
-                  }`}
-                >
-                  Whitelist
-                </Button>
-                <Button
-                  onClick={() => handleSetMintPhase(2)}
-                  className={`font-bangers text-lg py-4 rounded-xl transition-all ${
-                    currentMintPhase === 2
-                      ? "bg-green-500 text-black ring-2 ring-green-300"
-                      : "bg-black/50 border-2 border-green-400/50 text-green-400 hover:bg-green-500/20"
-                  }`}
-                >
-                  Public
-                </Button>
+          {showSlotMachine && (
+            <CardContent className="p-6 pt-0 space-y-5">
+              <div className="grid gap-3 md:grid-cols-4">
+                <div className="bg-black/30 rounded-lg p-3">
+                  <p className="font-righteous text-white/50 text-xs uppercase">Contract</p>
+                  <p className="font-mono text-orange-400 break-all">
+                    {SLOT_MACHINE_ADDRESS ? formatShortAddress(SLOT_MACHINE_ADDRESS) : "Not configured"}
+                  </p>
+                </div>
+                <div className="bg-black/30 rounded-lg p-3">
+                  <p className="font-righteous text-white/50 text-xs uppercase">Configured Win Odds</p>
+                  <p className="font-mono text-orange-400">
+                    {formatWeightPercent(slotConfiguredWinWeightBps)}
+                  </p>
+                </div>
+                <div className="bg-black/30 rounded-lg p-3">
+                  <p className="font-righteous text-white/50 text-xs uppercase">Funded Win Odds</p>
+                  <p className="font-mono text-orange-400">
+                    {formatWeightPercent(slotFundedWinWeightBps)}
+                  </p>
+                </div>
+                <div className="bg-black/30 rounded-lg p-3">
+                  <p className="font-righteous text-white/50 text-xs uppercase">Slot FREG Balance</p>
+                  <p className="font-mono text-orange-400">
+                    {Number(slotFregContractBalance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </p>
+                </div>
               </div>
-              <p className="font-righteous text-white/50 text-sm">
-                Paused: only owner can mint. Whitelist: mint pass + free mint wallets. Public: everyone.
-              </p>
-            </CardContent>
-          )}
-        </Card>
 
-        {/* Free Mint Wallets Panel */}
-        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
-          <button
-            onClick={() => setShowFreeMints(!showFreeMints)}
-            className="w-full p-4 flex items-center justify-between text-left"
-          >
-            <div className="flex items-center gap-3">
-              <Users className="w-6 h-6 text-orange-400" />
-              <span className="font-bangers text-2xl text-orange-400">Free Mint Wallets</span>
-            </div>
-            {showFreeMints ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
-          </button>
-
-          {showFreeMints && (
-            <CardContent className="p-6 pt-0 space-y-4">
-              <div>
-                <label className="font-righteous text-white/70 block mb-2">
-                  Wallet Addresses (one per line):
-                </label>
-                <textarea
-                  value={freeMintAddresses}
-                  onChange={(e) => setFreeMintAddresses(e.target.value)}
-                  className="w-full h-32 bg-black/50 border-2 border-orange-400/50 text-white font-mono p-3 rounded-md resize-none"
-                  placeholder="0x1234...&#10;0x5678...&#10;0x9abc..."
-                />
-                <p className="text-white/50 text-sm mt-1 font-righteous">
-                  {validFreeMintAddressCount} valid address{validFreeMintAddressCount !== 1 ? 'es' : ''} detected
+              {!contracts?.slotMachine ? (
+                <p className="font-righteous text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                  Set VITE_SLOT_MACHINE_ADDRESS for this network before managing slot prizes.
                 </p>
-              </div>
+              ) : (
+                <>
+                  <div className="bg-black/30 rounded-lg p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
+                      <span className="font-righteous text-white/70">Current prizes</span>
+                      <Button
+                        onClick={refreshSlotPrizes}
+                        className="bg-orange-500 hover:bg-orange-400 text-black font-bangers px-4 py-1"
+                      >
+                        Refresh
+                      </Button>
+                    </div>
 
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Mints each:</label>
-                <Input
-                  type="number"
-                  value={freeMintCount}
-                  onChange={(e) => setFreeMintCount(e.target.value)}
-                  min="1"
-                  className="w-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                />
-              </div>
+                    {slotPrizes.length === 0 ? (
+                      <p className="font-righteous text-white/50">No prizes configured.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {slotPrizes.map(prize => (
+                          <div key={prize.prizeId} className="grid gap-2 md:grid-cols-[80px_1fr_110px_110px_90px] items-center bg-black/30 rounded-lg p-3">
+                            <span className="font-mono text-white/70">#{prize.prizeId}</span>
+                            <div className="min-w-0">
+                              <p className="font-bangers text-xl text-white truncate">{prize.name}</p>
+                              <p className="font-mono text-xs text-white/45 break-all">
+                                {formatShortAddress(prize.token)}
+                                {prize.itemTypeId > 0 ? ` | item type ${prize.itemTypeId}` : ""}
+                                {prize.prizeType === PRIZE_TYPE_ERC20 ? " | ERC20" : ""}
+                              </p>
+                              {prize.prizeType === PRIZE_TYPE_ERC20 && (
+                                <p className="font-righteous text-xs text-cyan-300">
+                                  Pays {formatEther(prize.erc20Amount)} {addressesEqual(prize.token, FREG_COIN_ADDRESS) ? "FREG" : "tokens"} per win
+                                </p>
+                              )}
+                              {prize.mintOnWin && (
+                                <p className="font-righteous text-xs text-lime-400">
+                                  Mints on win: {prize.mintCount.toString()} / {prize.mintMaxSupply.toString()}
+                                </p>
+                              )}
+                            </div>
+                            <span className="font-righteous text-orange-400 tabular-nums">
+                              {formatWeightPercent(prize.weightBps)}
+                            </span>
+                            <span className="font-righteous text-white/70 tabular-nums">
+                              Stock: {prize.stock.toString()}
+                            </span>
+                            <span className={`font-righteous text-xs px-2 py-0.5 rounded-full text-center ${
+                              prize.active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                            }`}>
+                              {prize.active ? "Active" : "Inactive"}
+                            </span>
+                          </div>
+                        ))}
 
-              <Button
-                onClick={handleAddFreeMintWallets}
-                disabled={validFreeMintAddressCount === 0}
-                className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4 disabled:opacity-50"
-              >
-                Add {validFreeMintAddressCount} Free Mint Wallet{validFreeMintAddressCount !== 1 ? 's' : ''}
-              </Button>
+                        <div className="grid gap-2 md:grid-cols-[80px_1fr_110px_110px_90px] items-center border-t border-white/10 pt-3">
+                          <span className="font-mono text-white/70">-</span>
+                          <span className="font-righteous text-white/70">No Win</span>
+                          <span className="font-righteous text-orange-400 tabular-nums">
+                            {formatWeightPercent(Math.max(0, WEIGHT_DENOMINATOR - slotConfiguredWinWeightBps))}
+                          </span>
+                          <span className="font-righteous text-white/70">
+                            Effective: {formatWeightPercent(Math.max(0, WEIGHT_DENOMINATOR - slotFundedWinWeightBps))}
+                          </span>
+                          <span />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-black/30 rounded-lg p-4 space-y-4">
+                    <div className="grid gap-3 md:grid-cols-[160px_1fr_auto] items-center">
+                      <label className="font-righteous text-white/70">Callback gas:</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={slotCallbackGasLimit}
+                        onChange={(e) => setSlotCallbackGasLimit(e.target.value)}
+                        className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                      />
+                      <Button
+                        onClick={handleSetSlotCallbackGasLimit}
+                        disabled={txBusy}
+                        className="bg-orange-500 hover:bg-orange-400 text-black font-bangers disabled:opacity-50"
+                      >
+                        Set Gas
+                      </Button>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-[160px_1fr_auto] items-center">
+                      <label className="font-righteous text-white/70">Confirmations:</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={slotRequestConfirmations}
+                        onChange={(e) => setSlotRequestConfirmations(e.target.value)}
+                        className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                      />
+                      <Button
+                        onClick={handleSetSlotRequestConfirmations}
+                        disabled={txBusy}
+                        className="bg-orange-500 hover:bg-orange-400 text-black font-bangers disabled:opacity-50"
+                      >
+                        Set Conf
+                      </Button>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-[160px_1fr_auto] items-center">
+                      <label className="font-righteous text-white/70">Pending spins:</label>
+                      <div className="font-mono text-orange-400">{slotPendingSpinCount}</div>
+                      <Button
+                        onClick={refreshSlotPrizes}
+                        disabled={txBusy}
+                        className="bg-black/50 border-2 border-orange-400/50 hover:bg-orange-500/20 text-orange-400 font-bangers disabled:opacity-50"
+                      >
+                        Refresh
+                      </Button>
+                    </div>
+
+                    {slotPendingSpinCount !== "0" && (
+                      <div className="grid gap-3 md:grid-cols-[160px_1fr_auto] items-center">
+                        <label className="font-righteous text-white/70">Resolve request:</label>
+                        <Input
+                          type="text"
+                          value={slotResolveRequestId}
+                          onChange={(e) => setSlotResolveRequestId(e.target.value)}
+                          className="bg-black/50 border-2 border-red-400/50 text-white font-mono"
+                          placeholder="VRF request ID"
+                        />
+                        <Button
+                          onClick={handleResolveSlotPendingSpin}
+                          disabled={txBusy || !slotResolveRequestId.trim()}
+                          className="bg-red-500 hover:bg-red-400 text-white font-bangers disabled:opacity-50"
+                        >
+                          Resolve Loss
+                        </Button>
+                      </div>
+                    )}
+
+                    <p className="font-righteous text-white/50 text-sm">
+                      Callback gas is used by Chainlink VRF when settling slot spins. Use 1000000 or higher for ERC721 prize mints.
+                    </p>
+                  </div>
+
+                  <div className="bg-black/30 rounded-lg p-4 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-bangers text-2xl text-orange-400">Add FREG Prize</p>
+                        <p className="font-righteous text-white/50 text-sm">
+                          Adds a prize configuration only. Fund the SlotMachine FREG balance separately.
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleAddSlotFregPrize}
+                        disabled={txBusy || !FREG_COIN_ADDRESS || !slotFregPrizeWeightPercent || !slotFregPrizeAmount}
+                        className="bg-orange-500 hover:bg-orange-400 text-black font-bangers disabled:opacity-50"
+                      >
+                        Add FREG Prize
+                      </Button>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div>
+                        <label className="font-righteous text-white/70 block mb-2">Win odds %</label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={slotFregPrizeWeightPercent}
+                          onChange={(e) => setSlotFregPrizeWeightPercent(e.target.value)}
+                          className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                          placeholder="5"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-righteous text-white/70 block mb-2">Win amount</label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.000000000000000001"
+                          value={slotFregPrizeAmount}
+                          onChange={(e) => setSlotFregPrizeAmount(e.target.value)}
+                          className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                          placeholder="1000000"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-black/30 rounded-lg p-4 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-bangers text-2xl text-orange-400">Fund Slot FREG</p>
+                        <p className="font-righteous text-white/50 text-sm">
+                          Sends FREG directly to the SlotMachine contract. This shared balance funds all FREG prize configurations.
+                        </p>
+                      </div>
+                      <div className="font-mono text-orange-400">
+                        Balance: {Number(slotFregContractBalance).toLocaleString(undefined, { maximumFractionDigits: 2 })} FREG
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-[1fr_auto] items-end">
+                      <div>
+                        <label className="font-righteous text-white/70 block mb-2">Funding amount</label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.000000000000000001"
+                          value={slotFregDepositAmount}
+                          onChange={(e) => setSlotFregDepositAmount(e.target.value)}
+                          className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                          placeholder="10000000"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleFundSlotFreg}
+                        disabled={txBusy || !FREG_COIN_ADDRESS || !slotFregDepositAmount}
+                        className="bg-orange-500 hover:bg-orange-400 text-black font-bangers disabled:opacity-50"
+                      >
+                        Fund FREG
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="bg-black/30 rounded-lg p-4 space-y-4">
+                      <div className="grid gap-3 sm:grid-cols-[120px_1fr] items-center">
+                        <label className="font-righteous text-white/70">Prize ID:</label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={slotPrizeId}
+                          onChange={(e) => {
+                            const nextPrizeId = e.target.value
+                            setSlotPrizeId(nextPrizeId)
+                            const prize = slotPrizes.find(p => p.prizeId === Number(nextPrizeId))
+                            if (prize) {
+                              setSlotPrizeWeightPercent(String(prize.weightBps / 100))
+                              setSlotPrizeMaxSupply(prize.mintOnWin ? prize.mintMaxSupply.toString() : "")
+                              setSlotSelectedErc20Amount(prize.prizeType === PRIZE_TYPE_ERC20 ? formatEther(prize.erc20Amount) : "")
+                            }
+                          }}
+                          className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                        />
+                      </div>
+
+                      {selectedSlotPrize && (
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-black/30 p-3">
+                          <p className="font-righteous text-white/50 text-sm">
+                            Selected: {selectedSlotPrize.name} with {formatWeightPercent(selectedSlotPrize.weightBps)} odds and {selectedSlotPrize.stock.toString()} {selectedSlotPrize.mintOnWin ? "mints remaining" : "funded win(s)"}.
+                          </p>
+                          <Button
+                            onClick={() => handleSetSlotPrizeActive(!selectedSlotPrize.active)}
+                            disabled={txBusy}
+                            className={`font-bangers disabled:opacity-50 ${
+                              selectedSlotPrize.active
+                                ? "bg-red-500 hover:bg-red-400 text-white"
+                                : "bg-green-500 hover:bg-green-400 text-black"
+                            }`}
+                          >
+                            {selectedSlotPrize.active ? "Deactivate" : "Activate"}
+                          </Button>
+                        </div>
+                      )}
+
+                      <div className="grid gap-3 sm:grid-cols-[120px_1fr_auto] items-center">
+                        <label className="font-righteous text-white/70">Win odds:</label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={slotPrizeWeightPercent}
+                          onChange={(e) => setSlotPrizeWeightPercent(e.target.value)}
+                          className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                          placeholder={selectedSlotPrize ? String(selectedSlotPrize.weightBps / 100) : "10"}
+                        />
+                        <Button
+                          onClick={handleSetSlotPrizeWeight}
+                          disabled={txBusy || !selectedSlotPrize || !slotPrizeWeightPercent}
+                          className="bg-orange-500 hover:bg-orange-400 text-black font-bangers"
+                        >
+                          Set Odds
+                        </Button>
+                      </div>
+
+                      {selectedSlotPrize?.mintOnWin && (
+                        <>
+                          <div className="grid gap-3 sm:grid-cols-[120px_1fr_auto] items-center">
+                            <label className="font-righteous text-white/70">Max prizes:</label>
+                            <Input
+                              type="number"
+                              min={selectedSlotPrize.mintCount.toString()}
+                              step="1"
+                              value={slotPrizeMaxSupply}
+                              onChange={(e) => setSlotPrizeMaxSupply(e.target.value)}
+                              className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                              placeholder={selectedSlotPrize.mintMaxSupply.toString()}
+                            />
+                            <Button
+                              onClick={handleSetSlotPrizeMaxSupply}
+                              disabled={txBusy || !slotPrizeMaxSupply}
+                              className="bg-orange-500 hover:bg-orange-400 text-black font-bangers disabled:opacity-50"
+                            >
+                              Set Max
+                            </Button>
+                          </div>
+
+                          <p className="font-righteous text-white/50 text-sm">
+                            Already minted {selectedSlotPrize.mintCount.toString()} of {selectedSlotPrize.mintMaxSupply.toString()}.
+                          </p>
+                        </>
+                      )}
+
+                    <p className="font-righteous text-white/50 text-sm">
+                      Odds are stored on the prize as basis points. Mint-on-win prizes use their configured max supply; inventory prizes use registered token stock.
+                    </p>
+                    </div>
+
+                    <div className="bg-black/30 rounded-lg p-4 space-y-4">
+                      <div>
+                        <p className="font-bangers text-2xl text-orange-400">ERC20 Prize Settings</p>
+                        <p className="font-righteous text-white/50 text-sm">
+                          Select an ERC20 prize to update its payout. FREG funding is handled by the separate Slot FREG balance above.
+                        </p>
+                      </div>
+
+                      {selectedSlotPrizeIsERC20 && selectedSlotPrize ? (
+                        <>
+                          <div className="bg-black/30 rounded-lg p-3 space-y-1">
+                            <p className="font-righteous text-white/70">
+                              {selectedSlotPrize.name}: {selectedSlotPrize.stock.toString()} funded win{selectedSlotPrize.stock === 1n ? "" : "s"}
+                            </p>
+                            <p className="font-mono text-xs text-white/45 break-all">
+                              Token: {selectedSlotPrize.token}
+                            </p>
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-[120px_1fr_auto] items-center">
+                            <label className="font-righteous text-white/70">Win amount:</label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.000000000000000001"
+                              value={slotSelectedErc20Amount}
+                              onChange={(e) => setSlotSelectedErc20Amount(e.target.value)}
+                              className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                              placeholder={formatEther(selectedSlotPrize.erc20Amount)}
+                            />
+                            <Button
+                              onClick={handleSetSlotERC20PrizeAmount}
+                              disabled={txBusy || !slotSelectedErc20Amount}
+                              className="bg-orange-500 hover:bg-orange-400 text-black font-bangers disabled:opacity-50"
+                            >
+                              Set Win
+                            </Button>
+                          </div>
+
+                          {selectedSlotPrizeIsFreg ? (
+                            <p className="font-righteous text-white/50 text-sm">
+                              This is a FREG prize. Use Fund Slot FREG above to add shared prize balance.
+                            </p>
+                          ) : (
+                            <div className="grid gap-3 sm:grid-cols-[120px_1fr_auto] items-center">
+                              <label className="font-righteous text-white/70">Fund token:</label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.000000000000000001"
+                                value={slotSelectedErc20DepositAmount}
+                                onChange={(e) => setSlotSelectedErc20DepositAmount(e.target.value)}
+                                className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                                placeholder="10000000"
+                              />
+                              <Button
+                                onClick={handleDepositSlotERC20Prize}
+                                disabled={txBusy || !slotSelectedErc20DepositAmount}
+                                className="bg-orange-500 hover:bg-orange-400 text-black font-bangers disabled:opacity-50"
+                              >
+                                Fund Token
+                              </Button>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="font-righteous text-white/50 text-sm">
+                          No ERC20 prize selected.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           )}
         </Card>
+
+        
+
+        
 
         {/* Settings Panel */}
         <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
@@ -1302,138 +2490,6 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
           )}
         </Card>
 
-        {/* Mint Pass Airdrop Panel */}
-        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
-          <button
-            onClick={() => setShowMintPass(!showMintPass)}
-            className="w-full p-4 flex items-center justify-between text-left"
-          >
-            <div className="flex items-center gap-3">
-              <Ticket className="w-6 h-6 text-orange-400" />
-              <span className="font-bangers text-2xl text-orange-400">Mint Pass Airdrop</span>
-            </div>
-            {showMintPass ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
-          </button>
-
-          {showMintPass && (
-            <CardContent className="p-6 pt-0 space-y-4">
-              {/* Mint Pass Stats */}
-              <div className="bg-black/30 rounded-lg p-3 flex justify-between items-center">
-                <span className="font-righteous text-white/70">Total Minted:</span>
-                <span className="font-mono text-orange-400">
-                  {mintPassData.totalMinted}
-                </span>
-              </div>
-
-              {/* Addresses Input */}
-              <div>
-                <label className="font-righteous text-white/70 block mb-2">
-                  Recipient Addresses (one per line):
-                </label>
-                <textarea
-                  value={mintPassAddresses}
-                  onChange={(e) => setMintPassAddresses(e.target.value)}
-                  className="w-full h-32 bg-black/50 border-2 border-orange-400/50 text-white font-mono p-3 rounded-md resize-none"
-                  placeholder="0x1234...&#10;0x5678...&#10;0x9abc..."
-                />
-                <p className="text-white/50 text-sm mt-1 font-righteous">
-                  {validMintPassAddressCount} valid address{validMintPassAddressCount !== 1 ? 'es' : ''} detected
-                </p>
-              </div>
-
-              {/* Amount per address */}
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Amount each:</label>
-                <Input
-                  type="number"
-                  value={mintPassAmount}
-                  onChange={(e) => setMintPassAmount(e.target.value)}
-                  min="1"
-                  className="w-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                />
-              </div>
-
-              {/* Progress */}
-              {mintPassProgress.total > 0 && (
-                <div className="bg-black/30 rounded-lg p-3">
-                  <p className="font-righteous text-orange-400">
-                    Airdropping: {mintPassProgress.current} / {mintPassProgress.total}
-                  </p>
-                  <div className="w-full bg-black/50 rounded-full h-2 mt-2">
-                    <div
-                      className="bg-orange-400 h-2 rounded-full transition-all"
-                      style={{ width: `${(mintPassProgress.current / mintPassProgress.total) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Airdrop Button */}
-              <Button
-                onClick={handleMintPassAirdrop}
-                disabled={validMintPassAddressCount === 0}
-                className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4 disabled:opacity-50"
-              >
-                Airdrop to {validMintPassAddressCount} wallet{validMintPassAddressCount !== 1 ? 's' : ''}
-              </Button>
-            </CardContent>
-          )}
-        </Card>
-
-        {/* Spin Token Airdrop Panel */}
-        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
-          <button
-            onClick={() => setShowSpinAirdrop(!showSpinAirdrop)}
-            className="w-full p-4 flex items-center justify-between text-left"
-          >
-            <div className="flex items-center gap-3">
-              <Dices className="w-6 h-6 text-orange-400" />
-              <span className="font-bangers text-2xl text-orange-400">Spin Token Airdrop</span>
-            </div>
-            {showSpinAirdrop ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
-          </button>
-
-          {showSpinAirdrop && (
-            <CardContent className="p-6 pt-0 space-y-4">
-              {/* Addresses Input */}
-              <div>
-                <label className="font-righteous text-white/70 block mb-2">
-                  Recipient Addresses (one per line):
-                </label>
-                <textarea
-                  value={spinAddresses}
-                  onChange={(e) => setSpinAddresses(e.target.value)}
-                  className="w-full h-32 bg-black/50 border-2 border-orange-400/50 text-white font-mono p-3 rounded-md resize-none"
-                  placeholder="0x1234...&#10;0x5678...&#10;0x9abc..."
-                />
-                <p className="text-white/50 text-sm mt-1 font-righteous">
-                  {validSpinAddressCount} valid address{validSpinAddressCount !== 1 ? 'es' : ''} detected
-                </p>
-              </div>
-
-              {/* Amount per address */}
-              <div className="flex items-center gap-4">
-                <label className="font-righteous text-white/70 w-32">Amount each:</label>
-                <Input
-                  type="number"
-                  value={spinAmount}
-                  onChange={(e) => setSpinAmount(e.target.value)}
-                  min="1"
-                  className="w-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                />
-              </div>
-
-              {/* Airdrop Button */}
-              <Button
-                onClick={handleSpinAirdrop}
-                disabled={validSpinAddressCount === 0}
-                className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bangers text-xl py-4 disabled:opacity-50"
-              >
-                Airdrop to {validSpinAddressCount} wallet{validSpinAddressCount !== 1 ? 's' : ''}
-              </Button>
-            </CardContent>
-          )}
-        </Card>
         {/* Chest Funding Panel */}
         <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
           <button
@@ -1660,88 +2716,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
           )}
         </Card>
         )}
-      {/* FREG Coin Airdrop */}
-      {contracts?.fregAirdrop && (
-        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
-          <button
-            onClick={() => setShowFregAirdrop(!showFregAirdrop)}
-            className="w-full p-4 flex items-center justify-between text-left"
-          >
-            <div className="flex items-center gap-3">
-              <Coins className="w-6 h-6 text-orange-400" />
-              <span className="font-bangers text-2xl text-orange-400">FREG Coin Airdrop</span>
-            </div>
-            {showFregAirdrop ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
-          </button>
-
-          {showFregAirdrop && (
-            <CardContent className="p-6 pt-0 space-y-4">
-              {/* Balance */}
-              <div className="bg-black/30 rounded-lg p-3 flex justify-between items-center">
-                <span className="font-righteous text-white/70">FREG in contract:</span>
-                <span className="font-mono text-orange-400">{Number(airdropCoinBalance).toLocaleString()} FREG</span>
-              </div>
-
-              {/* Deposit FREG */}
-              <div className="border-t border-white/20 pt-4 space-y-3">
-                <div className="flex items-center gap-4">
-                  <label className="font-righteous text-white/70 w-32">Percentage:</label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={airdropPercentage}
-                    onChange={(e) => {
-                      const pct = e.target.value
-                      setAirdropPercentage(pct)
-                      const TOTAL_SUPPLY = 1_337_000_000_000
-                      const parsed = parseFloat(pct)
-                      if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
-                        setAirdropDepositAmount(String(Math.floor(TOTAL_SUPPLY * parsed / 100)))
-                      }
-                    }}
-                    className="w-24 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                    placeholder="60"
-                  />
-                  <span className="text-white/70 font-righteous">%</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <label className="font-righteous text-white/70 w-32">Amount:</label>
-                  <Input
-                    type="text"
-                    value={airdropDepositAmount}
-                    onChange={(e) => setAirdropDepositAmount(e.target.value)}
-                    className="flex-1 bg-black/50 border-2 border-orange-400/50 text-white font-mono"
-                    placeholder="0"
-                  />
-                  <span className="text-white/70 font-righteous">FREG</span>
-                  <Button onClick={handleAirdropDeposit} className="bg-orange-500 hover:bg-orange-400 text-black font-bangers">
-                    Deposit
-                  </Button>
-                </div>
-              </div>
-
-              {/* How to trigger airdrop */}
-              <div className="border-t border-white/20 pt-4">
-                <p className="font-righteous text-white/50 text-sm">
-                  To distribute: run <span className="font-mono text-orange-400">node scripts/airdropFregCoin.js --network base</span> from the hardhat directory. Use <span className="font-mono text-orange-400">--dry-run</span> to preview, <span className="font-mono text-orange-400">--resume &lt;file&gt;</span> to continue after a failure.
-                </p>
-              </div>
-
-              {/* Withdraw remainder */}
-              <div className="border-t border-white/20 pt-4 flex items-center justify-between">
-                <span className="font-righteous text-white/70">Withdraw remaining FREG:</span>
-                <Button
-                  onClick={handleWithdrawRemainder}
-                  className="bg-orange-500 hover:bg-orange-400 text-black font-bangers"
-                >
-                  Withdraw Remainder
-                </Button>
-              </div>
-            </CardContent>
-          )}
-        </Card>
-      )}
+  
 
       {/* Rescue Pending Head Reroll */}
       <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
