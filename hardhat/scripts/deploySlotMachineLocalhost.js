@@ -198,6 +198,8 @@ async function main() {
   await slotMachine.waitForDeployment();
   const slotMachineAddress = await slotMachine.getAddress();
 
+  console.log("  Routing spin payments to SlotMachine FREG balance...");
+  await sendTx(() => slotMachine.setPaymentConfig(fregCoinAddress, slotMachineAddress, SPIN_COST));
   await sendTx(() => slotMachine.setCallbackGasLimit(CALLBACK_GAS_LIMIT));
   await sendTx(() => slotMachine.setRequestConfirmations(1));
   await sendTx(() => slotMachine.setAutoFulfill(true));
@@ -224,6 +226,7 @@ async function main() {
   status.network = network.name;
   status.contracts = status.contracts || {};
   status.contracts.slotMachine = slotMachineAddress;
+  status.contracts.slotMachinePaymentVault = slotMachineAddress;
   status.contracts.slotMachineMockVrfCoordinator = coordinatorAddress;
   status.localSlotMachine = {
     lastFundedAt: new Date().toISOString(),
@@ -245,6 +248,7 @@ async function main() {
   console.log("LOCAL SLOT MACHINE READY");
   console.log("=".repeat(60));
   console.log(`VITE_SLOT_MACHINE_ADDRESS=${slotMachineAddress}`);
+  console.log("Spin payments route to SlotMachine FREG balance.");
   console.log(`Prize 1 Godzilla mint-on-win supply: ${GODZILLA_PRIZE_COUNT}`);
   console.log("Set the website env above or restart your local website with that value.");
 }

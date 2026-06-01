@@ -20,6 +20,7 @@ const CALLBACK_GAS_LIMIT = Number(process.env.SLOT_CALLBACK_GAS_LIMIT || 1000000
 const REQUEST_CONFIRMATIONS = Number(process.env.SLOT_REQUEST_CONFIRMATIONS || 1);
 const CONFIGURE_DEFAULT_PRIZES = process.env.CONFIGURE_DEFAULT_SLOT_PRIZES !== "false";
 const CONFIGURE_SLOT_MINT_AUTH = process.env.CONFIGURE_SLOT_MINT_AUTH !== "false";
+const ROUTE_SPIN_PAYMENTS_TO_SLOT_MACHINE = process.env.SLOT_PAYMENTS_TO_SLOT_MACHINE !== "false";
 const VERIFY_CONTRACTS = process.env.VERIFY_CONTRACTS === "true";
 const DEFAULT_PRIZE_WEIGHTS = {
   godzilla: Number(process.env.SLOT_GODZILLA_WEIGHT_BPS || 300),
@@ -244,7 +245,7 @@ async function main() {
   console.log("  Deployer:", deployerAddress);
   console.log("  Network:", network.name);
   console.log("  FregCoin:", fregCoinAddress);
-  console.log("  Liquidity vault:", liquidityVaultAddress);
+  console.log("  Initial liquidity vault:", liquidityVaultAddress);
   console.log("  Spin cost:", ethers.formatEther(SPIN_COST), "FREG");
 
   const SlotMachine = await ethers.getContractFactory("SlotMachine");
@@ -263,6 +264,13 @@ async function main() {
 
   const slotMachineAddress = await slotMachine.getAddress();
   console.log("  SlotMachine:", slotMachineAddress);
+
+  const paymentVaultAddress = ROUTE_SPIN_PAYMENTS_TO_SLOT_MACHINE ? slotMachineAddress : liquidityVaultAddress;
+  if (!sameAddress(paymentVaultAddress, liquidityVaultAddress)) {
+    console.log("  Routing spin payments to SlotMachine FREG balance...");
+    await sendTx(() => slotMachine.setPaymentConfig(fregCoinAddress, paymentVaultAddress, SPIN_COST));
+  }
+  console.log("  Active payment vault:", paymentVaultAddress);
 
   await sendTx(() => slotMachine.setCallbackGasLimit(CALLBACK_GAS_LIMIT));
   await sendTx(() => slotMachine.setRequestConfirmations(REQUEST_CONFIRMATIONS));
@@ -306,6 +314,7 @@ async function main() {
   status.network = network.name;
   status.contracts = status.contracts || {};
   status.contracts.slotMachine = slotMachineAddress;
+  status.contracts.slotMachinePaymentVault = paymentVaultAddress;
   if (isLocalhost) {
     status.contracts.slotMachineMockVrfCoordinator = coordinatorAddress;
   }
@@ -330,6 +339,10 @@ async function main() {
 
   console.log("\nNext steps:");
   console.log(`  VITE_SLOT_MACHINE_ADDRESS=${slotMachineAddress}`);
+  if (ROUTE_SPIN_PAYMENTS_TO_SLOT_MACHINE) {
+    console.log("  Spin payments are routed to the SlotMachine FREG balance.");
+    console.log("  To route payments to liquidity later, call setPaymentConfig(fregCoin, liquidityVault, spinCost) when pendingSpinCount is 0.");
+  }
   if (!CONFIGURE_SLOT_MINT_AUTH) {
     console.log("  Mint-on-win auth was not changed. Before activating, set:");
     console.log(`    FregsItems.setSpinTheWheelContract(${slotMachineAddress})`);

@@ -100,6 +100,8 @@ function getPrizeImage(name: string, prizeType: number): string {
   const normalized = name.toLowerCase()
 
   if (normalized.includes("godzilla")) return "/items/godzilla.svg"
+  if (normalized.includes("penguin")) return "/items/penguin.svg"
+  if (normalized.includes("hypno")) return "/items/hypno.svg"
   if (normalized.includes("bull")) return "/items/bull.svg"
   if (normalized.includes("shiba")) return "/items/shibainu.svg"
   if (normalized.includes("freg")) return "/fregs.svg"

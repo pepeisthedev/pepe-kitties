@@ -66,6 +66,10 @@
         {
           "fileName": "3.svg",
           "name": "vegas"
+        },
+        {
+          "fileName": "4.svg",
+          "name": "Hypno"
         }
       ],
       "head": [
@@ -100,6 +104,10 @@
         {
           "fileName": "11.svg",
           "name": "Godzilla Suit"
+        },
+        {
+          "fileName": "12.svg",
+          "name": "Penguin Suit"
         }
       ],
       "mouth": [],

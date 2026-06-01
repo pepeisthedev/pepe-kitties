@@ -9,7 +9,7 @@ import { useContractData, useContracts } from "../hooks"
 import type { FeatureFlags } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog"
-import { FREG_COIN_ADDRESS, SLOT_MACHINE_ADDRESS } from "../config/contracts"
+import { FREG_COIN_ADDRESS, FREGS_LIQUIDITY_ADDRESS, SLOT_MACHINE_ADDRESS } from "../config/contracts"
 
 type TxStatus = 'idle' | 'pending' | 'confirming' | 'success' | 'error'
 const WEIGHT_DENOMINATOR = 10_000
@@ -158,6 +158,8 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const [slotCallbackGasLimit, setSlotCallbackGasLimit] = useState("1000000")
   const [slotRequestConfirmations, setSlotRequestConfirmations] = useState("3")
   const [slotPendingSpinCount, setSlotPendingSpinCount] = useState("0")
+  const [slotPaymentVault, setSlotPaymentVault] = useState("")
+  const [slotSpinCost, setSlotSpinCost] = useState<bigint>(0n)
   const [slotResolveRequestId, setSlotResolveRequestId] = useState("")
 
   // Free mint wallets form
@@ -282,11 +284,13 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
         if (contracts.slotMachine) {
           try {
             const slotRead = contracts.slotMachine.read
-            const [prizes, callbackGas, confirmations, pendingCount] = await Promise.all([
+            const [prizes, callbackGas, confirmations, pendingCount, paymentVault, spinCost] = await Promise.all([
               loadSlotPrizeInfo(slotRead),
               slotRead.callbackGasLimit(),
               slotRead.requestConfirmations(),
               slotRead.pendingSpinCount(),
+              slotRead.liquidityVault(),
+              slotRead.spinCost(),
             ])
             setSlotPrizes(prizes)
             const selectedPrize = prizes.find(prize => prize.prizeId === Number(slotPrizeId))
@@ -294,6 +298,8 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
             setSlotCallbackGasLimit(callbackGas.toString())
             setSlotRequestConfirmations(confirmations.toString())
             setSlotPendingSpinCount(pendingCount.toString())
+            setSlotPaymentVault(String(paymentVault))
+            setSlotSpinCost(BigInt(spinCost))
             await refreshSlotFregBalance()
           } catch {}
         }
@@ -574,11 +580,13 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const refreshSlotPrizes = async () => {
     if (!contracts?.slotMachine) return
     const slotRead = contracts.slotMachine.read
-    const [prizes, callbackGas, confirmations, pendingCount] = await Promise.all([
+    const [prizes, callbackGas, confirmations, pendingCount, paymentVault, spinCost] = await Promise.all([
       loadSlotPrizeInfo(slotRead),
       slotRead.callbackGasLimit(),
       slotRead.requestConfirmations(),
       slotRead.pendingSpinCount(),
+      slotRead.liquidityVault(),
+      slotRead.spinCost(),
     ])
     setSlotPrizes(prizes)
     const selectedPrize = prizes.find(prize => prize.prizeId === Number(slotPrizeId))
@@ -586,6 +594,8 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     setSlotCallbackGasLimit(callbackGas.toString())
     setSlotRequestConfirmations(confirmations.toString())
     setSlotPendingSpinCount(pendingCount.toString())
+    setSlotPaymentVault(String(paymentVault))
+    setSlotSpinCost(BigInt(spinCost))
     await refreshSlotFregBalance()
   }
 
@@ -667,6 +677,51 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
       await refreshSlotPrizes()
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to resolve pending slot spin")
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetSlotPaymentVault = async (target: "slot" | "liquidity") => {
+    if (!contracts?.slotMachine || !FREG_COIN_ADDRESS) return
+
+    if (slotPendingSpinCount !== "0") {
+      setErrorMessage("Payment vault cannot be changed while slot spins are pending")
+      setTxStatus('error')
+      return
+    }
+
+    if (slotSpinCost <= 0n) {
+      setErrorMessage("Slot spin cost has not loaded yet")
+      setTxStatus('error')
+      return
+    }
+
+    let targetAddress = ""
+    if (target === "slot") {
+      targetAddress = await contracts.slotMachine.read.getAddress()
+    } else {
+      targetAddress = FREGS_LIQUIDITY_ADDRESS || (contracts.liquidity ? await contracts.liquidity.read.getAddress() : "")
+    }
+
+    if (!isAddress(targetAddress)) {
+      setErrorMessage(`Missing ${target === "slot" ? "SlotMachine" : "liquidity"} payment vault address`)
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Routing slot payments to ${target === "slot" ? "SlotMachine" : "liquidity"}...`)
+
+    try {
+      const contract = await contracts.slotMachine.write()
+      const tx = await contract.setPaymentConfig(FREG_COIN_ADDRESS, targetAddress, slotSpinCost)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Slot payments now route to ${target === "slot" ? "SlotMachine" : "liquidity"}!`)
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to set slot payment vault")
       setTxStatus('error')
     }
   }
@@ -1822,6 +1877,15 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const selectedSlotPrizeIsFreg = Boolean(selectedSlotPrize && addressesEqual(selectedSlotPrize.token, FREG_COIN_ADDRESS))
   const selectedSlotPrizeTokenLabel = selectedSlotPrize && addressesEqual(selectedSlotPrize.token, FREG_COIN_ADDRESS) ? "FREG" : "ERC20"
   const slotMintButtonDisabled = txBusy || !contracts?.slotMachine || !selectedSlotPrize || selectedSlotPrizeMintsOnWin || slotMintEffectiveItemType <= 0 || Number(slotMintAmount) <= 0
+  const slotPaymentsGoToSlot = Boolean(slotPaymentVault && SLOT_MACHINE_ADDRESS && addressesEqual(slotPaymentVault, SLOT_MACHINE_ADDRESS))
+  const slotPaymentsGoToLiquidity = Boolean(slotPaymentVault && FREGS_LIQUIDITY_ADDRESS && addressesEqual(slotPaymentVault, FREGS_LIQUIDITY_ADDRESS))
+  const slotPaymentVaultLabel = slotPaymentsGoToSlot
+    ? "SlotMachine"
+    : slotPaymentsGoToLiquidity
+      ? "Liquidity"
+      : slotPaymentVault
+        ? formatShortAddress(slotPaymentVault)
+        : "Unknown"
 
   return (
     <Section id="admin">
@@ -2001,6 +2065,30 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
                   </div>
 
                   <div className="bg-black/30 rounded-lg p-4 space-y-4">
+                    <div className="grid gap-3 md:grid-cols-[160px_1fr_auto_auto] items-center">
+                      <label className="font-righteous text-white/70">Payment vault:</label>
+                      <div>
+                        <div className="font-mono text-orange-400">{slotPaymentVaultLabel}</div>
+                        <div className="font-mono text-xs text-white/45 break-all">
+                          {slotPaymentVault || "Not loaded"} | {slotSpinCost > 0n ? formatEther(slotSpinCost) : "..."} FREG / spin
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => handleSetSlotPaymentVault("slot")}
+                        disabled={txBusy || slotPaymentsGoToSlot || slotPendingSpinCount !== "0" || slotSpinCost <= 0n}
+                        className="bg-orange-500 hover:bg-orange-400 text-black font-bangers disabled:opacity-50"
+                      >
+                        Use Slot
+                      </Button>
+                      <Button
+                        onClick={() => handleSetSlotPaymentVault("liquidity")}
+                        disabled={txBusy || slotPaymentsGoToLiquidity || slotPendingSpinCount !== "0" || slotSpinCost <= 0n || !FREGS_LIQUIDITY_ADDRESS}
+                        className="bg-black/50 border-2 border-orange-400/50 hover:bg-orange-500/20 text-orange-400 font-bangers disabled:opacity-50"
+                      >
+                        Use Liquidity
+                      </Button>
+                    </div>
+
                     <div className="grid gap-3 md:grid-cols-[160px_1fr_auto] items-center">
                       <label className="font-righteous text-white/70">Callback gas:</label>
                       <Input
@@ -2070,7 +2158,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
                     )}
 
                     <p className="font-righteous text-white/50 text-sm">
-                      Callback gas is used by Chainlink VRF when settling slot spins. Use 1000000 or higher for ERC721 prize mints.
+                      Payment vault changes require zero pending spins. Callback gas is used by Chainlink VRF when settling slot spins. Use 1000000 or higher for ERC721 prize mints.
                     </p>
                   </div>
 
