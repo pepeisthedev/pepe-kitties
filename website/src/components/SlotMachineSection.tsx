@@ -685,7 +685,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
         ) : !slotMachineActive ? (
           <div className="rounded-2xl border-4 border-yellow-400 bg-black/80 p-10 text-center shadow-2xl">
             <Lock className="mx-auto mb-4 h-12 w-12 text-yellow-300" />
-            <p className="font-bangers text-3xl text-yellow-300">Slots Closed</p>
+            <p className="font-bangers text-3xl text-yellow-300">Slot Machine Coming Soon...</p>
           </div>
         ) : (
           <div className="relative flex w-full max-w-5xl flex-col items-center justify-center gap-3">
