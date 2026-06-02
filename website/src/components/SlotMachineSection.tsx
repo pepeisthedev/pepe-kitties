@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { formatEther } from "ethers"
+import { Contract, formatEther } from "ethers"
 import { useAppKit, useAppKitAccount } from "@reown/appkit/react"
 import { Button } from "./ui/button"
 import {
@@ -10,8 +10,9 @@ import {
   DialogTitle,
 } from "./ui/dialog"
 import { useContracts, useFregCoinBalance, useOwnedItems, useOwnedKitties } from "../hooks"
-import { SLOT_MACHINE_ADDRESS } from "../config/contracts"
+import { SLOT_MACHINE_ADDRESS, SlotMachineABI } from "../config/contracts"
 import { waitForEvent } from "../lib/waitForEvent"
+import { getFallbackProvider, readWithFallback, type ReadProvider } from "../lib/rpc"
 import { ArrowDownRight, CircleHelp, Coins, Lock, X } from "lucide-react"
 
 const PRIZE_TYPE_ERC721 = 1
@@ -30,6 +31,8 @@ const REEL_WINDOW_STYLES: React.CSSProperties[] = [
   { left: "39.7%", top: "39.5%", width: "19.7%", height: "25.0%" },
   { left: "60.4%", top: "39.6%", width: "19.4%", height: "25.0%" },
 ]
+const INITIAL_SLOT_DATA_RETRY_DELAY_MS = 2000
+const MAX_SLOT_DATA_RETRY_DELAY_MS = 30000
 
 type SlotPhase = "idle" | "approving" | "confirming" | "spinning" | "stopping" | "result"
 
@@ -282,7 +285,10 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
   const [slotError, setSlotError] = useState<string | null>(null)
   const [slotResult, setSlotResult] = useState<SlotResult | null>(null)
   const [isInfoOpen, setIsInfoOpen] = useState(false)
-  const [isPrizeInfoLoading, setIsPrizeInfoLoading] = useState(false)
+  const [isPrizeInfoLoading, setIsPrizeInfoLoading] = useState(
+    () => Boolean(SLOT_MACHINE_ADDRESS && persistedPrizes.length === 0 && persistedEffectiveWinWeightBps === 0)
+  )
+  const [slotDataLoadFailed, setSlotDataLoadFailed] = useState(false)
   const [armPulled, setArmPulled] = useState(false)
   const [hasPulledThisVisit, setHasPulledThisVisit] = useState(false)
   const [reelOffsets, setReelOffsets] = useState<number[]>(() => [...persistedReelOffsets])
@@ -295,6 +301,9 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
   const reelTweensRef = useRef<(ReelTween | null)[]>([null, null, null])
   const stopTimersRef = useRef<number[]>([])
   const resultRevealPendingRef = useRef(false)
+  const slotDataRetryTimerRef = useRef<number>()
+  const slotDataRetryDelayRef = useRef(INITIAL_SLOT_DATA_RETRY_DELAY_MS)
+  const slotDataFailureCountRef = useRef(0)
 
   const symbols = useMemo(() => {
     if (prizes.length === 0) {
@@ -312,56 +321,84 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
     ]
   }, [prizes])
 
+  const clearSlotDataRetryTimer = useCallback(() => {
+    if (slotDataRetryTimerRef.current !== undefined) {
+      window.clearTimeout(slotDataRetryTimerRef.current)
+      slotDataRetryTimerRef.current = undefined
+    }
+  }, [])
+
   const loadSlotData = useCallback(async () => {
     if (!contracts?.slotMachine?.read) {
       return
     }
 
+    clearSlotDataRetryTimer()
     setIsPrizeInfoLoading(true)
 
     try {
-      const [cost, countRaw, loseWeightRaw, effectiveWinWeightRaw] = await Promise.all([
-        contracts.slotMachine.read.spinCost(),
-        contracts.slotMachine.read.getPrizesCount(),
-        contracts.slotMachine.read.getLoseWeightBps(),
-        contracts.slotMachine.read.getEffectiveWinWeightBps(),
-      ])
-      const count = Number(countRaw)
-      const loadedPrizes: PrizeInfo[] = []
+      const preferFallback = slotDataFailureCountRef.current > 0 && getFallbackProvider() !== null
+      const data = await readWithFallback(contracts.provider, async (provider: ReadProvider) => {
+        const slotMachine = new Contract(SLOT_MACHINE_ADDRESS, SlotMachineABI, provider)
+        const [cost, countRaw, loseWeightRaw, effectiveWinWeightRaw] = await Promise.all([
+          slotMachine.spinCost(),
+          slotMachine.getPrizesCount(),
+          slotMachine.getLoseWeightBps(),
+          slotMachine.getEffectiveWinWeightBps(),
+        ])
+        const count = Number(countRaw)
+        const loadedPrizes: PrizeInfo[] = []
 
-      for (let prizeId = 1; prizeId <= count; prizeId += 1) {
-        const info = await contracts.slotMachine.read.getPrizeInfo(prizeId)
-        loadedPrizes.push({
-          prizeId,
-          name: String(info[0]),
-          token: String(info[1]),
-          prizeType: Number(info[2]),
-          weightBps: Number(info[3]),
-          erc20Amount: BigInt(info[4]),
-          active: Boolean(info[5]),
-          stock: BigInt(info[6]),
-        })
-      }
+        for (let prizeId = 1; prizeId <= count; prizeId += 1) {
+          const info = await slotMachine.getPrizeInfo(prizeId)
+          loadedPrizes.push({
+            prizeId,
+            name: String(info[0]),
+            token: String(info[1]),
+            prizeType: Number(info[2]),
+            weightBps: Number(info[3]),
+            erc20Amount: BigInt(info[4]),
+            active: Boolean(info[5]),
+            stock: BigInt(info[6]),
+          })
+        }
 
-      const nextSpinCost = BigInt(cost)
-      const nextLoseWeightBps = Number(loseWeightRaw)
-      const nextEffectiveWinWeightBps = Number(effectiveWinWeightRaw)
+        return {
+          spinCost: BigInt(cost),
+          prizes: loadedPrizes,
+          loseWeightBps: Number(loseWeightRaw),
+          effectiveWinWeightBps: Number(effectiveWinWeightRaw),
+        }
+      }, preferFallback)
 
-      persistedSpinCost = nextSpinCost
-      persistedPrizes = loadedPrizes
-      persistedLoseWeightBps = nextLoseWeightBps
-      persistedEffectiveWinWeightBps = nextEffectiveWinWeightBps
+      slotDataFailureCountRef.current = 0
+      slotDataRetryDelayRef.current = INITIAL_SLOT_DATA_RETRY_DELAY_MS
 
-      setSpinCost(nextSpinCost)
-      setPrizes(loadedPrizes)
-      setLoseWeightBps(nextLoseWeightBps)
-      setEffectiveWinWeightBps(nextEffectiveWinWeightBps)
+      persistedSpinCost = data.spinCost
+      persistedPrizes = data.prizes
+      persistedLoseWeightBps = data.loseWeightBps
+      persistedEffectiveWinWeightBps = data.effectiveWinWeightBps
+
+      setSpinCost(data.spinCost)
+      setPrizes(data.prizes)
+      setLoseWeightBps(data.loseWeightBps)
+      setEffectiveWinWeightBps(data.effectiveWinWeightBps)
+      setSlotDataLoadFailed(false)
     } catch (error) {
       console.error("Error loading slot machine data:", error)
+      slotDataFailureCountRef.current += 1
+      setSlotDataLoadFailed(true)
+
+      const retryDelay = slotDataRetryDelayRef.current
+      slotDataRetryTimerRef.current = window.setTimeout(() => {
+        slotDataRetryTimerRef.current = undefined
+        void loadSlotData()
+      }, retryDelay)
+      slotDataRetryDelayRef.current = Math.min(retryDelay * 2, MAX_SLOT_DATA_RETRY_DELAY_MS)
     } finally {
       setIsPrizeInfoLoading(false)
     }
-  }, [contracts])
+  }, [clearSlotDataRetryTimer, contracts])
 
   const clearReelTimers = useCallback(() => {
     persistedReelOffsets = [...reelOffsetsRef.current]
@@ -480,8 +517,11 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
   }, [loadSlotData])
 
   useEffect(() => {
-    return () => clearReelTimers()
-  }, [clearReelTimers])
+    return () => {
+      clearReelTimers()
+      clearSlotDataRetryTimer()
+    }
+  }, [clearReelTimers, clearSlotDataRetryTimer])
 
   if (!SLOT_MACHINE_ADDRESS) {
     return null
@@ -510,6 +550,12 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
     }
 
     if (isPrizeInfoLoading) {
+      setArmPulled(false)
+      return
+    }
+
+    if (slotDataLoadFailed && prizes.length === 0 && effectiveWinWeightBps <= 0) {
+      void loadSlotData()
       setArmPulled(false)
       return
     }
@@ -651,16 +697,17 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
   }
 
   const isBusy = slotPhase === "approving" || slotPhase === "confirming" || slotPhase === "spinning" || slotPhase === "stopping"
-  const slotSoldOut = slotMachineActive && !isPrizeInfoLoading && (prizes.length === 0 || effectiveWinWeightBps <= 0)
-  const slotControlsDisabled = isBusy || isPrizeInfoLoading || slotSoldOut
+  const slotDataUnavailable = slotDataLoadFailed && prizes.length === 0 && effectiveWinWeightBps <= 0
+  const slotSoldOut = slotMachineActive && !isPrizeInfoLoading && !slotDataUnavailable && (prizes.length === 0 || effectiveWinWeightBps <= 0)
+  const slotControlsDisabled = isBusy || isPrizeInfoLoading || slotDataUnavailable || slotSoldOut
   const canAfford = spinCost > 0n && fregBalance >= spinCost
   const displayedCost = spinCost > 0n ? formatFregAmount(spinCost) : "..."
   const displayedBalance = balanceLoading ? "..." : formatFregAmount(fregBalance)
   const resultPrize = slotResult?.won ? prizes.find(prize => prize.prizeId === slotResult.prizeId) : null
   const showLeverPrompt = !hasPulledThisVisit && !slotControlsDisabled
   const effectiveLoseWeightBps = Math.max(0, WEIGHT_DENOMINATOR - effectiveWinWeightBps)
-  const statusText = isBusy ? STATUS_TEXT[slotPhase] : isPrizeInfoLoading ? "Loading" : slotSoldOut ? "Out of prizes" : canAfford ? "" : "Need $FREG"
-  const actionText = !isConnected ? "Connect" : isPrizeInfoLoading ? "Loading" : slotSoldOut ? "Out of prizes" : STATUS_TEXT[slotPhase]
+  const statusText = isBusy ? STATUS_TEXT[slotPhase] : (isPrizeInfoLoading || slotDataUnavailable) ? "Loading" : slotSoldOut ? "Out of prizes" : canAfford ? "" : "Need $FREG"
+  const actionText = !isConnected ? "Connect" : (isPrizeInfoLoading || slotDataUnavailable) ? "Loading" : slotSoldOut ? "Out of prizes" : STATUS_TEXT[slotPhase]
 
   return (
     <section id="slot-machine" className="relative flex h-full flex-col overflow-hidden bg-[#120815]">
