@@ -5,12 +5,11 @@ import MintSection from "./MintSection"
 import MyKittiesSection from "./MyKittiesSection"
 import TreasureChestSection from "./TreasureChestSection"
 import SpinWheelSection from "./SpinWheelSection"
-import SlotMachineSection from "./SlotMachineSection"
 import ShopSection from "./ShopSection"
 import AdminSection from "./AdminSection"
 import { useIsOwner, useFeatureFlags } from "../hooks"
 
-export type SectionId = "landing" | "mint" | "my-kitties" | "treasure-chests" | "spin-wheel" | "slot-machine" | "shop" | "admin"
+export type SectionId = "landing" | "mint" | "my-kitties" | "treasure-chests" | "spin-wheel" | "shop" | "admin"
 
 export default function MainPage(): React.JSX.Element {
     const [activeSection, setActiveSection] = useState<SectionId>("landing")
@@ -29,8 +28,6 @@ export default function MainPage(): React.JSX.Element {
                 return <TreasureChestSection chestOpeningActive={flags.chestOpeningActive} />
             case "spin-wheel":
                 return <SpinWheelSection spinActive={flags.spinActive} />
-            case "slot-machine":
-                return <SlotMachineSection slotMachineActive={flags.slotMachineActive} />
             case "shop":
                 return <ShopSection />
             case "admin":
@@ -41,7 +38,7 @@ export default function MainPage(): React.JSX.Element {
     }
 
     const isLanding = activeSection === "landing"
-    const isFullscreen = isLanding || activeSection === "spin-wheel" || activeSection === "slot-machine"
+    const isFullscreen = isLanding || activeSection === "spin-wheel"
 
     return (
         <div className={isLanding ? "" : "h-screen flex flex-col overflow-hidden"}>
