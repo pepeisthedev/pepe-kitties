@@ -167,6 +167,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const [slotPendingSpinCount, setSlotPendingSpinCount] = useState("0")
   const [slotPaymentVault, setSlotPaymentVault] = useState("")
   const [slotSpinCost, setSlotSpinCost] = useState<bigint>(0n)
+  const [slotSpinCostInput, setSlotSpinCostInput] = useState("")
   const [slotResolveRequestId, setSlotResolveRequestId] = useState("")
 
   // Free mint wallets form
@@ -329,6 +330,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
             setSlotPendingSpinCount(pendingCount.toString())
             setSlotPaymentVault(String(paymentVault))
             setSlotSpinCost(BigInt(spinCost))
+            setSlotSpinCostInput(formatEther(spinCost))
             await refreshSlotFregBalance()
           } catch {}
         }
@@ -675,6 +677,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     setSlotPendingSpinCount(pendingCount.toString())
     setSlotPaymentVault(String(paymentVault))
     setSlotSpinCost(BigInt(spinCost))
+    setSlotSpinCostInput(formatEther(spinCost))
     await refreshSlotFregBalance()
   }
 
@@ -801,6 +804,47 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
       await refreshSlotPrizes()
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to set slot payment vault")
+      setTxStatus('error')
+    }
+  }
+
+  const handleSetSlotSpinCost = async () => {
+    if (!contracts?.slotMachine) return
+
+    if (slotPendingSpinCount !== "0") {
+      setErrorMessage("Spin cost cannot be changed while slot spins are pending")
+      setTxStatus('error')
+      return
+    }
+
+    let spinCost: bigint
+    try {
+      spinCost = parseEther(slotSpinCostInput)
+    } catch {
+      setErrorMessage("Spin cost must be a valid FREG amount")
+      setTxStatus('error')
+      return
+    }
+
+    if (spinCost <= 0n) {
+      setErrorMessage("Spin cost must be greater than 0")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Setting slot spin cost to ${slotSpinCostInput} FREG...`)
+
+    try {
+      const contract = await contracts.slotMachine.write()
+      const tx = await contract.setSpinCost(spinCost)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Slot spin cost set to ${slotSpinCostInput} FREG!`)
+      await refreshSlotPrizes()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to set slot spin cost")
       setTxStatus('error')
     }
   }
@@ -2254,6 +2298,29 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
                         className="bg-black/50 border-2 border-orange-400/50 hover:bg-orange-500/20 text-orange-400 font-bangers disabled:opacity-50"
                       >
                         Use Liquidity
+                      </Button>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-[160px_1fr_auto] items-center">
+                      <label className="font-righteous text-white/70">Spin cost:</label>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.000000000000000001"
+                          value={slotSpinCostInput}
+                          onChange={(e) => setSlotSpinCostInput(e.target.value)}
+                          className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                          placeholder="100000000"
+                        />
+                        <span className="shrink-0 font-righteous text-white/70">FREG</span>
+                      </div>
+                      <Button
+                        onClick={handleSetSlotSpinCost}
+                        disabled={txBusy || slotPendingSpinCount !== "0" || !slotSpinCostInput}
+                        className="bg-orange-500 hover:bg-orange-400 text-black font-bangers disabled:opacity-50"
+                      >
+                        Set Cost
                       </Button>
                     </div>
 
