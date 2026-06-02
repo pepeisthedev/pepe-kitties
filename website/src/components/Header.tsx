@@ -6,6 +6,7 @@ import type { SectionId } from "./MainPage"
 import { useIsOwner } from "../hooks"
 import type { FeatureFlags } from "../hooks"
 import { useTheme } from "../context/ThemeContext"
+import { SLOT_MACHINE_ADDRESS } from "../config/contracts"
 
 interface HeaderProps {
     activeSection: SectionId
@@ -16,6 +17,7 @@ interface HeaderProps {
 const allNavItems: { id: SectionId; label: string; flagKey?: keyof FeatureFlags; hideWhenInactive?: boolean }[] = [
     { id: "my-kitties", label: "My Fregs", flagKey: "mintActive" },
     { id: "treasure-chests", label: "$FREG", flagKey: "chestOpeningActive" },
+    ...(SLOT_MACHINE_ADDRESS ? [{ id: "slot-machine" as SectionId, label: "Slots", flagKey: "slotMachineActive" as keyof FeatureFlags }] : []),
     { id: "shop", label: "Shop" },
 ]
 
@@ -30,7 +32,7 @@ export default function Header({ activeSection, onSectionChange, featureFlags }:
     const [isAtTop, setIsAtTop] = useState(true)
 
     const isLanding = activeSection === "landing"
-    const isFullscreen = isLanding || activeSection === "spin-wheel"
+    const isFullscreen = isLanding || activeSection === "spin-wheel" || activeSection === "slot-machine"
 
     const navItems = allNavItems.filter((item) => {
         return !item.hideWhenInactive || !item.flagKey || featureFlags[item.flagKey]
@@ -82,7 +84,7 @@ export default function Header({ activeSection, onSectionChange, featureFlags }:
     }
 
     // Dynamic styles based on landing state and theme
-    const isCasinoGame = activeSection === "spin-wheel"
+    const isCasinoGame = activeSection === "spin-wheel" || activeSection === "slot-machine"
 
     const headerBg = isFullscreen
         ? (isAtTop ? 'bg-transparent' : 'bg-white/10 backdrop-blur-md')
