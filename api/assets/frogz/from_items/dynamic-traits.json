@@ -9,6 +9,10 @@
         {
           "fileName": "3.svg",
           "name": "Vegas"
+        },
+        {
+          "fileName": "4.svg",
+          "name": "Hypno"
         }
       ],
       "head": [
@@ -39,6 +43,14 @@
         {
           "fileName": "10.svg",
           "name": "Dollar eyes"
+        },
+        {
+          "fileName": "11.svg",
+          "name": "Godzilla Suit"
+        },
+        {
+          "fileName": "12.svg",
+          "name": "Penguin Suit"
         }
       ],
       "mouth": [],
@@ -47,7 +59,12 @@
     },
     "31337": {
       "background": [],
-      "head": [],
+      "head": [
+        {
+          "fileName": "11.svg",
+          "name": "Godzilla Suit"
+        }
+      ],
       "mouth": [],
       "skin": [],
       "stomach": []
@@ -61,6 +78,10 @@
         {
           "fileName": "3.svg",
           "name": "vegas"
+        },
+        {
+          "fileName": "4.svg",
+          "name": "Hypno"
         }
       ],
       "head": [
@@ -87,6 +108,14 @@
         {
           "fileName": "10.svg",
           "name": "Dollar eyes"
+        },
+        {
+          "fileName": "11.svg",
+          "name": "Godzilla Suit"
+        },
+        {
+          "fileName": "12.svg",
+          "name": "Penguin Suit"
         }
       ],
       "mouth": [],

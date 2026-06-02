@@ -160,6 +160,11 @@ const REROLL_MESSAGES = [
     "Almoooooost...",
 ]
 
+const INITIAL_VISIBLE_FREGS = 40
+const FREG_LOAD_STEP = 40
+const CAROUSEL_VISIBLE_FREGS = 60
+const ITEM_PICKER_VISIBLE_FREGS = 60
+
 // Carousel Card component with flip support
 interface CarouselCardProps {
     kitty: Kitty
@@ -341,9 +346,24 @@ export default function MyKittiesSection(): React.JSX.Element {
     const [itemModalData, setItemModalData] = useState<{ success: boolean; message: string }>({ success: false, message: "" })
     const [resultKitty, setResultKitty] = useState<Kitty | null>(null)
     const [resultWasRandom, setResultWasRandom] = useState(false)
+    const [visibleFregCount, setVisibleFregCount] = useState(INITIAL_VISIBLE_FREGS)
+    const [visibleItemPickerCount, setVisibleItemPickerCount] = useState(ITEM_PICKER_VISIBLE_FREGS)
 
     const paletteColors = generatePalette(hue)
     const usableItems = items.filter(item => item.itemType !== ITEM_TYPES.TREASURE_CHEST)
+    const unclaimedIdSet = useMemo(() => new Set(unclaimedIds), [unclaimedIds])
+    const visibleGridKitties = useMemo(
+        () => kitties.slice(0, visibleFregCount),
+        [kitties, visibleFregCount]
+    )
+    const carouselKitties = useMemo(
+        () => kitties.slice(0, CAROUSEL_VISIBLE_FREGS),
+        [kitties]
+    )
+    const itemPickerKitties = useMemo(
+        () => kitties.slice(0, visibleItemPickerCount),
+        [kitties, visibleItemPickerCount]
+    )
 
 
     // Derive selectedKitty object from items tab's own selection
@@ -360,6 +380,11 @@ export default function MyKittiesSection(): React.JSX.Element {
             .catch(err => console.error('Failed to load traits config:', err))
     }, [])
 
+    useEffect(() => {
+        setVisibleFregCount(INITIAL_VISIBLE_FREGS)
+        setVisibleItemPickerCount(ITEM_PICKER_VISIBLE_FREGS)
+    }, [address])
+
     // Fetch redeem amounts and active state from liquidity contract
     useEffect(() => {
         if (!contracts?.liquidity) return
@@ -373,7 +398,7 @@ export default function MyKittiesSection(): React.JSX.Element {
     }, [contracts, kitties])
 
     // Check if a kitty can claim an item
-    const canClaim = (tokenId: number) => unclaimedIds.includes(tokenId)
+    const canClaim = useCallback((tokenId: number) => unclaimedIdSet.has(tokenId), [unclaimedIdSet])
 
     const parseItemClaimedEvent = (receipt: any) => {
         if (!contracts) return null
@@ -680,7 +705,10 @@ export default function MyKittiesSection(): React.JSX.Element {
         !incompatibility.incompatible
 
     // Count how many kitties can claim
-    const claimableCount = kitties.filter(k => canClaim(k.tokenId)).length
+    const claimableCount = useMemo(
+        () => kitties.reduce((count, kitty) => count + (unclaimedIdSet.has(kitty.tokenId) ? 1 : 0), 0),
+        [kitties, unclaimedIdSet]
+    )
 
     return (
         <Section id="my-kitties">
@@ -815,7 +843,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                     {/* Grid View */}
                     {viewMode === 'grid' && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                            {kitties.map((kitty) => {
+                            {visibleGridKitties.map((kitty) => {
                                 const hasClaimable = canClaim(kitty.tokenId)
                                 const isSelected = selectedCard === kitty.tokenId && hasClaimable
                                 const isFlipped = selectedCard === kitty.tokenId && !hasClaimable
@@ -965,6 +993,16 @@ export default function MyKittiesSection(): React.JSX.Element {
                                     </div>
                                 )
                             })}
+                            {visibleFregCount < kitties.length && (
+                                <div className="col-span-full flex justify-center pt-4">
+                                    <Button
+                                        onClick={() => setVisibleFregCount(count => Math.min(count + FREG_LOAD_STEP, kitties.length))}
+                                        className="font-bangers text-lg px-6 py-3 rounded-xl btn-theme-primary"
+                                    >
+                                        Load More ({visibleGridKitties.length} / {kitties.length})
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -977,11 +1015,11 @@ export default function MyKittiesSection(): React.JSX.Element {
                                     className="flex gap-4 animate-scroll-left"
                                     style={{
                                         width: 'max-content',
-                                        animation: `scroll-left ${Math.max(20, kitties.length * 3)}s linear infinite`
+                                        animation: `scroll-left ${Math.max(20, carouselKitties.length * 3)}s linear infinite`
                                     }}
                                 >
                                     {/* Duplicate items for seamless loop */}
-                                    {[...kitties, ...kitties].map((kitty, index) => (
+                                    {[...carouselKitties, ...carouselKitties].map((kitty, index) => (
                                         <CarouselCard
                                             key={`row1-${kitty.tokenId}-${index}`}
                                             kitty={kitty}
@@ -1007,11 +1045,11 @@ export default function MyKittiesSection(): React.JSX.Element {
                                     className="flex gap-4 animate-scroll-right"
                                     style={{
                                         width: 'max-content',
-                                        animation: `scroll-right ${Math.max(20, kitties.length * 3)}s linear infinite`
+                                        animation: `scroll-right ${Math.max(20, carouselKitties.length * 3)}s linear infinite`
                                     }}
                                 >
                                     {/* Duplicate items for seamless loop, reversed order */}
-                                    {[...kitties].reverse().concat([...kitties].reverse()).map((kitty, index) => (
+                                    {[...carouselKitties].reverse().concat([...carouselKitties].reverse()).map((kitty, index) => (
                                         <CarouselCard
                                             key={`row2-${kitty.tokenId}-${index}`}
                                             kitty={kitty}
@@ -1030,6 +1068,12 @@ export default function MyKittiesSection(): React.JSX.Element {
                                     ))}
                                 </div>
                             </div>
+
+                            {carouselKitties.length < kitties.length && (
+                                <p className="mt-4 text-center font-righteous text-sm text-theme-subtle">
+                                    Showing {carouselKitties.length} of {kitties.length} Fregs in carousel mode.
+                                </p>
+                            )}
 
                             {/* CSS for carousel animations */}
                             <style>{`
@@ -1053,7 +1097,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                             <div className="min-w-0">
                                 <p className="font-bangers text-xl text-theme-primary mb-4 text-center">Select a Freg</p>
                                 <div className="grid grid-cols-3 gap-3 max-h-[400px] overflow-y-auto p-2">
-                                    {kitties.map((kitty) => (
+                                    {itemPickerKitties.map((kitty) => (
                                         <div
                                             key={kitty.tokenId}
                                             className={`cursor-pointer transition-all rounded-xl ${
@@ -1071,6 +1115,19 @@ export default function MyKittiesSection(): React.JSX.Element {
                                             <p className="font-bangers text-sm text-theme-primary text-center mt-1">#{kitty.tokenId}</p>
                                         </div>
                                     ))}
+                                    {itemPickerKitties.length < kitties.length && (
+                                        <div className="col-span-full flex flex-col items-center gap-2 py-2">
+                                            <p className="text-center font-righteous text-xs text-theme-subtle">
+                                                Showing {itemPickerKitties.length} of {kitties.length} Fregs.
+                                            </p>
+                                            <Button
+                                                onClick={() => setVisibleItemPickerCount(count => Math.min(count + FREG_LOAD_STEP, kitties.length))}
+                                                className="font-bangers text-sm px-4 py-2 rounded-lg btn-theme-primary"
+                                            >
+                                                Load More
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

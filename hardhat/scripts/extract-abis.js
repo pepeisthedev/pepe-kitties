@@ -12,6 +12,7 @@ const ABI_TARGETS = [
     "FregsRandomizer",
     "FregsSVGRenderer",
     "SpinTheWheel",
+    "SlotMachine",
     "FregCoin",
     "FregsLiquidity",
     "FregShop",

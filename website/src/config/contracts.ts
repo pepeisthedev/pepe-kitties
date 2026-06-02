@@ -2,6 +2,7 @@ import FregsABI from "../assets/abis/Fregs.json"
 import FregsItemsABI from "../assets/abis/FregsItems.json"
 import FregsMintPassABI from "../assets/abis/FregsMintPass.json"
 import SpinTheWheelABI from "../assets/abis/SpinTheWheel.json"
+import SlotMachineABI from "../assets/abis/SlotMachine.json"
 import FregsLiquidityABI from "../assets/abis/FregsLiquidity.json"
 import FregShopABI from "../assets/abis/FregShop.json"
 import FregCoinABI from "../assets/abis/FregCoin.json"
@@ -38,6 +39,7 @@ export const FREGS_ADDRESS = import.meta.env.VITE_FREGS_ADDRESS as string
 export const FREGS_ITEMS_ADDRESS = import.meta.env.VITE_FREGS_ITEMS_ADDRESS as string
 export const FREGS_MINTPASS_ADDRESS = import.meta.env.VITE_FREGS_MINTPASS_ADDRESS as string
 export const SPIN_THE_WHEEL_ADDRESS = import.meta.env.VITE_SPIN_THE_WHEEL_ADDRESS as string
+export const SLOT_MACHINE_ADDRESS = import.meta.env.VITE_SLOT_MACHINE_ADDRESS as string
 export const FREGS_LIQUIDITY_ADDRESS = import.meta.env.VITE_FREGS_LIQUIDITY_ADDRESS as string
 export const FREG_SHOP_ADDRESS = import.meta.env.VITE_FREG_SHOP_ADDRESS as string
 export const FREG_COIN_ADDRESS = import.meta.env.VITE_FREGCOIN_ADDRESS as string
@@ -48,7 +50,7 @@ export const FREG_MARKET_CHAIN_SLUG = getMarketChainSlug(ACTIVE_CHAIN_ID)
 export const FREG_MARKET_ADDRESS = FREG_COIN_ADDRESS
 
 // Export ABIs
-export { FregsABI, FregsItemsABI, FregsMintPassABI, SpinTheWheelABI, FregsLiquidityABI, FregShopABI, FregCoinABI, FregsAirdropABI, FregsRandomizerABI }
+export { FregsABI, FregsItemsABI, FregsMintPassABI, SpinTheWheelABI, SlotMachineABI, FregsLiquidityABI, FregShopABI, FregCoinABI, FregsAirdropABI, FregsRandomizerABI }
 
 function mergeItems() {
   const mergedItems = new Map<number, ItemConfig>()

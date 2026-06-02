@@ -5,11 +5,13 @@ import {
   FREGS_ADDRESS,
   FREGS_ITEMS_ADDRESS,
   SPIN_THE_WHEEL_ADDRESS,
+  SLOT_MACHINE_ADDRESS,
   FREG_SHOP_ADDRESS,
   FREGS_LIQUIDITY_ADDRESS,
   FregsABI,
   FregsItemsABI,
   SpinTheWheelABI,
+  SlotMachineABI,
   FregShopABI,
   FregsLiquidityABI,
 } from "../config/contracts"
@@ -18,6 +20,7 @@ import { readWithFallback, getFallbackProvider, type ReadProvider } from "../lib
 export interface FeatureFlags {
   mintActive: boolean
   spinActive: boolean
+  slotMachineActive: boolean
   chestOpeningActive: boolean
   liquidityActive: boolean
   shopActive: boolean
@@ -26,6 +29,7 @@ export interface FeatureFlags {
 const DEFAULT_FLAGS: FeatureFlags = {
   mintActive: false,
   spinActive: false,
+  slotMachineActive: false,
   chestOpeningActive: false,
   liquidityActive: false,
   shopActive: false,
@@ -58,6 +62,13 @@ const SPECS: FlagSpec[] = [
     key: "spinActive",
     read: (p) => SPIN_THE_WHEEL_ADDRESS
       ? new Contract(SPIN_THE_WHEEL_ADDRESS, SpinTheWheelABI, p).active()
+      : Promise.resolve(false),
+    transform: Boolean,
+  },
+  {
+    key: "slotMachineActive",
+    read: (p) => SLOT_MACHINE_ADDRESS
+      ? new Contract(SLOT_MACHINE_ADDRESS, SlotMachineABI, p).active()
       : Promise.resolve(false),
     transform: Boolean,
   },
