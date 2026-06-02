@@ -9,12 +9,13 @@ import { useContractData, useContracts } from "../hooks"
 import type { FeatureFlags } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog"
-import { FREG_COIN_ADDRESS, FREGS_LIQUIDITY_ADDRESS, SLOT_MACHINE_ADDRESS } from "../config/contracts"
+import { FREG_COIN_ADDRESS, FREGS_LIQUIDITY_ADDRESS, FREG_SHOP_ADDRESS, SLOT_MACHINE_ADDRESS } from "../config/contracts"
 
 type TxStatus = 'idle' | 'pending' | 'confirming' | 'success' | 'error'
 const WEIGHT_DENOMINATOR = 10_000
 const PRIZE_TYPE_ERC721 = 1
 const PRIZE_TYPE_ERC20 = 2
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
 interface ItemType {
   id: number
@@ -125,6 +126,7 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const [showMintItems, setShowMintItems] = useState(false)
   const [showMintPass, setShowMintPass] = useState(false)
   const [showFeatureToggles, setShowFeatureToggles] = useState(true)
+  const [showShopFunding, setShowShopFunding] = useState(true)
   const [showSlotMachine, setShowSlotMachine] = useState(true)
 
   // Settings form
@@ -132,6 +134,11 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
   const [supply, setSupply] = useState("")
   const [withdrawAmount, setWithdrawAmount] = useState("")
   const [contractBalance, setContractBalance] = useState("0")
+
+  // Shop FREG balance
+  const [shopCoinBalance, setShopCoinBalance] = useState("0")
+  const [shopCoinWithdrawAmount, setShopCoinWithdrawAmount] = useState("")
+  const [shopCoinWithdrawRecipient, setShopCoinWithdrawRecipient] = useState("")
 
   // Mint items form
   const [selectedItemType, setSelectedItemType] = useState<number>(101)
@@ -245,6 +252,28 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
     setSlotFregContractBalance(formatEther(balance))
   }
 
+  const refreshShopFregBalance = async () => {
+    if (!contracts?.fregShop) return
+
+    const shopAddress = await contracts.fregShop.read.getAddress()
+    let fregCoinAddress = FREG_COIN_ADDRESS
+
+    try {
+      const configuredFregCoin = await contracts.fregShop.read.fregCoinContract()
+      if (configuredFregCoin && configuredFregCoin !== ZERO_ADDRESS) {
+        fregCoinAddress = String(configuredFregCoin)
+      }
+    } catch {}
+
+    if (!fregCoinAddress) return
+
+    const fregCoin = new Contract(fregCoinAddress, [
+      "function balanceOf(address) view returns (uint256)",
+    ], contracts.provider)
+    const balance = await fregCoin.balanceOf(shopAddress)
+    setShopCoinBalance(formatEther(balance))
+  }
+
   // Load initial values from contract
   useEffect(() => {
     if (contractData) {
@@ -301,6 +330,12 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
             setSlotPaymentVault(String(paymentVault))
             setSlotSpinCost(BigInt(spinCost))
             await refreshSlotFregBalance()
+          } catch {}
+        }
+
+        if (contracts.fregShop) {
+          try {
+            await refreshShopFregBalance()
           } catch {}
         }
 
@@ -423,6 +458,50 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
       setContractBalance(formatEther(balance))
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to withdraw")
+      setTxStatus('error')
+    }
+  }
+
+  const handleShopFregWithdraw = async () => {
+    if (!contracts?.fregShop) return
+
+    let amount: bigint
+    try {
+      amount = parseEther(shopCoinWithdrawAmount)
+    } catch {
+      setErrorMessage("Shop FREG withdraw amount must be a valid token amount")
+      setTxStatus('error')
+      return
+    }
+
+    if (amount <= 0n) {
+      setErrorMessage("Shop FREG withdraw amount must be greater than 0")
+      setTxStatus('error')
+      return
+    }
+
+    setTxStatus('pending')
+    setTxMessage(`Withdrawing ${shopCoinWithdrawAmount} FREG from shop...`)
+
+    try {
+      const signer = await contracts.getSigner()
+      const fallbackRecipient = await signer.getAddress()
+      const recipient = shopCoinWithdrawRecipient.trim() || fallbackRecipient
+
+      if (!isAddress(recipient)) {
+        throw new Error("Recipient must be a valid address")
+      }
+
+      const contract = await contracts.fregShop.write()
+      const tx = await contract.withdraw(getAddress(recipient), amount)
+      setTxStatus('confirming')
+      await tx.wait()
+      setTxStatus('success')
+      setTxMessage(`Withdrew ${shopCoinWithdrawAmount} FREG from shop!`)
+      setShopCoinWithdrawAmount("")
+      await refreshShopFregBalance()
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to withdraw shop FREG")
       setTxStatus('error')
     }
   }
@@ -1942,6 +2021,95 @@ export default function AdminSection({ featureFlags, onFeatureFlagsChange }: Adm
                   </Button>
                 </div>
               ))}
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Shop FREG Panel */}
+        <Card className="bg-black/40 border-4 border-orange-400 rounded-2xl backdrop-blur-sm">
+          <button
+            onClick={() => setShowShopFunding(!showShopFunding)}
+            className="w-full p-4 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Coins className="w-6 h-6 text-orange-400" />
+              <span className="font-bangers text-2xl text-orange-400">Shop FREG</span>
+              <span className={`font-righteous text-xs px-2 py-0.5 rounded-full ${
+                contracts?.fregShop ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+              }`}>
+                {contracts?.fregShop ? "Configured" : "Missing Address"}
+              </span>
+            </div>
+            {showShopFunding ? <ChevronUp className="w-6 h-6 text-orange-400" /> : <ChevronDown className="w-6 h-6 text-orange-400" />}
+          </button>
+
+          {showShopFunding && (
+            <CardContent className="p-6 pt-0 space-y-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="bg-black/30 rounded-lg p-3">
+                  <p className="font-righteous text-white/50 text-xs uppercase">Contract</p>
+                  <p className="font-mono text-orange-400 break-all">
+                    {FREG_SHOP_ADDRESS ? formatShortAddress(FREG_SHOP_ADDRESS) : "Not configured"}
+                  </p>
+                </div>
+                <div className="bg-black/30 rounded-lg p-3">
+                  <p className="font-righteous text-white/50 text-xs uppercase">FREG Balance</p>
+                  <p className="font-mono text-orange-400">
+                    {Number(shopCoinBalance).toLocaleString(undefined, { maximumFractionDigits: 2 })} FREG
+                  </p>
+                </div>
+              </div>
+
+              {!contracts?.fregShop ? (
+                <p className="font-righteous text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                  Set VITE_FREG_SHOP_ADDRESS for this network before managing shop funds.
+                </p>
+              ) : (
+                <div className="bg-black/30 rounded-lg p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-righteous text-white/70">Withdraw FREG from shop</span>
+                    <Button
+                      onClick={refreshShopFregBalance}
+                      disabled={txBusy}
+                      className="bg-black/50 border-2 border-orange-400/50 hover:bg-orange-500/20 text-orange-400 font-bangers disabled:opacity-50"
+                    >
+                      Refresh
+                    </Button>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] items-end">
+                    <div>
+                      <label className="font-righteous text-white/70 block mb-2">Recipient</label>
+                      <Input
+                        type="text"
+                        value={shopCoinWithdrawRecipient}
+                        onChange={(e) => setShopCoinWithdrawRecipient(e.target.value)}
+                        className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                        placeholder="Connected wallet"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-righteous text-white/70 block mb-2">Amount</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.000000000000000001"
+                        value={shopCoinWithdrawAmount}
+                        onChange={(e) => setShopCoinWithdrawAmount(e.target.value)}
+                        className="bg-black/50 border-2 border-orange-400/50 text-white font-mono"
+                        placeholder="0"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleShopFregWithdraw}
+                      disabled={txBusy || !shopCoinWithdrawAmount}
+                      className="bg-orange-500 hover:bg-orange-400 text-black font-bangers disabled:opacity-50"
+                    >
+                      Withdraw
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           )}
         </Card>

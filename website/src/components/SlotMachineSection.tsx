@@ -628,6 +628,18 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
   }
 
   const getPrizeStatusText = (prize: PrizeInfo) => {
+    if (prize.prizeType === PRIZE_TYPE_ERC20) {
+      const tokenLabel = prize.name.toLowerCase().includes("freg") ? "$FREG" : "tokens"
+      const payoutText = `Pays ${formatFregAmount(prize.erc20Amount)} ${tokenLabel}`
+      if (!prize.active) {
+        return `${payoutText} - inactive`
+      }
+      if (prize.stock === 0n) {
+        return `${payoutText} - not funded`
+      }
+      return payoutText
+    }
+
     const stockText = `Stock ${prize.stock.toString()}`
     if (!prize.active) {
       return `${stockText} - inactive`

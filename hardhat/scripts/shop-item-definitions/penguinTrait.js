@@ -3,7 +3,7 @@ const path = require("path");
 module.exports = {
     key: "penguin",
     name: "Penguin Suit",
-    description: "“Nice tuxedo",
+    description: "Nice tuxedo",
     category: "head",
     targetTraitType: 2,
     isOwnerMintable: true,

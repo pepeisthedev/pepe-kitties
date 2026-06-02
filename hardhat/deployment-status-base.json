@@ -1,6 +1,6 @@
 {
   "network": "base",
-  "lastUpdated": "2026-05-27T17:59:30.337Z",
+  "lastUpdated": "2026-06-02T10:43:57.891Z",
   "contracts": {
     "fregs": "0xBEe938d12c06e281b03ee81F857e16341Ba2eAD1",
     "fregsItems": "0x942152224447a3dE9074aF878dCe81E0C154b1Fb",
@@ -14,7 +14,9 @@
     "svgRenderer": "0xDac046A37203aeD80ba1aaFdE4608A64698Ff3Ae",
     "vrfCoordinator": "0xd5D517aBE5cF79B7e95eC98dB0f0277788aFF634",
     "vrfSubscriptionId": "19315363693436507623175268498583628439514801257397111320347610079663840815576",
-    "svgPartWriter": "0xd2d062625156d69DEa95E22A7bcF3d40AdB3C84C"
+    "svgPartWriter": "0xd2d062625156d69DEa95E22A7bcF3d40AdB3C84C",
+    "slotMachine": "0x75cfaFB6820194c350216fbC3dfd33fD0Bf41B28",
+    "slotMachinePaymentVault": "0x75cfaFB6820194c350216fbC3dfd33fD0Bf41B28"
   },
   "routers": {
     "background": "0x56eE4aDC50b5380Db7DDf9B1f8708b8967f0002B",
@@ -316,6 +318,22 @@
         "rendererAddress": "0x2419A35DBd2F6dEeA0517FC84624e12fd2b8f898",
         "routerId": 32,
         "source": "from_items"
+      },
+      "33.svg": {
+        "definitionKey": "godzilla",
+        "fileName": "11.svg",
+        "name": "Godzilla Suit",
+        "rendererAddress": "0x80247b2014aA21B97b4BD743ee91Ea4F4453Fc44",
+        "routerId": 33,
+        "source": "from_items"
+      },
+      "34.svg": {
+        "definitionKey": "penguin",
+        "fileName": "12.svg",
+        "name": "Penguin Suit",
+        "rendererAddress": "0x74cab07B150DE0B1c50761F02461Be75CdA68046",
+        "routerId": 34,
+        "source": "from_items"
       }
     },
     "background": {
@@ -333,6 +351,14 @@
         "name": "Vegas",
         "rendererAddress": "0x1E2E97bd50505ffea88958BC48d8d6cC61E1eA4C",
         "routerId": 3,
+        "source": "from_items"
+      },
+      "4.svg": {
+        "definitionKey": "hypnobackground",
+        "fileName": "4.svg",
+        "name": "Hypno",
+        "rendererAddress": "0xF83aE9D8b14F9eC8dF65806F02D83b306697a7EA",
+        "routerId": 4,
         "source": "from_items"
       }
     }
@@ -514,6 +540,86 @@
       "traitFileName": "3.svg",
       "traitRendererAddress": "0x1E2E97bd50505ffea88958BC48d8d6cC61E1eA4C",
       "traitValue": 3
+    },
+    "110": {
+      "category": "head",
+      "claimWeight": 0,
+      "definitionKey": "godzilla",
+      "description": "Roooooaaarrrr!",
+      "hiddenInShop": true,
+      "iconRendererAddress": "0xdf31984c75A4e5Bcb849fBd1dfB969AF645bD23f",
+      "iconRouterSlot": 110,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Godzilla Suit",
+      "shopIsActive": true,
+      "shopMaxSupply": 0,
+      "shopPrice": null,
+      "svgFile": "godzilla.svg",
+      "targetTraitType": 2,
+      "traitFileName": "11.svg",
+      "traitRendererAddress": "0x80247b2014aA21B97b4BD743ee91Ea4F4453Fc44",
+      "traitValue": 33
+    },
+    "111": {
+      "category": "head",
+      "claimWeight": 0,
+      "definitionKey": "penguin",
+      "description": "Nice tuxedo",
+      "hiddenInShop": true,
+      "iconRendererAddress": "0xb3fb30b905F329944598ee90447378BDc25B9507",
+      "iconRouterSlot": 111,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Penguin Suit",
+      "shopIsActive": true,
+      "shopMaxSupply": 0,
+      "shopPrice": null,
+      "svgFile": "penguin.svg",
+      "targetTraitType": 2,
+      "traitFileName": "12.svg",
+      "traitRendererAddress": "0x74cab07B150DE0B1c50761F02461Be75CdA68046",
+      "traitValue": 34
+    },
+    "112": {
+      "category": "background",
+      "claimWeight": 0,
+      "definitionKey": "hypnobackground",
+      "description": "Lets get trippy",
+      "hiddenInShop": false,
+      "iconRendererAddress": "0xDF76278419E18CdD254B146990a4b1badB430Ab3",
+      "iconRouterSlot": 112,
+      "isClaimable": false,
+      "isOwnerMintable": true,
+      "name": "Hypno",
+      "shopIsActive": true,
+      "shopMaxSupply": 0,
+      "shopPrice": null,
+      "svgFile": "hypno.svg",
+      "targetTraitType": 0,
+      "traitFileName": "4.svg",
+      "traitRendererAddress": "0xF83aE9D8b14F9eC8dF65806F02D83b306697a7EA",
+      "traitValue": 4
+    }
+  },
+  "slotMachinePrizes": {
+    "0x75cfaFB6820194c350216fbC3dfd33fD0Bf41B28": {
+      "updatedAt": "2026-06-02T10:43:57.890Z",
+      "configuredBy": "configureSlotMachinePrizes.js",
+      "prizes": {
+        "penguin": {
+          "action": "added",
+          "itemTypeId": 111,
+          "weightBps": 500,
+          "maxSupply": 10
+        },
+        "hypnobackground": {
+          "action": "added",
+          "itemTypeId": 112,
+          "weightBps": 500,
+          "maxSupply": 10
+        }
+      }
     }
   }
 }

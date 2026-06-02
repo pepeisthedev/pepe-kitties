@@ -121,6 +121,51 @@
           "claimWeight": 0,
           "isOwnerMintable": true,
           "hiddenInShop": false
+        },
+        {
+          "id": 110,
+          "name": "Godzilla Suit",
+          "description": "Roooooaaarrrr!",
+          "category": "head",
+          "svgFile": "godzilla.svg",
+          "targetTraitType": 2,
+          "traitFileName": "11.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true,
+          "hiddenInShop": true,
+          "incompatibleWithSkins": [
+            4
+          ]
+        },
+        {
+          "id": 111,
+          "name": "Penguin Suit",
+          "description": "Nice tuxedo",
+          "category": "head",
+          "svgFile": "penguin.svg",
+          "targetTraitType": 2,
+          "traitFileName": "12.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true,
+          "hiddenInShop": true,
+          "incompatibleWithSkins": [
+            4
+          ]
+        },
+        {
+          "id": 112,
+          "name": "Hypno",
+          "description": "Lets get trippy",
+          "category": "background",
+          "svgFile": "hypno.svg",
+          "targetTraitType": 0,
+          "traitFileName": "4.svg",
+          "isClaimable": false,
+          "claimWeight": 0,
+          "isOwnerMintable": true,
+          "hiddenInShop": false
         }
       ]
     },
