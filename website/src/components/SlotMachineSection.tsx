@@ -862,7 +862,7 @@ export default function SlotMachineSection({ slotMachineActive }: SlotMachineSec
               </>
             ) : slotResult?.won ? (
               <>
-                <p className="mb-4 font-bangers text-5xl text-yellow-300">Jackpot</p>
+                <p className="mb-4 font-bangers text-5xl text-yellow-300">Consolation prize</p>
                 <div className="mx-auto mb-4 flex h-32 w-32 items-center justify-center rounded-2xl bg-white p-5 animate-prize-glow">
                   <img
                     src={getPrizeImage(resultPrize?.name || "Prize", slotResult.prizeType)}
