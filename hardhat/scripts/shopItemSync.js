@@ -176,14 +176,16 @@ function syncDynamicShopItemArtifacts(config) {
         writeJson(filePath, doc);
     }
 
-    copyFileIfChanged(
-        traitSourceSvgPath,
-        path.join(WEBSITE_FROM_ITEMS_PATH, trait.category, trait.fileName)
-    );
-    copyFileIfChanged(
-        traitSourceSvgPath,
-        path.join(API_FROM_ITEMS_PATH, trait.category, trait.fileName)
-    );
+    if (traitSourceSvgPath) {
+        copyFileIfChanged(
+            traitSourceSvgPath,
+            path.join(WEBSITE_FROM_ITEMS_PATH, trait.category, trait.fileName)
+        );
+        copyFileIfChanged(
+            traitSourceSvgPath,
+            path.join(API_FROM_ITEMS_PATH, trait.category, trait.fileName)
+        );
+    }
 
     if (item.svgFile && itemIconSourceSvgPath) {
         copyFileIfChanged(

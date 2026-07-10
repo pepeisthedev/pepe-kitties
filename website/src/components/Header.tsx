@@ -16,6 +16,7 @@ interface HeaderProps {
 
 const allNavItems: { id: SectionId; label: string; flagKey?: keyof FeatureFlags; hideWhenInactive?: boolean }[] = [
     { id: "my-kitties", label: "My Fregs", flagKey: "mintActive" },
+    { id: "explore", label: "Explore" },
     { id: "treasure-chests", label: "$FREG", flagKey: "chestOpeningActive" },
     ...(SLOT_MACHINE_ADDRESS ? [{ id: "slot-machine" as SectionId, label: "Slots", flagKey: "slotMachineActive" as keyof FeatureFlags }] : []),
     { id: "shop", label: "Shop" },

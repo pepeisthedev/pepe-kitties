@@ -1,6 +1,6 @@
 {
   "network": "base",
-  "lastUpdated": "2026-06-02T10:43:57.891Z",
+  "lastUpdated": "2026-06-03T13:28:33.790Z",
   "contracts": {
     "fregs": "0xBEe938d12c06e281b03ee81F857e16341Ba2eAD1",
     "fregsItems": "0x942152224447a3dE9074aF878dCe81E0C154b1Fb",
@@ -357,7 +357,7 @@
         "definitionKey": "hypnobackground",
         "fileName": "4.svg",
         "name": "Hypno",
-        "rendererAddress": "0xF83aE9D8b14F9eC8dF65806F02D83b306697a7EA",
+        "rendererAddress": "0xE680D25e94468dE3695896287db7Fac252422a2E",
         "routerId": 4,
         "source": "from_items"
       }
@@ -598,7 +598,7 @@
       "svgFile": "hypno.svg",
       "targetTraitType": 0,
       "traitFileName": "4.svg",
-      "traitRendererAddress": "0xF83aE9D8b14F9eC8dF65806F02D83b306697a7EA",
+      "traitRendererAddress": "0xE680D25e94468dE3695896287db7Fac252422a2E",
       "traitValue": 4
     }
   },

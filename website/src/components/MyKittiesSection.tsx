@@ -6,12 +6,15 @@ import Section from "./Section"
 import { Card, CardContent } from "./ui/card"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
-import { useOwnedKitties, useUnclaimedKitties, useOwnedItems, useContracts, Kitty, Item } from "../hooks"
+import { useOwnedKitties, useUnclaimedKitties, useOwnedItems, useContracts, useCollectionRarity, Kitty, Item } from "../hooks"
 import LoadingSpinner from "./LoadingSpinner"
 import KittyRenderer from "./KittyRenderer"
 import ResultModal from "./ResultModal"
 import ItemCard from "./ItemCard"
 import ItemRaritiesModal from "./ItemRaritiesModal"
+import RarityBadge from "./RarityBadge"
+import { FregRarity } from "../lib/rarity"
+import { TraitsConfig, getTraitName, makeRarityResolver } from "../lib/traitNames"
 import { waitForEvent } from "../lib/waitForEvent"
 import { ITEM_TYPE_NAMES, ITEM_TYPES, ITEM_TYPE_DESCRIPTIONS, TRAIT_TYPES, getItemConfig, ITEMS, checkItemIncompatibility, BASE_HEAD_COUNT, BASE_STOMACH_COUNT, BASE_MOUTH_COUNT } from "../config/contracts"
 import { Gift, LayoutGrid, Rows, Flame, AlertTriangle, Wand2, Palette, Backpack, CircleHelp } from "lucide-react"
@@ -23,52 +26,6 @@ import {
     DialogDescription,
     DialogFooter,
 } from "./ui/dialog"
-
-// Trait names loaded from traits.json
-interface TraitInfo {
-    fileName: string
-    name: string
-    description?: string
-}
-
-interface TraitsConfig {
-    head: TraitInfo[]
-    mouth: TraitInfo[]
-    stomach: TraitInfo[]
-    skin: TraitInfo[]
-    background: TraitInfo[]
-}
-
-// Get trait name by index (1-indexed in contract)
-const getTraitName = (traitsConfig: TraitsConfig | null, traitType: keyof TraitsConfig, index: number): string => {
-    if (!traitsConfig || index === 0) return "Normal"
-    const traits = traitsConfig[traitType]
-    if (!traits || index > traits.length) {
-        // Check from_items for special traits
-        if (traitType === 'head' && index > BASE_HEAD_COUNT) {
-            const itemHead = ITEMS.find(item => item.category === 'head' && item.traitFileName === `${index - BASE_HEAD_COUNT}.svg`)
-            return itemHead?.name || `Special #${index - BASE_HEAD_COUNT}`
-        }
-        if (traitType === 'skin' && index > 1) {
-            const itemSkin = ITEMS.find(item => item.category === 'skin' && item.traitFileName === `${index}.svg`)
-            return itemSkin?.name || `Special #${index}`
-        }
-        if (traitType === 'stomach' && index > BASE_STOMACH_COUNT) {
-            const itemStomach = ITEMS.find(item => item.category === 'stomach' && item.traitFileName === `${index - BASE_STOMACH_COUNT}.svg`)
-            return itemStomach?.name || `Special #${index - BASE_STOMACH_COUNT}`
-        }
-        if (traitType === 'mouth' && index > BASE_MOUTH_COUNT) {
-            const itemMouth = ITEMS.find(item => item.category === 'mouth' && item.traitFileName === `${index - BASE_MOUTH_COUNT}.svg`)
-            return itemMouth?.name || `Special #${index - BASE_MOUTH_COUNT}`
-        }
-        if (traitType === 'background' && index > 0) {
-            const itemBg = ITEMS.find(item => item.category === 'background' && item.traitFileName === `${index}.svg`)
-            return itemBg?.name || `Special #${index}`
-        }
-        return `#${index}`
-    }
-    return traits[index - 1]?.name || `#${index}`
-}
 
 // --- Item helper functions (from UseItemsSection) ---
 
@@ -179,9 +136,10 @@ interface CarouselCardProps {
     liquidityActive: boolean
     onBurn: (tokenId: number) => void
     onClaim: (tokenId: number) => void
+    rarity: FregRarity | undefined
 }
 
-function CarouselCard({ kitty, isFlipped, hasClaimable, isExpanded, claimingTokenIds, onClick, traitsConfig, redeemETH, redeemCoin, liquidityActive, onBurn, onClaim }: CarouselCardProps) {
+function CarouselCard({ kitty, isFlipped, hasClaimable, isExpanded, claimingTokenIds, onClick, traitsConfig, redeemETH, redeemCoin, liquidityActive, onBurn, onClaim, rarity }: CarouselCardProps) {
     return (
         <div
             className="flex-shrink-0 w-40 cursor-pointer transition-transform hover:scale-105"
@@ -208,6 +166,9 @@ function CarouselCard({ kitty, isFlipped, hasClaimable, isExpanded, claimingToke
                         }}
                     >
                         <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
+                        <div className="absolute top-1 left-1 z-10">
+                            <RarityBadge rarity={rarity} />
+                        </div>
                         {hasClaimable && (
                             <div className="absolute top-1 right-1 z-10">
                                 <div className="bg-theme-primary rounded-full p-1 animate-pulse">
@@ -228,6 +189,11 @@ function CarouselCard({ kitty, isFlipped, hasClaimable, isExpanded, claimingToke
                         <p className="font-bangers text-sm text-theme-primary text-center mb-1">
                             #{kitty.tokenId}
                         </p>
+                        {rarity && (
+                            <div className="flex justify-center mb-1">
+                                <RarityBadge rarity={rarity} />
+                            </div>
+                        )}
                         <div className="flex-1 space-y-0.5 text-[9px] min-w-0">
                             <div className="flex justify-between gap-1">
                                 <span className="font-righteous text-theme-muted">Head:</span>
@@ -379,6 +345,12 @@ export default function MyKittiesSection(): React.JSX.Element {
             .then(data => setTraitsConfig(data))
             .catch(err => console.error('Failed to load traits config:', err))
     }, [])
+
+    // Resolver shared with the Explore section so displayed names and rarity
+    // always agree. Memoized so the rarity hook doesn't recompute each render.
+    const resolveRarityName = useMemo(() => makeRarityResolver(traitsConfig), [traitsConfig])
+
+    const { rarityByToken, isLoading: rarityLoading } = useCollectionRarity(resolveRarityName)
 
     useEffect(() => {
         setVisibleFregCount(INITIAL_VISIBLE_FREGS)
@@ -770,7 +742,12 @@ export default function MyKittiesSection(): React.JSX.Element {
                     )}
 
                     {/* Item Rarities button — its own row so it doesn't crowd the tab toggle on mobile */}
-                    <div className="flex justify-end mb-2">
+                    <div className="flex justify-end items-center gap-3 mb-2">
+                        {rarityLoading && (
+                            <span className="font-righteous text-xs text-theme-subtle animate-pulse">
+                                Calculating rarity…
+                            </span>
+                        )}
                         <button
                             type="button"
                             onClick={() => setIsRaritiesOpen(true)}
@@ -889,6 +866,9 @@ export default function MyKittiesSection(): React.JSX.Element {
                                                     }}
                                                 >
                                                     <KittyRenderer {...kitty} size="sm" className="w-full h-full" />
+                                                    <div className="absolute top-2 left-2 z-10">
+                                                        <RarityBadge rarity={rarityByToken.get(kitty.tokenId)} />
+                                                    </div>
                                                     {hasClaimable && (
                                                         <div className="absolute top-2 right-2 z-10">
                                                             <div className="bg-theme-primary rounded-full p-1.5 animate-pulse">
@@ -909,6 +889,11 @@ export default function MyKittiesSection(): React.JSX.Element {
                                                     <p className="font-bangers text-base text-theme-primary text-center mb-1">
                                                         #{kitty.tokenId}
                                                     </p>
+                                                    {rarityByToken.has(kitty.tokenId) && (
+                                                        <div className="flex justify-center mb-1">
+                                                            <RarityBadge rarity={rarityByToken.get(kitty.tokenId)} size="md" />
+                                                        </div>
+                                                    )}
                                                     <div className="flex-1 space-y-1 text-[11px] min-w-0 pr-1">
                                                         <div className="flex justify-between gap-2">
                                                             <span className="font-righteous text-theme-muted">Head:</span>
@@ -1034,6 +1019,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                             onBurn={handleBurn}
                                             onClaim={handleClaim}
                                             claimingTokenIds={claimingTokenIds}
+                                            rarity={rarityByToken.get(kitty.tokenId)}
                                         />
                                     ))}
                                 </div>
@@ -1064,6 +1050,7 @@ export default function MyKittiesSection(): React.JSX.Element {
                                             onBurn={handleBurn}
                                             onClaim={handleClaim}
                                             claimingTokenIds={claimingTokenIds}
+                                            rarity={rarityByToken.get(kitty.tokenId)}
                                         />
                                     ))}
                                 </div>

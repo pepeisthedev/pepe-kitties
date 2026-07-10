@@ -1,5 +1,5 @@
 import { baseUSDC, createAppKit } from '@reown/appkit/react'
-import { base} from '@reown/appkit/networks'
+import { base } from '@reown/appkit/networks'
 import { EthersAdapter } from '@reown/appkit-adapter-ethers'
 import { QueryClient } from '@tanstack/react-query';
 

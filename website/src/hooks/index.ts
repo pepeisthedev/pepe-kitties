@@ -22,3 +22,5 @@ export { useFregCoinBalance } from "./useFregCoinBalance"
 
 export { useFeatureFlags } from "./useFeatureFlags"
 export type { FeatureFlags } from "./useFeatureFlags"
+
+export { useCollectionRarity } from "./useCollectionRarity"

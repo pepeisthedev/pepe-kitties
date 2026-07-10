@@ -28,3 +28,4 @@ dist-ssr
 .env-sepolia
 /tmp/*
 .vercel
+.playwright-mcp

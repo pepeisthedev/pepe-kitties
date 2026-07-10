@@ -15,7 +15,13 @@
     "verify": "VERIFY_CONTRACTS=true hardhat run scripts/deploy.ts",
     "node": "hardhat node",
     "airdrop:dry-run:base": "hardhat run scripts/airdropFregCoin.js --network base -- --dry-run",
-    "airdrop:base": "hardhat run scripts/airdropFregCoin.js --network base"
+    "airdrop:base": "hardhat run scripts/airdropFregCoin.js --network base",
+    "buy:item:local": "hardhat run scripts/buyShopItem.js --network localhost",
+    "buy:item:sepolia": "hardhat run scripts/buyShopItem.js --network baseSepolia",
+    "buy:item:base": "hardhat run scripts/buyShopItem.js --network base",
+    "send:freg:local": "hardhat run scripts/sendFregCoin.js --network localhost",
+    "send:freg:sepolia": "hardhat run scripts/sendFregCoin.js --network baseSepolia",
+    "send:freg:base": "hardhat run scripts/sendFregCoin.js --network base"
   },
   "repository": {
     "type": "git",

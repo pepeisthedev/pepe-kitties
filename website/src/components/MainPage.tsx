@@ -3,6 +3,7 @@ import Header from "./Header"
 import LandingSection from "./LandingSection"
 import MintSection from "./MintSection"
 import MyKittiesSection from "./MyKittiesSection"
+import ExploreSection from "./ExploreSection"
 import TreasureChestSection from "./TreasureChestSection"
 import SpinWheelSection from "./SpinWheelSection"
 import SlotMachineSection from "./SlotMachineSection"
@@ -10,7 +11,7 @@ import ShopSection from "./ShopSection"
 import AdminSection from "./AdminSection"
 import { useIsOwner, useFeatureFlags } from "../hooks"
 
-export type SectionId = "landing" | "mint" | "my-kitties" | "treasure-chests" | "spin-wheel" | "slot-machine" | "shop" | "admin"
+export type SectionId = "landing" | "mint" | "my-kitties" | "explore" | "treasure-chests" | "spin-wheel" | "slot-machine" | "shop" | "admin"
 
 export default function MainPage(): React.JSX.Element {
     const [activeSection, setActiveSection] = useState<SectionId>("landing")
@@ -25,6 +26,8 @@ export default function MainPage(): React.JSX.Element {
                 return <MintSection />
             case "my-kitties":
                 return <MyKittiesSection />
+            case "explore":
+                return <ExploreSection />
             case "treasure-chests":
                 return <TreasureChestSection chestOpeningActive={flags.chestOpeningActive} />
             case "spin-wheel":

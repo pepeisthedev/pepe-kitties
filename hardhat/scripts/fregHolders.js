@@ -1,15 +1,30 @@
+/**
+ * Fregs Holders Snapshot (read-only)
+ *
+ * Dumps EVERY unique address currently holding a Fregs NFT.
+ *
+ * Usage:
+ *   npx hardhat run scripts/fregHolders.js --network base
+ *
+ * Writes:
+ *   freg-holders-<network>.json  — full holder list with per-address counts
+ *   freg-holders-<network>.txt   — one address per line
+ *
+ * Read-only: never sends a transaction. Safe to run against mainnet.
+ */
+
 const { ethers, network } = require("hardhat");
 const fs = require("fs");
 const path = require("path");
 const { loadDeploymentStatus } = require("./deploymentStatus");
 const { batchedOwnerOf } = require("./ownerResolver");
 
-const TOP_N = 100;
-const OUTPUT_PATH = path.join(__dirname, "..", `top-holders-${network.name}.json`);
+const JSON_OUTPUT_PATH = path.join(__dirname, "..", `freg-holders-${network.name}.json`);
+const TXT_OUTPUT_PATH = path.join(__dirname, "..", `freg-holders-${network.name}.txt`);
 
 async function main() {
     console.log("=".repeat(60));
-    console.log("Fregs Top Holders");
+    console.log("Fregs Holders Snapshot");
     console.log("=".repeat(60));
     console.log("Network:", network.name);
 
@@ -38,49 +53,34 @@ async function main() {
     console.log("\nResolving owners...");
     const owners = await batchedOwnerOf(fregs, tokenIds);
 
+    // ownerOfWithRetry never returns null, so every token resolves to an owner.
     const counts = new Map();
-    let unresolved = 0;
     for (const owner of owners) {
-        if (!owner) {
-            unresolved++;
-            continue;
-        }
         const key = owner.toLowerCase();
         counts.set(key, (counts.get(key) || 0) + 1);
     }
 
-    if (unresolved > 0) {
-        console.log(`  Warning: ${unresolved} token owners could not be resolved.`);
-    }
-
-    const ranked = Array.from(counts.entries())
+    const holders = Array.from(counts.entries())
         .map(([address, count]) => ({ address, count }))
         .sort((a, b) => b.count - a.count || a.address.localeCompare(b.address));
 
-    const top = ranked.slice(0, TOP_N);
-
     console.log("\n" + "=".repeat(60));
-    console.log(`Top ${Math.min(TOP_N, top.length)} holders (of ${ranked.length} total)`);
+    console.log(`Unique holders: ${holders.length}`);
     console.log("=".repeat(60));
-    console.log("Rank  Address                                       Count");
-    console.log("-".repeat(64));
-    top.forEach((entry, i) => {
-        const rank = String(i + 1).padStart(4, " ");
-        const count = String(entry.count).padStart(5, " ");
-        console.log(`${rank}  ${entry.address}  ${count}`);
-    });
 
     const payload = {
         network: network.name,
         contract: fregsAddress,
         generatedAt: new Date().toISOString(),
         liveSupply: tokenIds.length,
-        uniqueHolders: ranked.length,
-        unresolvedTokens: unresolved,
-        topHolders: top
+        uniqueHolders: holders.length,
+        holders
     };
-    fs.writeFileSync(OUTPUT_PATH, JSON.stringify(payload, null, 2));
-    console.log(`\nSaved to: ${OUTPUT_PATH}`);
+    fs.writeFileSync(JSON_OUTPUT_PATH, JSON.stringify(payload, null, 2));
+    console.log(`\nSaved JSON to: ${JSON_OUTPUT_PATH}`);
+
+    fs.writeFileSync(TXT_OUTPUT_PATH, holders.map(h => h.address).join("\n") + "\n");
+    console.log(`Saved addresses to: ${TXT_OUTPUT_PATH}`);
 }
 
 main()
